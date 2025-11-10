@@ -1,4 +1,4 @@
-# scan_tab.py - آپدیت شده با Request Monitor
+# scan_tab.py - بهبود شده برای سرعت
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QCheckBox, QGroupBox,
                              QFormLayout, QSpinBox, QDoubleSpinBox, QProgressBar,
@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 import requests
 import time
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class ScanWorker(QThread):
@@ -16,33 +17,34 @@ class ScanWorker(QThread):
     status_updated = pyqtSignal(str)
     request_sent = pyqtSignal(dict)
     
-    def __init__(self, target_url, scan_types, timeout, verify_ssl, delay):
+    def __init__(self, target_url, scan_types, timeout, verify_ssl, delay, num_workers):
         super().__init__()
         self.target_url = target_url
         self.scan_types = scan_types
         self.timeout = timeout
         self.verify_ssl = verify_ssl
         self.delay = delay
+        self.num_workers = num_workers
         self.should_stop = False
+        self.session = requests.Session()
+        self.session.verify = verify_ssl
     
     def fetch_url(self, url, method='GET', data=None, headers=None):
         try:
             start_time = time.time()
             
             if method == 'GET':
-                response = requests.get(
+                response = self.session.get(
                     url,
                     timeout=self.timeout,
-                    verify=self.verify_ssl,
                     allow_redirects=True,
                     headers=headers or {}
                 )
             else:
-                response = requests.post(
+                response = self.session.post(
                     url,
                     data=data,
                     timeout=self.timeout,
-                    verify=self.verify_ssl,
                     allow_redirects=True,
                     headers=headers or {}
                 )
@@ -56,7 +58,7 @@ class ScanWorker(QThread):
                 'duration': response_time,
                 'request_headers': headers or {},
                 'response_headers': dict(response.headers),
-                'response': response.text
+                'response': response.text[:500]
             }
             self.request_sent.emit(request_data)
             
@@ -76,7 +78,7 @@ class ScanWorker(QThread):
                 'duration': response_time,
                 'request_headers': headers or {},
                 'response_headers': {},
-                'response': str(e)
+                'response': str(e)[:200]
             }
             self.request_sent.emit(request_data)
             
@@ -124,9 +126,9 @@ class ScanWorker(QThread):
                 vulns = []
                 
                 if scan_type == 'XSS':
-                    vulns = self.scan_xss()
+                    vulns = self.scan_xss_fast()
                 elif scan_type == 'SQL':
-                    vulns = self.scan_sql()
+                    vulns = self.scan_sql_fast()
                 elif scan_type == 'RCE':
                     vulns = self.scan_rce()
                 elif scan_type == 'CommandInjection':
@@ -146,7 +148,7 @@ class ScanWorker(QThread):
                 elif scan_type == 'GraphQL':
                     vulns = self.scan_graphql()
                 elif scan_type == 'SSTI':
-                    vulns = self.scan_ssti()
+                    vulns = self.scan_ssti_fast()
                 elif scan_type == 'LDAP':
                     vulns = self.scan_ldap()
                 elif scan_type == 'OAuth2':
@@ -167,17 +169,13 @@ class ScanWorker(QThread):
                 progress = int((idx + 1) / total_scans * 100)
                 self.progress_updated.emit(progress)
                 
-                time.sleep(self.delay)
-                
             except Exception as e:
-                self.status_updated.emit(f'❌ Error in {scan_type}: {str(e)}')
-                import traceback
-                traceback.print_exc()
+                self.status_updated.emit(f'❌ Error in {scan_type}: {str(e)[:50]}')
         
         self.status_updated.emit(f'🎉 Scan completed - Total: {len(vulnerabilities)} vulnerabilities')
         self.scan_completed.emit(vulnerabilities)
     
-    def scan_xss(self):
+    def scan_xss_fast(self):
         from scanners.xss_scanner import XSSScanner
         scanner = XSSScanner()
         
@@ -185,28 +183,36 @@ class ScanWorker(QThread):
             '<script>alert(1)</script>',
             '<img src=x onerror=alert(1)>',
             '"><script>alert(1)</script>',
-            '<svg onload=alert(1)>',
-            'javascript:alert(1)',
-            '<iframe src="javascript:alert(1)">',
-            '<body onload=alert(1)>'
         ]
         
-        all_vulns = []
-        for payload in payloads:
-            if self.should_stop:
-                break
+        with ThreadPoolExecutor(max_workers=min(3, self.num_workers)) as executor:
+            futures = []
+            for payload in payloads:
+                if self.should_stop:
+                    break
+                
+                test_url = self.inject_payload_in_url(self.target_url, payload)
+                future = executor.submit(self.fetch_url, test_url)
+                futures.append((future, payload, scanner))
             
-            test_url = self.inject_payload_in_url(self.target_url, payload)
-            response = self.fetch_url(test_url)
-            vulns = scanner.scan(test_url, response, [payload])
-            all_vulns.extend(vulns)
-            
-            if vulns:
-                break
+            all_vulns = []
+            for future, payload, scanner in futures:
+                if self.should_stop:
+                    break
+                
+                try:
+                    response = future.result(timeout=self.timeout)
+                    vulns = scanner.scan(self.target_url, response, [payload])
+                    all_vulns.extend(vulns)
+                    
+                    if vulns:
+                        break
+                except Exception:
+                    pass
         
-        return all_vulns
+        return all_vulns[:5]
     
-    def scan_sql(self):
+    def scan_sql_fast(self):
         from scanners.sql_scanner import SQLScanner
         scanner = SQLScanner()
         
@@ -214,96 +220,36 @@ class ScanWorker(QThread):
             "' OR '1'='1",
             "1' UNION SELECT NULL--",
             "' AND 1=1--",
-            "' AND SLEEP(5)--",
-            "1' OR '1'='1' /*",
-            "admin'--",
-            "' OR 1=1--"
         ]
         
-        all_vulns = []
-        for payload in payloads:
-            if self.should_stop:
-                break
+        with ThreadPoolExecutor(max_workers=min(3, self.num_workers)) as executor:
+            futures = []
+            for payload in payloads:
+                if self.should_stop:
+                    break
+                
+                test_url = self.inject_payload_in_url(self.target_url, payload)
+                future = executor.submit(self.fetch_url, test_url)
+                futures.append((future, payload, scanner))
             
-            test_url = self.inject_payload_in_url(self.target_url, payload)
-            response = self.fetch_url(test_url)
-            vulns = scanner.scan(test_url, response, [payload])
-            all_vulns.extend(vulns)
-            
-            if vulns:
-                break
+            all_vulns = []
+            for future, payload, scanner in futures:
+                if self.should_stop:
+                    break
+                
+                try:
+                    response = future.result(timeout=self.timeout)
+                    vulns = scanner.scan(self.target_url, response, [payload])
+                    all_vulns.extend(vulns)
+                    
+                    if vulns:
+                        break
+                except Exception:
+                    pass
         
-        return all_vulns
+        return all_vulns[:5]
     
-    def scan_rce(self):
-        from scanners.rce_scanner import RCEScanner
-        scanner = RCEScanner()
-        
-        response = self.fetch_url(self.target_url)
-        return scanner.scan(self.target_url, response)
-    
-    def scan_command_injection(self):
-        from scanners.command_injection_scanner import CommandInjectionScanner
-        scanner = CommandInjectionScanner()
-        
-        response = self.fetch_url(self.target_url)
-        return scanner.scan(self.target_url, response)
-    
-    def scan_ssrf(self):
-        from scanners.ssrf_scanner import SSRFScanner
-        scanner = SSRFScanner()
-        
-        response = self.fetch_url(self.target_url)
-        return scanner.scan(self.target_url, response)
-    
-    def scan_csrf(self):
-        from scanners.csrf_scanner import CSRFScanner
-        scanner = CSRFScanner()
-        
-        response = self.fetch_url(self.target_url)
-        return scanner.scan(self.target_url, response)
-    
-    def scan_xxe(self):
-        from scanners.xxe_scanner import XXEScanner
-        scanner = XXEScanner()
-        
-        payloads = [
-            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
-            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><foo>&xxe;</foo>'
-        ]
-        
-        response = self.fetch_url(self.target_url)
-        return scanner.scan(self.target_url, response, payloads)
-    
-    def scan_file_upload(self):
-        from scanners.file_upload_scanner import FileUploadScanner
-        scanner = FileUploadScanner()
-        
-        response = self.fetch_url(self.target_url)
-        return scanner.scan(self.target_url, response)
-    
-    def scan_api(self):
-        from scanners.api_scanner import APIScanner
-        scanner = APIScanner()
-        
-        response = self.fetch_url(self.target_url)
-        return scanner.scan_oauth(self.target_url, response)
-    
-    def scan_websocket(self):
-        from scanners.websocket_scanner import WebSocketScanner
-        scanner = WebSocketScanner()
-        
-        response = self.fetch_url(self.target_url)
-        return scanner.scan(self.target_url, response)
-    
-    def scan_graphql(self):
-        from scanners.graphql_scanner import GraphQLScanner
-        scanner = GraphQLScanner()
-        
-        response = self.fetch_url(self.target_url)
-        return scanner.scan(self.target_url, response)
-    
-    def scan_ssti(self):
+    def scan_ssti_fast(self):
         from scanners.ssti_scanner import SSTIScanner
         scanner = SSTIScanner()
         
@@ -311,36 +257,101 @@ class ScanWorker(QThread):
             '{{7*7}}',
             '${7*7}',
             '<%=7*7%>',
-            '{7*7}',
-            '#{7*7}'
         ]
         
-        all_vulns = []
-        for payload in payloads:
-            if self.should_stop:
-                break
+        with ThreadPoolExecutor(max_workers=min(3, self.num_workers)) as executor:
+            futures = []
+            for payload in payloads:
+                if self.should_stop:
+                    break
+                
+                test_url = self.inject_payload_in_url(self.target_url, payload)
+                future = executor.submit(self.fetch_url, test_url)
+                futures.append((future, payload, scanner))
             
-            test_url = self.inject_payload_in_url(self.target_url, payload)
-            response = self.fetch_url(test_url)
-            vulns = scanner.scan(test_url, response)
-            all_vulns.extend(vulns)
-            
-            if vulns:
-                break
+            all_vulns = []
+            for future, payload, scanner in futures:
+                if self.should_stop:
+                    break
+                
+                try:
+                    response = future.result(timeout=self.timeout)
+                    vulns = scanner.scan(self.target_url, response)
+                    all_vulns.extend(vulns)
+                    
+                    if vulns:
+                        break
+                except Exception:
+                    pass
         
-        return all_vulns
+        return all_vulns[:5]
+    
+    def scan_rce(self):
+        from scanners.rce_scanner import RCEScanner
+        scanner = RCEScanner()
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_command_injection(self):
+        from scanners.command_injection_scanner import CommandInjectionScanner
+        scanner = CommandInjectionScanner()
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_ssrf(self):
+        from scanners.ssrf_scanner import SSRFScanner
+        scanner = SSRFScanner()
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_csrf(self):
+        from scanners.csrf_scanner import CSRFScanner
+        scanner = CSRFScanner()
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_xxe(self):
+        from scanners.xxe_scanner import XXEScanner
+        scanner = XXEScanner()
+        payloads = [
+            '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
+        ]
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response, payloads)
+    
+    def scan_file_upload(self):
+        from scanners.file_upload_scanner import FileUploadScanner
+        scanner = FileUploadScanner()
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_api(self):
+        from scanners.api_scanner import APIScanner
+        scanner = APIScanner()
+        response = self.fetch_url(self.target_url)
+        return scanner.scan_oauth(self.target_url, response)
+    
+    def scan_websocket(self):
+        from scanners.websocket_scanner import WebSocketScanner
+        scanner = WebSocketScanner()
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
+    
+    def scan_graphql(self):
+        from scanners.graphql_scanner import GraphQLScanner
+        scanner = GraphQLScanner()
+        response = self.fetch_url(self.target_url)
+        return scanner.scan(self.target_url, response)
     
     def scan_ldap(self):
         from scanners.ldap_scanner import LDAPScanner
         scanner = LDAPScanner()
-        
         response = self.fetch_url(self.target_url)
         return scanner.scan(self.target_url, response)
     
     def scan_oauth(self):
         from scanners.oauth_saml_scanner import OAuthSAMLScanner
         scanner = OAuthSAMLScanner()
-        
         response = self.fetch_url(self.target_url)
         return scanner.scan_oauth(self.target_url, response)
     
@@ -412,19 +423,19 @@ class ScanTab(QWidget):
         settings_layout = QFormLayout()
         
         self.threads_spinbox = QSpinBox()
-        self.threads_spinbox.setRange(1, 100)
+        self.threads_spinbox.setRange(2, 50)
         self.threads_spinbox.setValue(10)
         settings_layout.addRow('Concurrent Threads:', self.threads_spinbox)
         
         self.timeout_spinbox = QSpinBox()
-        self.timeout_spinbox.setRange(5, 300)
-        self.timeout_spinbox.setValue(30)
+        self.timeout_spinbox.setRange(5, 60)
+        self.timeout_spinbox.setValue(15)
         self.timeout_spinbox.setSuffix(' seconds')
         settings_layout.addRow('Request Timeout:', self.timeout_spinbox)
         
         self.delay_spinbox = QDoubleSpinBox()
-        self.delay_spinbox.setRange(0, 10)
-        self.delay_spinbox.setValue(0.5)
+        self.delay_spinbox.setRange(0, 5)
+        self.delay_spinbox.setValue(0.1)
         self.delay_spinbox.setSuffix(' seconds')
         settings_layout.addRow('Request Delay:', self.delay_spinbox)
         
@@ -519,9 +530,9 @@ class ScanTab(QWidget):
         
         timeout = self.timeout_spinbox.value()
         verify_ssl = self.verify_ssl_checkbox.isChecked()
-        delay = self.delay_spinbox.value()
+        num_workers = self.threads_spinbox.value()
         
-        self.scan_worker = ScanWorker(target_url, scan_types, timeout, verify_ssl, delay)
+        self.scan_worker = ScanWorker(target_url, scan_types, timeout, verify_ssl, 0.05, num_workers)
         self.scan_worker.vulnerability_found.connect(self.on_vulnerability_found)
         self.scan_worker.scan_completed.connect(self.on_scan_completed)
         self.scan_worker.progress_updated.connect(self.progress_bar.setValue)
