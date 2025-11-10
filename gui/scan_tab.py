@@ -1,4 +1,4 @@
-# scan_tab.py - متناسب با ساختار فایل‌های شما
+# scan_tab.py - آپدیت شده با Request Monitor
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QCheckBox, QGroupBox,
                              QFormLayout, QSpinBox, QDoubleSpinBox, QProgressBar,
@@ -14,6 +14,7 @@ class ScanWorker(QThread):
     scan_completed = pyqtSignal(list)
     progress_updated = pyqtSignal(int)
     status_updated = pyqtSignal(str)
+    request_sent = pyqtSignal(dict)
     
     def __init__(self, target_url, scan_types, timeout, verify_ssl, delay):
         super().__init__()
@@ -48,6 +49,17 @@ class ScanWorker(QThread):
             
             response_time = time.time() - start_time
             
+            request_data = {
+                'url': url,
+                'method': method,
+                'status_code': response.status_code,
+                'duration': response_time,
+                'request_headers': headers or {},
+                'response_headers': dict(response.headers),
+                'response': response.text
+            }
+            self.request_sent.emit(request_data)
+            
             return {
                 'content': response.text,
                 'status_code': response.status_code,
@@ -55,10 +67,23 @@ class ScanWorker(QThread):
                 'headers': dict(response.headers)
             }
         except Exception as e:
+            response_time = time.time() - start_time
+            
+            request_data = {
+                'url': url,
+                'method': method,
+                'status_code': 0,
+                'duration': response_time,
+                'request_headers': headers or {},
+                'response_headers': {},
+                'response': str(e)
+            }
+            self.request_sent.emit(request_data)
+            
             return {
                 'content': str(e),
                 'status_code': 0,
-                'response_time': 0,
+                'response_time': response_time,
                 'headers': {}
             }
     
@@ -324,6 +349,7 @@ class ScanWorker(QThread):
 
 
 class ScanTab(QWidget):
+    request_sent = pyqtSignal(dict)
     scan_started = pyqtSignal(str)
     scan_completed = pyqtSignal(list)
     vulnerability_found = pyqtSignal(dict)
@@ -500,6 +526,7 @@ class ScanTab(QWidget):
         self.scan_worker.scan_completed.connect(self.on_scan_completed)
         self.scan_worker.progress_updated.connect(self.progress_bar.setValue)
         self.scan_worker.status_updated.connect(self.status_label.setText)
+        self.scan_worker.request_sent.connect(self.on_request_sent)
         self.scan_worker.start()
     
     def stop_scan(self):
@@ -514,6 +541,9 @@ class ScanTab(QWidget):
     
     def on_vulnerability_found(self, vulnerability: dict):
         self.vulnerability_found.emit(vulnerability)
+    
+    def on_request_sent(self, request_data: dict):
+        self.request_sent.emit(request_data)
     
     def on_scan_completed(self, results: list):
         self.scan_completed.emit(results)

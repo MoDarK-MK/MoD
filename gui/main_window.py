@@ -1,4 +1,3 @@
-# main_window.py - فرمت صحیح
 from PyQt6.QtWidgets import (QMainWindow, QTabWidget, QVBoxLayout, 
                              QWidget, QStatusBar, QMenuBar, QMenu, QToolBar, QMessageBox, QSizePolicy)
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
@@ -11,7 +10,7 @@ from .subdomain_tab import SubdomainTab
 from .wayback_tab import WaybackTab
 from .advanced_settings_tab import AdvancedSettingsTab
 from .theme_manager import ThemeManager
-
+from .request_monitor_tab import RequestMonitorTab
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -23,6 +22,8 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(QSize(1400, 900))
     
     def init_ui(self):
+        self.request_monitor_tab = RequestMonitorTab()
+        self.tab_widget.addTab(self.request_monitor_tab, '📡 Request Monitor')
         self.create_menu_bar()
         self.create_toolbar()
         
@@ -37,7 +38,8 @@ class MainWindow(QMainWindow):
         self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
         self.tab_widget.setMovable(True)
         self.tab_widget.setTabsClosable(False)
-        
+
+        self.scan_tab.request_sent.connect(self.request_monitor_tab.add_request)
         self.scan_tab = ScanTab()
         self.results_tab = ResultsTab()
         self.subdomain_tab = SubdomainTab()
