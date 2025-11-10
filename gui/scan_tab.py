@@ -202,8 +202,24 @@ class ScanWorker(QThread):
             except Exception as e:
                 self.status_updated.emit(f'❌ Error in {scan_type}: {str(e)[:50]}')
         
-        self.status_updated.emit(f'🎉 Scan completed - Total: {len(vulnerabilities)} vulnerabilities')
-        self.scan_completed.emit(vulnerabilities)
+        formatted_results = []
+        for vuln in vulnerabilities:
+            if isinstance(vuln, dict):
+                formatted_results.append(vuln)
+            else:
+                formatted_results.append({
+                    'type': getattr(vuln, 'vulnerability_type', 'Unknown'),
+                    'severity': getattr(vuln, 'severity', 'Unknown'),
+                    'url': getattr(vuln, 'url', self.target_url),
+                    'parameter': getattr(vuln, 'parameter', ''),
+                    'payload': getattr(vuln, 'payload', ''),
+                    'evidence': getattr(vuln, 'evidence', 'No evidence'),
+                    'confidence': getattr(vuln, 'confidence_score', 0.0)
+                })
+        
+        self.status_updated.emit(f'🎉 Scan completed - Total: {len(formatted_results)} vulnerabilities')
+        self.scan_completed.emit(formatted_results)
+
     
     def scan_xss_fast(self):
         from scanners.xss_scanner import XSSScanner
