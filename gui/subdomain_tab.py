@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QGroupBox, QFormLayout, QProgressBar)
+                             QHeaderView, QGroupBox, QFormLayout, QProgressBar, QFileDialog)
 from PyQt6.QtCore import pyqtSignal, QThread, pyqtSlot
 from scanners.subdomain_scanner import SubdomainScanner
 
@@ -75,7 +75,17 @@ class SubdomainTab(QWidget):
         self.results_table.setRowCount(0)
         self.progress_bar.setValue(0)
         
-        self.results = self.scanner.scan(domain)
+        subdomains = self.scanner.scan_domain(domain)
+        
+        self.results = []
+        for subdomain_obj in subdomains:
+            self.results.append({
+                'subdomain': subdomain_obj.subdomain,
+                'ips': subdomain_obj.ip_addresses,
+                'status_code': subdomain_obj.response_code or 'N/A',
+                'title': subdomain_obj.title or ''
+            })
+        
         self.display_results()
         self.progress_bar.setValue(100)
         
@@ -100,7 +110,6 @@ class SubdomainTab(QWidget):
             return
         
         import json
-        from PyQt6.QtWidgets import QFileDialog
         
         filename, _ = QFileDialog.getSaveFileName(self, 'Export Results', 'subdomains.json', 'JSON Files (*.json)')
         if filename:
