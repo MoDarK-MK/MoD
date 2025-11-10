@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QMainWindow, QTabWidget, QVBoxLayout, 
-                             QWidget, QStatusBar, QMenuBar, QMenu, QToolBar)
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QAction, QIcon
+                             QWidget, QStatusBar, QMenuBar, QMenu, QToolBar, QMessageBox)
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from PyQt6.QtGui import QAction, QIcon, QFont
 from .scan_tab import ScanTab
 from .results_tab import ResultsTab
 from .settings_tab import SettingsTab
@@ -17,11 +17,10 @@ class MainWindow(QMainWindow):
         self.theme_manager = ThemeManager()
         self.init_ui()
         self.apply_theme()
-    
-    def init_ui(self):
         self.setWindowTitle('MoD - Master of Defense v3.0')
         self.setMinimumSize(QSize(1400, 900))
-        
+    
+    def init_ui(self):
         self.create_menu_bar()
         self.create_toolbar()
         
@@ -30,6 +29,7 @@ class MainWindow(QMainWindow):
         
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.wayback_tab, '⏰ Wayback URLs')
         self.tab_widget.addTab(self.auth_tab, '🔐 Authentication')
         self.tab_widget.addTab(self.settings_tab, '⚙️ Settings')
-        self.tab_widget.addTab(self.advanced_settings_tab, '🔧 Advanced Settings')
+        self.tab_widget.addTab(self.advanced_settings_tab, '🔧 Advanced')
         
         layout.addWidget(self.tab_widget)
         
@@ -62,11 +62,11 @@ class MainWindow(QMainWindow):
         self.scan_tab.scan_completed.connect(self.on_scan_completed)
         self.scan_tab.vulnerability_found.connect(self.on_vulnerability_found)
         
-        self.subdomain_tab.scan_started.connect(lambda d: self.status_bar.showMessage(f'Enumerating subdomains for: {d}'))
+        self.subdomain_tab.scan_started.connect(lambda d: self.status_bar.showMessage(f'Enumerating: {d}'))
         self.subdomain_tab.scan_completed.connect(lambda r: self.status_bar.showMessage(f'Found {len(r)} subdomains'))
         
-        self.wayback_tab.fetch_started.connect(lambda d: self.status_bar.showMessage(f'Fetching Wayback URLs for: {d}'))
-        self.wayback_tab.fetch_completed.connect(lambda r: self.status_bar.showMessage(f'Found {len(r)} archived URLs'))
+        self.wayback_tab.fetch_started.connect(lambda d: self.status_bar.showMessage(f'Fetching Wayback: {d}'))
+        self.wayback_tab.fetch_completed.connect(lambda r: self.status_bar.showMessage(f'Found {len(r)} URLs'))
         
         self.settings_tab.theme_changed.connect(self.on_theme_changed)
         self.auth_tab.auth_configured.connect(self.on_auth_configured)
@@ -77,42 +77,42 @@ class MainWindow(QMainWindow):
         
         file_menu = menubar.addMenu('&File')
         
-        new_scan_action = QAction('New Scan', self)
+        new_scan_action = QAction('&New Scan', self)
         new_scan_action.setShortcut('Ctrl+N')
         new_scan_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.scan_tab))
         file_menu.addAction(new_scan_action)
         
         file_menu.addSeparator()
         
-        export_action = QAction('Export Results', self)
+        export_action = QAction('&Export Results', self)
         export_action.setShortcut('Ctrl+E')
         export_action.triggered.connect(self.export_results)
         file_menu.addAction(export_action)
         
         file_menu.addSeparator()
         
-        exit_action = QAction('Exit', self)
+        exit_action = QAction('E&xit', self)
         exit_action.setShortcut('Ctrl+Q')
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
         
         view_menu = menubar.addMenu('&View')
         
-        dark_theme_action = QAction('Dark Theme', self)
+        dark_theme_action = QAction('🌙 Dark Theme', self)
         dark_theme_action.triggered.connect(lambda: self.theme_manager.set_theme('dark'))
         view_menu.addAction(dark_theme_action)
         
-        light_theme_action = QAction('Light Theme', self)
+        light_theme_action = QAction('☀️ Light Theme', self)
         light_theme_action.triggered.connect(lambda: self.theme_manager.set_theme('light'))
         view_menu.addAction(light_theme_action)
         
         tools_menu = menubar.addMenu('&Tools')
         
-        subdomain_action = QAction('Subdomain Scanner', self)
+        subdomain_action = QAction('🌐 Subdomain Scanner', self)
         subdomain_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.subdomain_tab))
         tools_menu.addAction(subdomain_action)
         
-        wayback_action = QAction('Wayback Machine', self)
+        wayback_action = QAction('⏰ Wayback Machine', self)
         wayback_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.wayback_tab))
         tools_menu.addAction(wayback_action)
         
@@ -142,6 +142,12 @@ class MainWindow(QMainWindow):
         export_action = QAction('💾 Export', self)
         export_action.triggered.connect(self.export_results)
         toolbar.addAction(export_action)
+        
+        toolbar.addStretch()
+        
+        about_action = QAction('ℹ️ About', self)
+        about_action.triggered.connect(self.show_about)
+        toolbar.addAction(about_action)
     
     def apply_theme(self):
         stylesheet = self.theme_manager.get_stylesheet()
@@ -174,7 +180,6 @@ class MainWindow(QMainWindow):
         self.results_tab.export_results()
     
     def show_about(self):
-        from PyQt6.QtWidgets import QMessageBox
         QMessageBox.about(
             self,
             'About MoD',
@@ -182,5 +187,11 @@ class MainWindow(QMainWindow):
             'Version 3.0.0\n\n'
             'Advanced Web Penetration Testing Tool\n'
             'with modern UI/UX design\n\n'
-            '© 2025 MoD Security Team'
+            '© 2025 MoD Security Team\n\n'
+            'Features:\n'
+            '• 15 Vulnerability Scanners\n'
+            '• Multi-threaded Scanning\n'
+            '• Advanced Authentication\n'
+            '• Real-time Reporting\n'
+            '• Integration Support'
         )

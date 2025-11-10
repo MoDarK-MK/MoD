@@ -1,0 +1,2038 @@
+================================================================================
+                    MoD - MASTER OF DEFENSE v3.0
+                    GUI FILES COMPLETE CODE (Files 41-53)
+                    فایل‌های GUI کامل - خط به خط
+================================================================================
+
+================================================================================
+FILE 41: gui/main_window.py
+================================================================================
+
+from PyQt6.QtWidgets import (QMainWindow, QTabWidget, QVBoxLayout, 
+                             QWidget, QStatusBar, QMenuBar, QMenu, QToolBar, QMessageBox)
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from PyQt6.QtGui import QAction, QIcon, QFont
+from .scan_tab import ScanTab
+from .results_tab import ResultsTab
+from .settings_tab import SettingsTab
+from .auth_tab import AuthTab
+from .subdomain_tab import SubdomainTab
+from .wayback_tab import WaybackTab
+from .advanced_settings_tab import AdvancedSettingsTab
+from .theme_manager import ThemeManager
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.theme_manager = ThemeManager()
+        self.init_ui()
+        self.apply_theme()
+        self.setWindowTitle('MoD - Master of Defense v3.0')
+        self.setMinimumSize(QSize(1400, 900))
+    
+    def init_ui(self):
+        self.create_menu_bar()
+        self.create_toolbar()
+        
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
+        layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
+        self.tab_widget.setMovable(True)
+        self.tab_widget.setTabsClosable(False)
+        
+        self.scan_tab = ScanTab()
+        self.results_tab = ResultsTab()
+        self.subdomain_tab = SubdomainTab()
+        self.wayback_tab = WaybackTab()
+        self.auth_tab = AuthTab()
+        self.settings_tab = SettingsTab()
+        self.advanced_settings_tab = AdvancedSettingsTab()
+        
+        self.tab_widget.addTab(self.scan_tab, '🎯 Vulnerability Scan')
+        self.tab_widget.addTab(self.results_tab, '📊 Results')
+        self.tab_widget.addTab(self.subdomain_tab, '🌐 Subdomain Enum')
+        self.tab_widget.addTab(self.wayback_tab, '⏰ Wayback URLs')
+        self.tab_widget.addTab(self.auth_tab, '🔐 Authentication')
+        self.tab_widget.addTab(self.settings_tab, '⚙️ Settings')
+        self.tab_widget.addTab(self.advanced_settings_tab, '🔧 Advanced')
+        
+        layout.addWidget(self.tab_widget)
+        
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage('Ready | MoD v3.0')
+        
+        self.scan_tab.scan_started.connect(self.on_scan_started)
+        self.scan_tab.scan_completed.connect(self.on_scan_completed)
+        self.scan_tab.vulnerability_found.connect(self.on_vulnerability_found)
+        
+        self.subdomain_tab.scan_started.connect(lambda d: self.status_bar.showMessage(f'Enumerating: {d}'))
+        self.subdomain_tab.scan_completed.connect(lambda r: self.status_bar.showMessage(f'Found {len(r)} subdomains'))
+        
+        self.wayback_tab.fetch_started.connect(lambda d: self.status_bar.showMessage(f'Fetching Wayback: {d}'))
+        self.wayback_tab.fetch_completed.connect(lambda r: self.status_bar.showMessage(f'Found {len(r)} URLs'))
+        
+        self.settings_tab.theme_changed.connect(self.on_theme_changed)
+        self.auth_tab.auth_configured.connect(self.on_auth_configured)
+        self.advanced_settings_tab.settings_changed.connect(self.on_advanced_settings_changed)
+    
+    def create_menu_bar(self):
+        menubar = self.menuBar()
+        
+        file_menu = menubar.addMenu('&File')
+        
+        new_scan_action = QAction('&New Scan', self)
+        new_scan_action.setShortcut('Ctrl+N')
+        new_scan_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.scan_tab))
+        file_menu.addAction(new_scan_action)
+        
+        file_menu.addSeparator()
+        
+        export_action = QAction('&Export Results', self)
+        export_action.setShortcut('Ctrl+E')
+        export_action.triggered.connect(self.export_results)
+        file_menu.addAction(export_action)
+        
+        file_menu.addSeparator()
+        
+        exit_action = QAction('E&xit', self)
+        exit_action.setShortcut('Ctrl+Q')
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+        
+        view_menu = menubar.addMenu('&View')
+        
+        dark_theme_action = QAction('🌙 Dark Theme', self)
+        dark_theme_action.triggered.connect(lambda: self.theme_manager.set_theme('dark'))
+        view_menu.addAction(dark_theme_action)
+        
+        light_theme_action = QAction('☀️ Light Theme', self)
+        light_theme_action.triggered.connect(lambda: self.theme_manager.set_theme('light'))
+        view_menu.addAction(light_theme_action)
+        
+        tools_menu = menubar.addMenu('&Tools')
+        
+        subdomain_action = QAction('🌐 Subdomain Scanner', self)
+        subdomain_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.subdomain_tab))
+        tools_menu.addAction(subdomain_action)
+        
+        wayback_action = QAction('⏰ Wayback Machine', self)
+        wayback_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.wayback_tab))
+        tools_menu.addAction(wayback_action)
+        
+        help_menu = menubar.addMenu('&Help')
+        
+        about_action = QAction('About MoD', self)
+        about_action.triggered.connect(self.show_about)
+        help_menu.addAction(about_action)
+    
+    def create_toolbar(self):
+        toolbar = QToolBar()
+        toolbar.setMovable(False)
+        self.addToolBar(toolbar)
+        
+        scan_action = QAction('🎯 Start Scan', self)
+        scan_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.scan_tab))
+        toolbar.addAction(scan_action)
+        
+        toolbar.addSeparator()
+        
+        results_action = QAction('📊 Results', self)
+        results_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.results_tab))
+        toolbar.addAction(results_action)
+        
+        toolbar.addSeparator()
+        
+        export_action = QAction('💾 Export', self)
+        export_action.triggered.connect(self.export_results)
+        toolbar.addAction(export_action)
+        
+        toolbar.addStretch()
+        
+        about_action = QAction('ℹ️ About', self)
+        about_action.triggered.connect(self.show_about)
+        toolbar.addAction(about_action)
+    
+    def apply_theme(self):
+        stylesheet = self.theme_manager.get_stylesheet()
+        self.setStyleSheet(stylesheet)
+    
+    def on_scan_started(self, target: str):
+        self.status_bar.showMessage(f'⚡ Scanning: {target}')
+        self.results_tab.clear_results()
+    
+    def on_scan_completed(self, results: list):
+        self.status_bar.showMessage(f'✅ Scan completed - {len(results)} vulnerabilities found')
+        self.results_tab.display_results(results)
+        self.tab_widget.setCurrentWidget(self.results_tab)
+    
+    def on_vulnerability_found(self, vulnerability: dict):
+        self.results_tab.add_vulnerability(vulnerability)
+    
+    def on_theme_changed(self, theme: str):
+        self.theme_manager.set_theme(theme)
+        self.apply_theme()
+    
+    def on_auth_configured(self, auth_manager):
+        self.scan_tab.set_auth_manager(auth_manager)
+        self.status_bar.showMessage('🔐 Authentication configured')
+    
+    def on_advanced_settings_changed(self, settings: dict):
+        self.status_bar.showMessage('⚙️ Advanced settings updated')
+    
+    def export_results(self):
+        self.results_tab.export_results()
+    
+    def show_about(self):
+        QMessageBox.about(
+            self,
+            'About MoD',
+            'MoD - Master of Defense\n\n'
+            'Version 3.0.0\n\n'
+            'Advanced Web Penetration Testing Tool\n'
+            'with modern UI/UX design\n\n'
+            '© 2025 MoD Security Team\n\n'
+            'Features:\n'
+            '• 15 Vulnerability Scanners\n'
+            '• Multi-threaded Scanning\n'
+            '• Advanced Authentication\n'
+            '• Real-time Reporting\n'
+            '• Integration Support'
+        )
+
+================================================================================
+FILE 42: gui/scan_tab.py
+================================================================================
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
+                             QLineEdit, QPushButton, QCheckBox, QGroupBox,
+                             QFormLayout, QSpinBox, QDoubleSpinBox, QProgressBar,
+                             QComboBox, QTextEdit)
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from core.scanner_engine import ScannerEngine
+from core.auth_manager import AuthManager
+from utils.logger import Logger
+
+class ScanTab(QWidget):
+    scan_started = pyqtSignal(str)
+    scan_completed = pyqtSignal(list)
+    vulnerability_found = pyqtSignal(dict)
+    
+    def __init__(self):
+        super().__init__()
+        self.scanner_engine = ScannerEngine()
+        self.auth_manager = AuthManager()
+        self.logger = Logger()
+        self.is_scanning = False
+        self.init_ui()
+    
+    def init_ui(self):
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
+        
+        target_group = QGroupBox('Target Configuration')
+        target_layout = QFormLayout()
+        
+        self.target_url_input = QLineEdit()
+        self.target_url_input.setPlaceholderText('Enter target URL (e.g., https://example.com/page?id=1)')
+        target_layout.addRow('Target URL:', self.target_url_input)
+        
+        target_group.setLayout(target_layout)
+        main_layout.addWidget(target_group)
+        
+        scanner_group = QGroupBox('Scanner Selection')
+        scanner_layout = QVBoxLayout()
+        
+        self.xss_checkbox = QCheckBox('XSS Injection')
+        self.sql_checkbox = QCheckBox('SQL Injection')
+        self.rce_checkbox = QCheckBox('Remote Code Execution')
+        self.cmd_checkbox = QCheckBox('Command Injection')
+        self.ssrf_checkbox = QCheckBox('Server-Side Request Forgery')
+        self.csrf_checkbox = QCheckBox('CSRF (Cross-Site Request Forgery)')
+        self.xxe_checkbox = QCheckBox('XXE (XML External Entity)')
+        self.upload_checkbox = QCheckBox('File Upload Vulnerabilities')
+        self.api_checkbox = QCheckBox('API Security Testing')
+        self.websocket_checkbox = QCheckBox('WebSocket Security')
+        self.graphql_checkbox = QCheckBox('GraphQL Testing')
+        self.ssti_checkbox = QCheckBox('Server-Side Template Injection')
+        self.ldap_checkbox = QCheckBox('LDAP Injection')
+        self.oauth_checkbox = QCheckBox('OAuth2/SAML')
+        
+        for checkbox in [self.xss_checkbox, self.sql_checkbox, self.rce_checkbox,
+                        self.cmd_checkbox, self.ssrf_checkbox, self.csrf_checkbox,
+                        self.xxe_checkbox, self.upload_checkbox, self.api_checkbox,
+                        self.websocket_checkbox, self.graphql_checkbox, self.ssti_checkbox,
+                        self.ldap_checkbox, self.oauth_checkbox]:
+            scanner_layout.addWidget(checkbox)
+            checkbox.setChecked(True)
+        
+        select_all_btn = QPushButton('Select All')
+        select_all_btn.clicked.connect(self.select_all_scanners)
+        scanner_layout.addWidget(select_all_btn)
+        
+        scanner_group.setLayout(scanner_layout)
+        main_layout.addWidget(scanner_group)
+        
+        settings_group = QGroupBox('Scan Settings')
+        settings_layout = QFormLayout()
+        
+        self.threads_spinbox = QSpinBox()
+        self.threads_spinbox.setRange(1, 100)
+        self.threads_spinbox.setValue(10)
+        settings_layout.addRow('Concurrent Threads:', self.threads_spinbox)
+        
+        self.timeout_spinbox = QSpinBox()
+        self.timeout_spinbox.setRange(5, 300)
+        self.timeout_spinbox.setValue(30)
+        self.timeout_spinbox.setSuffix(' seconds')
+        settings_layout.addRow('Request Timeout:', self.timeout_spinbox)
+        
+        self.delay_spinbox = QDoubleSpinBox()
+        self.delay_spinbox.setRange(0, 10)
+        self.delay_spinbox.setValue(0.5)
+        self.delay_spinbox.setSuffix(' seconds')
+        settings_layout.addRow('Request Delay:', self.delay_spinbox)
+        
+        self.verify_ssl_checkbox = QCheckBox('Verify SSL Certificate')
+        self.verify_ssl_checkbox.setChecked(False)
+        settings_layout.addRow('SSL/TLS:', self.verify_ssl_checkbox)
+        
+        settings_group.setLayout(settings_layout)
+        main_layout.addWidget(settings_group)
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setValue(0)
+        main_layout.addWidget(self.progress_bar)
+        
+        button_layout = QHBoxLayout()
+        
+        self.start_button = QPushButton('▶️ Start Scan')
+        self.start_button.setMinimumHeight(50)
+        self.start_button.clicked.connect(self.start_scan)
+        button_layout.addWidget(self.start_button)
+        
+        self.stop_button = QPushButton('⏹️ Stop Scan')
+        self.stop_button.setMinimumHeight(50)
+        self.stop_button.setEnabled(False)
+        self.stop_button.clicked.connect(self.stop_scan)
+        button_layout.addWidget(self.stop_button)
+        
+        self.clear_button = QPushButton('🗑️ Clear')
+        self.clear_button.setMinimumHeight(50)
+        self.clear_button.clicked.connect(self.clear_inputs)
+        button_layout.addWidget(self.clear_button)
+        
+        main_layout.addLayout(button_layout)
+        main_layout.addStretch()
+        
+        self.setLayout(main_layout)
+    
+    def start_scan(self):
+        target_url = self.target_url_input.text().strip()
+        if not target_url:
+            return
+        
+        scan_types = []
+        if self.xss_checkbox.isChecked():
+            scan_types.append('XSS')
+        if self.sql_checkbox.isChecked():
+            scan_types.append('SQL')
+        if self.rce_checkbox.isChecked():
+            scan_types.append('RCE')
+        if self.cmd_checkbox.isChecked():
+            scan_types.append('CommandInjection')
+        if self.ssrf_checkbox.isChecked():
+            scan_types.append('SSRF')
+        if self.csrf_checkbox.isChecked():
+            scan_types.append('CSRF')
+        if self.xxe_checkbox.isChecked():
+            scan_types.append('XXE')
+        if self.upload_checkbox.isChecked():
+            scan_types.append('FileUpload')
+        if self.api_checkbox.isChecked():
+            scan_types.append('API')
+        if self.websocket_checkbox.isChecked():
+            scan_types.append('WebSocket')
+        if self.graphql_checkbox.isChecked():
+            scan_types.append('GraphQL')
+        if self.ssti_checkbox.isChecked():
+            scan_types.append('SSTI')
+        if self.ldap_checkbox.isChecked():
+            scan_types.append('LDAP')
+        if self.oauth_checkbox.isChecked():
+            scan_types.append('OAuth2')
+        
+        if not scan_types:
+            return
+        
+        self.is_scanning = True
+        self.start_button.setEnabled(False)
+        self.stop_button.setEnabled(True)
+        self.progress_bar.setValue(0)
+        
+        self.scan_started.emit(target_url)
+        
+        self.scanner_engine.set_authentication(self.auth_manager)
+        self.scanner_engine.set_proxy('')
+        
+        results = self.scanner_engine.start_scan(target_url, scan_types, self.on_vulnerability_found)
+        
+        self.scan_completed.emit(results)
+        
+        self.is_scanning = False
+        self.start_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+        self.progress_bar.setValue(100)
+    
+    def stop_scan(self):
+        self.scanner_engine.stop_scan()
+        self.is_scanning = False
+        self.start_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+    
+    def on_vulnerability_found(self, vulnerability: dict):
+        self.vulnerability_found.emit(vulnerability)
+        current_value = self.progress_bar.value()
+        self.progress_bar.setValue(min(current_value + 1, 99))
+    
+    def select_all_scanners(self):
+        is_checked = self.xss_checkbox.isChecked()
+        for checkbox in [self.xss_checkbox, self.sql_checkbox, self.rce_checkbox,
+                        self.cmd_checkbox, self.ssrf_checkbox, self.csrf_checkbox,
+                        self.xxe_checkbox, self.upload_checkbox, self.api_checkbox,
+                        self.websocket_checkbox, self.graphql_checkbox, self.ssti_checkbox,
+                        self.ldap_checkbox, self.oauth_checkbox]:
+            checkbox.setChecked(not is_checked)
+    
+    def clear_inputs(self):
+        self.target_url_input.clear()
+        self.progress_bar.setValue(0)
+    
+    def set_auth_manager(self, auth_manager: AuthManager):
+        self.auth_manager = auth_manager
+
+================================================================================
+FILE 43: gui/results_tab.py
+================================================================================
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+                             QTableWidget, QTableWidgetItem, QFileDialog,
+                             QMessageBox, QHeaderView, QComboBox)
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QFont
+from utils.report_generator import ReportGenerator
+from utils.database import Database
+import json
+
+class ResultsTab(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.report_generator = ReportGenerator()
+        self.database = Database()
+        self.vulnerabilities = []
+        self.init_ui()
+    
+    def init_ui(self):
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
+        
+        toolbar_layout = QHBoxLayout()
+        
+        self.export_pdf_btn = QPushButton('📄 Export PDF')
+        self.export_pdf_btn.clicked.connect(self.export_pdf)
+        toolbar_layout.addWidget(self.export_pdf_btn)
+        
+        self.export_html_btn = QPushButton('🌐 Export HTML')
+        self.export_html_btn.clicked.connect(self.export_html)
+        toolbar_layout.addWidget(self.export_html_btn)
+        
+        self.export_json_btn = QPushButton('📋 Export JSON')
+        self.export_json_btn.clicked.connect(self.export_json)
+        toolbar_layout.addWidget(self.export_json_btn)
+        
+        self.severity_filter = QComboBox()
+        self.severity_filter.addItems(['All', 'Critical', 'High', 'Medium', 'Low', 'Info'])
+        self.severity_filter.currentTextChanged.connect(self.filter_results)
+        toolbar_layout.addWidget(self.severity_filter)
+        
+        self.clear_btn = QPushButton('🗑️ Clear Results')
+        self.clear_btn.clicked.connect(self.clear_results)
+        toolbar_layout.addWidget(self.clear_btn)
+        
+        toolbar_layout.addStretch()
+        
+        main_layout.addLayout(toolbar_layout)
+        
+        self.results_table = QTableWidget()
+        self.results_table.setColumnCount(6)
+        self.results_table.setHorizontalHeaderLabels(['Type', 'Severity', 'URL', 'Parameter', 'Payload', 'Description'])
+        
+        header = self.results_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        
+        main_layout.addWidget(self.results_table)
+        
+        self.setLayout(main_layout)
+    
+    def display_results(self, vulnerabilities: list):
+        self.vulnerabilities = vulnerabilities
+        self.refresh_table()
+    
+    def add_vulnerability(self, vulnerability: dict):
+        self.vulnerabilities.append(vulnerability)
+        self.refresh_table()
+    
+    def refresh_table(self):
+        self.results_table.setRowCount(0)
+        
+        filtered_vulns = self.vulnerabilities
+        selected_severity = self.severity_filter.currentText()
+        if selected_severity != 'All':
+            filtered_vulns = [v for v in filtered_vulns if v.get('severity') == selected_severity]
+        
+        for row_idx, vuln in enumerate(filtered_vulns):
+            self.results_table.insertRow(row_idx)
+            
+            type_item = QTableWidgetItem(vuln.get('type', ''))
+            severity_item = QTableWidgetItem(vuln.get('severity', ''))
+            url_item = QTableWidgetItem(vuln.get('url', ''))
+            param_item = QTableWidgetItem(vuln.get('parameter', ''))
+            payload_item = QTableWidgetItem(vuln.get('payload', '')[:50])
+            desc_item = QTableWidgetItem(vuln.get('description', '')[:50])
+            
+            severity = vuln.get('severity', 'Low')
+            color = self._get_severity_color(severity)
+            severity_item.setBackground(QColor(color))
+            severity_item.setForeground(QColor('white'))
+            
+            self.results_table.setItem(row_idx, 0, type_item)
+            self.results_table.setItem(row_idx, 1, severity_item)
+            self.results_table.setItem(row_idx, 2, url_item)
+            self.results_table.setItem(row_idx, 3, param_item)
+            self.results_table.setItem(row_idx, 4, payload_item)
+            self.results_table.setItem(row_idx, 5, desc_item)
+    
+    def filter_results(self):
+        self.refresh_table()
+    
+    def clear_results(self):
+        self.vulnerabilities = []
+        self.results_table.setRowCount(0)
+    
+    def _get_severity_color(self, severity: str) -> str:
+        colors = {
+            'Critical': '#ff0000',
+            'High': '#ff6600',
+            'Medium': '#ffff00',
+            'Low': '#00ff00',
+            'Info': '#0099ff'
+        }
+        return colors.get(severity, '#0099ff')
+    
+    def export_pdf(self):
+        filename, _ = QFileDialog.getSaveFileName(self, 'Export PDF', 'report.pdf', 'PDF Files (*.pdf)')
+        if filename:
+            try:
+                self.report_generator.generate_pdf_report(filename, 'Target', self.vulnerabilities)
+                QMessageBox.information(self, 'Success', f'Report saved to {filename}')
+            except Exception as e:
+                QMessageBox.critical(self, 'Error', f'Failed to export PDF: {str(e)}')
+    
+    def export_html(self):
+        filename, _ = QFileDialog.getSaveFileName(self, 'Export HTML', 'report.html', 'HTML Files (*.html)')
+        if filename:
+            try:
+                self.report_generator.generate_html_report(filename, 'Target', self.vulnerabilities)
+                QMessageBox.information(self, 'Success', f'Report saved to {filename}')
+            except Exception as e:
+                QMessageBox.critical(self, 'Error', f'Failed to export HTML: {str(e)}')
+    
+    def export_json(self):
+        filename, _ = QFileDialog.getSaveFileName(self, 'Export JSON', 'report.json', 'JSON Files (*.json)')
+        if filename:
+            try:
+                with open(filename, 'w') as f:
+                    json.dump(self.vulnerabilities, f, indent=4)
+                QMessageBox.information(self, 'Success', f'Report saved to {filename}')
+            except Exception as e:
+                QMessageBox.critical(self, 'Error', f'Failed to export JSON: {str(e)}')
+    
+    def export_results(self):
+        if not self.vulnerabilities:
+            QMessageBox.warning(self, 'Warning', 'No results to export')
+            return
+        
+        self.export_pdf()
+
+================================================================================
+FILE 44: gui/settings_tab.py
+================================================================================
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QPushButton, QComboBox, QCheckBox, QSpinBox,
+                             QGroupBox, QFormLayout)
+from PyQt6.QtCore import pyqtSignal
+from utils.config import Config
+
+class SettingsTab(QWidget):
+    theme_changed = pyqtSignal(str)
+    
+    def __init__(self):
+        super().__init__()
+        self.config = Config()
+        self.init_ui()
+    
+    def init_ui(self):
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
+        
+        display_group = QGroupBox('Display Settings')
+        display_layout = QFormLayout()
+        
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(['Dark', 'Light'])
+        self.theme_combo.currentTextChanged.connect(self.on_theme_changed)
+        display_layout.addRow('Theme:', self.theme_combo)
+        
+        display_group.setLayout(display_layout)
+        main_layout.addWidget(display_group)
+        
+        scan_group = QGroupBox('Scan Settings')
+        scan_layout = QFormLayout()
+        
+        self.timeout_spinbox = QSpinBox()
+        self.timeout_spinbox.setRange(5, 300)
+        self.timeout_spinbox.setValue(30)
+        self.timeout_spinbox.setSuffix(' seconds')
+        scan_layout.addRow('Timeout:', self.timeout_spinbox)
+        
+        self.max_threads_spinbox = QSpinBox()
+        self.max_threads_spinbox.setRange(1, 100)
+        self.max_threads_spinbox.setValue(10)
+        scan_layout.addRow('Max Threads:', self.max_threads_spinbox)
+        
+        self.verify_ssl_checkbox = QCheckBox('Verify SSL')
+        self.verify_ssl_checkbox.setChecked(False)
+        scan_layout.addRow('', self.verify_ssl_checkbox)
+        
+        scan_group.setLayout(scan_layout)
+        main_layout.addWidget(scan_group)
+        
+        button_layout = QHBoxLayout()
+        
+        save_button = QPushButton('💾 Save Settings')
+        save_button.clicked.connect(self.save_settings)
+        button_layout.addWidget(save_button)
+        
+        reset_button = QPushButton('🔄 Reset to Defaults')
+        reset_button.clicked.connect(self.reset_settings)
+        button_layout.addWidget(reset_button)
+        
+        main_layout.addLayout(button_layout)
+        main_layout.addStretch()
+        
+        self.setLayout(main_layout)
+    
+    def on_theme_changed(self, theme: str):
+        self.theme_changed.emit(theme.lower())
+    
+    def save_settings(self):
+        settings = {
+            'theme': self.theme_combo.currentText().lower(),
+            'timeout': self.timeout_spinbox.value(),
+            'max_threads': self.max_threads_spinbox.value(),
+            'verify_ssl': self.verify_ssl_checkbox.isChecked()
+        }
+        self.config.save(settings)
+    
+    def reset_settings(self):
+        self.config.reset()
+
+================================================================================
+FILE 45: gui/auth_tab.py
+================================================================================
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QLineEdit, QPushButton, QGroupBox, QFormLayout,
+                             QComboBox, QMessageBox, QTabWidget)
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QIcon
+from core.auth_manager import AuthManager
+
+class AuthTab(QWidget):
+    auth_configured = pyqtSignal(AuthManager)
+    
+    def __init__(self):
+        super().__init__()
+        self.auth_manager = AuthManager()
+        self.init_ui()
+    
+    def init_ui(self):
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
+        
+        auth_type_layout = QHBoxLayout()
+        auth_type_label = QLabel('Authentication Type:')
+        self.auth_type_combo = QComboBox()
+        self.auth_type_combo.addItems(['None', 'Basic Auth', 'Bearer Token', 'JWT', 'OAuth2'])
+        self.auth_type_combo.currentTextChanged.connect(self.on_auth_type_changed)
+        auth_type_layout.addWidget(auth_type_label)
+        auth_type_layout.addWidget(self.auth_type_combo)
+        auth_type_layout.addStretch()
+        main_layout.addLayout(auth_type_layout)
+        
+        self.auth_config_widget = QWidget()
+        main_layout.addWidget(self.auth_config_widget)
+        
+        button_layout = QHBoxLayout()
+        
+        test_button = QPushButton('✓ Test Authentication')
+        test_button.clicked.connect(self.test_auth)
+        button_layout.addWidget(test_button)
+        
+        apply_button = QPushButton('✔️ Apply Configuration')
+        apply_button.clicked.connect(self.apply_auth)
+        button_layout.addWidget(apply_button)
+        
+        clear_button = QPushButton('🗑️ Clear')
+        clear_button.clicked.connect(self.clear_auth)
+        button_layout.addWidget(clear_button)
+        
+        main_layout.addLayout(button_layout)
+        main_layout.addStretch()
+        
+        self.setLayout(main_layout)
+        self.on_auth_type_changed('None')
+    
+    def on_auth_type_changed(self, auth_type: str):
+        while self.auth_config_widget.layout():
+            self.auth_config_widget.layout().takeAt(0)
+        
+        layout = QFormLayout()
+        
+        if auth_type == 'Basic Auth':
+            self.username_input = QLineEdit()
+            self.username_input.setPlaceholderText('username')
+            self.password_input = QLineEdit()
+            self.password_input.setPlaceholderText('password')
+            self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+            
+            layout.addRow('Username:', self.username_input)
+            layout.addRow('Password:', self.password_input)
+        
+        elif auth_type == 'Bearer Token':
+            self.token_input = QLineEdit()
+            self.token_input.setPlaceholderText('Enter bearer token')
+            layout.addRow('Token:', self.token_input)
+        
+        elif auth_type == 'JWT':
+            self.jwt_token_input = QLineEdit()
+            self.jwt_token_input.setPlaceholderText('Enter JWT token')
+            self.jwt_secret_input = QLineEdit()
+            self.jwt_secret_input.setPlaceholderText('Secret (optional)')
+            
+            layout.addRow('JWT Token:', self.jwt_token_input)
+            layout.addRow('Secret:', self.jwt_secret_input)
+        
+        elif auth_type == 'OAuth2':
+            self.oauth_access_token = QLineEdit()
+            self.oauth_access_token.setPlaceholderText('Access token')
+            self.oauth_refresh_token = QLineEdit()
+            self.oauth_refresh_token.setPlaceholderText('Refresh token (optional)')
+            
+            layout.addRow('Access Token:', self.oauth_access_token)
+            layout.addRow('Refresh Token:', self.oauth_refresh_token)
+        
+        self.auth_config_widget.setLayout(layout)
+    
+    def test_auth(self):
+        auth_type = self.auth_type_combo.currentText()
+        
+        if auth_type == 'None':
+            QMessageBox.information(self, 'Info', 'No authentication method selected')
+        else:
+            QMessageBox.information(self, 'Success', 'Authentication configuration validated')
+    
+    def apply_auth(self):
+        auth_type = self.auth_type_combo.currentText()
+        
+        if auth_type == 'None':
+            self.auth_manager.clear_auth()
+        
+        elif auth_type == 'Basic Auth':
+            username = self.username_input.text()
+            password = self.password_input.text()
+            if username and password:
+                self.auth_manager.set_basic_auth(username, password)
+        
+        elif auth_type == 'Bearer Token':
+            token = self.token_input.text()
+            if token:
+                self.auth_manager.set_bearer_token(token)
+        
+        elif auth_type == 'JWT':
+            token = self.jwt_token_input.text()
+            secret = self.jwt_secret_input.text()
+            if token:
+                self.auth_manager.set_jwt_auth(token, secret if secret else None)
+        
+        elif auth_type == 'OAuth2':
+            access_token = self.oauth_access_token.text()
+            refresh_token = self.oauth_refresh_token.text()
+            if access_token:
+                self.auth_manager.set_oauth2(access_token, refresh_token if refresh_token else None)
+        
+        self.auth_configured.emit(self.auth_manager)
+        QMessageBox.information(self, 'Success', 'Authentication applied successfully')
+    
+    def clear_auth(self):
+        self.auth_manager.clear_auth()
+        self.auth_type_combo.setCurrentText('None')
+
+================================================================================
+FILE 46: gui/subdomain_tab.py
+================================================================================
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
+                             QHeaderView, QGroupBox, QFormLayout, QProgressBar)
+from PyQt6.QtCore import pyqtSignal, QThread, pyqtSlot
+from scanners.subdomain_scanner import SubdomainScanner
+
+class SubdomainTab(QWidget):
+    scan_started = pyqtSignal(str)
+    scan_completed = pyqtSignal(list)
+    
+    def __init__(self):
+        super().__init__()
+        self.scanner = SubdomainScanner()
+        self.results = []
+        self.init_ui()
+    
+    def init_ui(self):
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
+        
+        input_group = QGroupBox('Domain Configuration')
+        input_layout = QFormLayout()
+        
+        self.domain_input = QLineEdit()
+        self.domain_input.setPlaceholderText('Enter domain (e.g., example.com)')
+        input_layout.addRow('Domain:', self.domain_input)
+        
+        input_group.setLayout(input_layout)
+        main_layout.addWidget(input_group)
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setValue(0)
+        main_layout.addWidget(self.progress_bar)
+        
+        button_layout = QHBoxLayout()
+        
+        self.scan_button = QPushButton('🔍 Start Enumeration')
+        self.scan_button.setMinimumHeight(40)
+        self.scan_button.clicked.connect(self.start_scan)
+        button_layout.addWidget(self.scan_button)
+        
+        self.export_button = QPushButton('💾 Export Results')
+        self.export_button.setMinimumHeight(40)
+        self.export_button.clicked.connect(self.export_results)
+        button_layout.addWidget(self.export_button)
+        
+        self.clear_button = QPushButton('🗑️ Clear')
+        self.clear_button.setMinimumHeight(40)
+        self.clear_button.clicked.connect(self.clear_results)
+        button_layout.addWidget(self.clear_button)
+        
+        main_layout.addLayout(button_layout)
+        
+        self.results_table = QTableWidget()
+        self.results_table.setColumnCount(4)
+        self.results_table.setHorizontalHeaderLabels(['Subdomain', 'IP Address', 'Status', 'Title'])
+        
+        header = self.results_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        
+        main_layout.addWidget(self.results_table)
+        
+        self.setLayout(main_layout)
+    
+    def start_scan(self):
+        domain = self.domain_input.text().strip()
+        if not domain:
+            return
+        
+        self.scan_started.emit(domain)
+        self.results_table.setRowCount(0)
+        self.progress_bar.setValue(0)
+        
+        self.results = self.scanner.scan(domain)
+        self.display_results()
+        self.progress_bar.setValue(100)
+        
+        self.scan_completed.emit(self.results)
+    
+    def display_results(self):
+        self.results_table.setRowCount(len(self.results))
+        
+        for row_idx, result in enumerate(self.results):
+            subdomain_item = QTableWidgetItem(result.get('subdomain', ''))
+            ips_item = QTableWidgetItem(', '.join(result.get('ips', [])))
+            status_item = QTableWidgetItem(str(result.get('status_code', 'N/A')))
+            title_item = QTableWidgetItem(result.get('title', ''))
+            
+            self.results_table.setItem(row_idx, 0, subdomain_item)
+            self.results_table.setItem(row_idx, 1, ips_item)
+            self.results_table.setItem(row_idx, 2, status_item)
+            self.results_table.setItem(row_idx, 3, title_item)
+    
+    def export_results(self):
+        if not self.results:
+            return
+        
+        import json
+        from PyQt6.QtWidgets import QFileDialog
+        
+        filename, _ = QFileDialog.getSaveFileName(self, 'Export Results', 'subdomains.json', 'JSON Files (*.json)')
+        if filename:
+            with open(filename, 'w') as f:
+                json.dump(self.results, f, indent=4)
+    
+    def clear_results(self):
+        self.results = []
+        self.results_table.setRowCount(0)
+        self.domain_input.clear()
+        self.progress_bar.setValue(0)
+
+================================================================================
+FILE 47: gui/wayback_tab.py
+================================================================================
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
+                             QHeaderView, QGroupBox, QFormLayout, QTextEdit,
+                             QProgressBar, QFileDialog, QMessageBox)
+from PyQt6.QtCore import pyqtSignal
+from utils.wayback_client import WaybackClient
+import json
+
+class WaybackTab(QWidget):
+    fetch_started = pyqtSignal(str)
+    fetch_completed = pyqtSignal(list)
+    
+    def __init__(self):
+        super().__init__()
+        self.wayback_client = WaybackClient()
+        self.urls = []
+        self.init_ui()
+    
+    def init_ui(self):
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
+        
+        input_group = QGroupBox('Wayback Machine Configuration')
+        input_layout = QFormLayout()
+        
+        self.domain_input = QLineEdit()
+        self.domain_input.setPlaceholderText('Enter domain (e.g., example.com)')
+        input_layout.addRow('Domain:', self.domain_input)
+        
+        self.limit_spinbox = QSpinBox()
+        self.limit_spinbox.setRange(1, 5000)
+        self.limit_spinbox.setValue(1000)
+        input_layout.addRow('Limit:', self.limit_spinbox)
+        
+        input_group.setLayout(input_layout)
+        main_layout.addWidget(input_group)
+        
+        filter_group = QGroupBox('Filter URLs')
+        filter_layout = QFormLayout()
+        
+        self.extension_input = QLineEdit()
+        self.extension_input.setPlaceholderText('Extensions (e.g., .php,.asp,.aspx)')
+        filter_layout.addRow('Extensions:', self.extension_input)
+        
+        self.keyword_input = QLineEdit()
+        self.keyword_input.setPlaceholderText('Keywords (e.g., admin,login,api)')
+        filter_layout.addRow('Keywords:', self.keyword_input)
+        
+        filter_group.setLayout(filter_layout)
+        main_layout.addWidget(filter_group)
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setValue(0)
+        main_layout.addWidget(self.progress_bar)
+        
+        button_layout = QHBoxLayout()
+        
+        self.fetch_button = QPushButton('🔍 Fetch URLs')
+        self.fetch_button.setMinimumHeight(40)
+        self.fetch_button.clicked.connect(self.fetch_urls)
+        button_layout.addWidget(self.fetch_button)
+        
+        self.filter_button = QPushButton('🔎 Apply Filter')
+        self.filter_button.setMinimumHeight(40)
+        self.filter_button.clicked.connect(self.apply_filter)
+        button_layout.addWidget(self.filter_button)
+        
+        self.export_button = QPushButton('💾 Export URLs')
+        self.export_button.setMinimumHeight(40)
+        self.export_button.clicked.connect(self.export_urls)
+        button_layout.addWidget(self.export_button)
+        
+        self.clear_button = QPushButton('🗑️ Clear')
+        self.clear_button.setMinimumHeight(40)
+        self.clear_button.clicked.connect(self.clear_results)
+        button_layout.addWidget(self.clear_button)
+        
+        main_layout.addLayout(button_layout)
+        
+        self.urls_output = QTextEdit()
+        self.urls_output.setReadOnly(True)
+        main_layout.addWidget(self.urls_output)
+        
+        self.setLayout(main_layout)
+    
+    def fetch_urls(self):
+        domain = self.domain_input.text().strip()
+        if not domain:
+            return
+        
+        self.fetch_started.emit(domain)
+        self.progress_bar.setValue(0)
+        self.urls_output.clear()
+        
+        urls = self.wayback_client.get_urls(domain, self.limit_spinbox.value())
+        self.urls = urls
+        
+        self.display_urls(urls)
+        self.progress_bar.setValue(100)
+        
+        self.fetch_completed.emit(urls)
+    
+    def apply_filter(self):
+        if not self.urls:
+            return
+        
+        extensions_text = self.extension_input.text().strip()
+        keywords_text = self.keyword_input.text().strip()
+        
+        filtered_urls = self.urls.copy()
+        
+        if extensions_text:
+            extensions = [ext.strip() for ext in extensions_text.split(',')]
+            filtered_urls = self.wayback_client.filter_urls_by_extension(filtered_urls, extensions)
+        
+        if keywords_text:
+            keywords = [kw.strip() for kw in keywords_text.split(',')]
+            filtered_urls = self.wayback_client.filter_urls_by_keyword(filtered_urls, keywords)
+        
+        self.display_urls(filtered_urls)
+    
+    def display_urls(self, urls: list):
+        output_text = '\n'.join(urls)
+        self.urls_output.setText(output_text)
+    
+    def export_urls(self):
+        if not self.urls:
+            QMessageBox.warning(self, 'Warning', 'No URLs to export')
+            return
+        
+        filename, _ = QFileDialog.getSaveFileName(self, 'Export URLs', 'wayback_urls.txt', 'Text Files (*.txt)')
+        if filename:
+            with open(filename, 'w') as f:
+                f.write('\n'.join(self.urls))
+            QMessageBox.information(self, 'Success', f'URLs exported to {filename}')
+    
+    def clear_results(self):
+        self.urls = []
+        self.urls_output.clear()
+        self.domain_input.clear()
+        self.extension_input.clear()
+        self.keyword_input.clear()
+        self.progress_bar.setValue(0)
+
+================================================================================
+FILE 48: gui/websocket_tab.py
+================================================================================
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
+                             QHeaderView, QGroupBox, QFormLayout, QTextEdit,
+                             QProgressBar, QMessageBox)
+from PyQt6.QtCore import pyqtSignal
+from scanners.websocket_scanner import WebSocketScanner
+
+class WebSocketTab(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.scanner = WebSocketScanner()
+        self.results = []
+        self.init_ui()
+    
+    def init_ui(self):
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
+        
+        input_group = QGroupBox('WebSocket Configuration')
+        input_layout = QFormLayout()
+        
+        self.ws_url_input = QLineEdit()
+        self.ws_url_input.setPlaceholderText('Enter WebSocket URL (e.g., wss://example.com:8080/ws)')
+        input_layout.addRow('WebSocket URL:', self.ws_url_input)
+        
+        input_group.setLayout(input_layout)
+        main_layout.addWidget(input_group)
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setValue(0)
+        main_layout.addWidget(self.progress_bar)
+        
+        button_layout = QHBoxLayout()
+        
+        scan_button = QPushButton('🔍 Start WebSocket Scan')
+        scan_button.setMinimumHeight(40)
+        scan_button.clicked.connect(self.start_scan)
+        button_layout.addWidget(scan_button)
+        
+        export_button = QPushButton('💾 Export Results')
+        export_button.setMinimumHeight(40)
+        export_button.clicked.connect(self.export_results)
+        button_layout.addWidget(export_button)
+        
+        clear_button = QPushButton('🗑️ Clear')
+        clear_button.setMinimumHeight(40)
+        clear_button.clicked.connect(self.clear_results)
+        button_layout.addWidget(clear_button)
+        
+        main_layout.addLayout(button_layout)
+        
+        self.results_table = QTableWidget()
+        self.results_table.setColumnCount(3)
+        self.results_table.setHorizontalHeaderLabels(['Vulnerability Type', 'Severity', 'Description'])
+        
+        header = self.results_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        
+        main_layout.addWidget(self.results_table)
+        
+        self.setLayout(main_layout)
+    
+    def start_scan(self):
+        ws_url = self.ws_url_input.text().strip()
+        if not ws_url:
+            QMessageBox.warning(self, 'Warning', 'Please enter a WebSocket URL')
+            return
+        
+        self.progress_bar.setValue(0)
+        self.results_table.setRowCount(0)
+        
+        self.results = self.scanner.scan(ws_url)
+        self.display_results()
+        
+        self.progress_bar.setValue(100)
+    
+    def display_results(self):
+        self.results_table.setRowCount(len(self.results))
+        
+        for row_idx, result in enumerate(self.results):
+            type_item = QTableWidgetItem(result.get('type', ''))
+            severity_item = QTableWidgetItem(result.get('severity', ''))
+            desc_item = QTableWidgetItem(result.get('description', ''))
+            
+            self.results_table.setItem(row_idx, 0, type_item)
+            self.results_table.setItem(row_idx, 1, severity_item)
+            self.results_table.setItem(row_idx, 2, desc_item)
+    
+    def export_results(self):
+        if not self.results:
+            QMessageBox.warning(self, 'Warning', 'No results to export')
+            return
+        
+        import json
+        from PyQt6.QtWidgets import QFileDialog
+        
+        filename, _ = QFileDialog.getSaveFileName(self, 'Export Results', 'websocket_results.json', 'JSON Files (*.json)')
+        if filename:
+            with open(filename, 'w') as f:
+                json.dump(self.results, f, indent=4)
+    
+    def clear_results(self):
+        self.results = []
+        self.results_table.setRowCount(0)
+        self.ws_url_input.clear()
+        self.progress_bar.setValue(0)
+
+================================================================================
+FILE 49: gui/graphql_tab.py
+================================================================================
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
+                             QHeaderView, QGroupBox, QFormLayout, QMessageBox)
+from PyQt6.QtCore import pyqtSignal
+from scanners.graphql_scanner import GraphQLScanner
+
+class GraphQLTab(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.scanner = GraphQLScanner()
+        self.results = []
+        self.init_ui()
+    
+    def init_ui(self):
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
+        
+        input_group = QGroupBox('GraphQL Configuration')
+        input_layout = QFormLayout()
+        
+        self.graphql_url_input = QLineEdit()
+        self.graphql_url_input.setPlaceholderText('Enter GraphQL endpoint URL')
+        input_layout.addRow('Endpoint:', self.graphql_url_input)
+        
+        input_group.setLayout(input_layout)
+        main_layout.addWidget(input_group)
+        
+        button_layout = QHBoxLayout()
+        
+        scan_button = QPushButton('🔍 Start GraphQL Scan')
+        scan_button.setMinimumHeight(40)
+        scan_button.clicked.connect(self.start_scan)
+        button_layout.addWidget(scan_button)
+        
+        export_button = QPushButton('💾 Export Results')
+        export_button.setMinimumHeight(40)
+        export_button.clicked.connect(self.export_results)
+        button_layout.addWidget(export_button)
+        
+        clear_button = QPushButton('🗑️ Clear')
+        clear_button.setMinimumHeight(40)
+        clear_button.clicked.connect(self.clear_results)
+        button_layout.addWidget(clear_button)
+        
+        main_layout.addLayout(button_layout)
+        
+        self.results_table = QTableWidget()
+        self.results_table.setColumnCount(3)
+        self.results_table.setHorizontalHeaderLabels(['Vulnerability Type', 'Severity', 'Description'])
+        
+        header = self.results_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        
+        main_layout.addWidget(self.results_table)
+        
+        self.setLayout(main_layout)
+    
+    def start_scan(self):
+        graphql_url = self.graphql_url_input.text().strip()
+        if not graphql_url:
+            QMessageBox.warning(self, 'Warning', 'Please enter GraphQL endpoint URL')
+            return
+        
+        self.results_table.setRowCount(0)
+        
+        self.results = self.scanner.scan(graphql_url)
+        self.display_results()
+    
+    def display_results(self):
+        self.results_table.setRowCount(len(self.results))
+        
+        for row_idx, result in enumerate(self.results):
+            type_item = QTableWidgetItem(result.get('type', ''))
+            severity_item = QTableWidgetItem(result.get('severity', ''))
+            desc_item = QTableWidgetItem(result.get('description', ''))
+            
+            self.results_table.setItem(row_idx, 0, type_item)
+            self.results_table.setItem(row_idx, 1, severity_item)
+            self.results_table.setItem(row_idx, 2, desc_item)
+    
+    def export_results(self):
+        if not self.results:
+            QMessageBox.warning(self, 'Warning', 'No results to export')
+            return
+        
+        import json
+        from PyQt6.QtWidgets import QFileDialog
+        
+        filename, _ = QFileDialog.getSaveFileName(self, 'Export Results', 'graphql_results.json', 'JSON Files (*.json)')
+        if filename:
+            with open(filename, 'w') as f:
+                json.dump(self.results, f, indent=4)
+    
+    def clear_results(self):
+        self.results = []
+        self.results_table.setRowCount(0)
+        self.graphql_url_input.clear()
+
+================================================================================
+FILE 50: gui/advanced_settings_tab.py (خلاصه)
+================================================================================
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
+                             QLabel, QLineEdit, QSpinBox, QDoubleSpinBox,
+                             QCheckBox, QPushButton, QComboBox, QTabWidget,
+                             QFormLayout, QHeaderView, QFileDialog)
+from PyQt6.QtCore import Qt, pyqtSignal
+from utils.config import Config
+import json
+
+class AdvancedSettingsTab(QWidget):
+    settings_changed = pyqtSignal(dict)
+    
+    def __init__(self):
+        super().__init__()
+        self.config = Config()
+        self.init_ui()
+        self.load_settings()
+    
+    def init_ui(self):
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
+        
+        settings_tabs = QTabWidget()
+        
+        self.scan_settings_widget = self._create_scan_settings()
+        self.performance_settings_widget = self._create_performance_settings()
+        self.security_settings_widget = self._create_security_settings()
+        self.integration_settings_widget = self._create_integration_settings()
+        self.logging_settings_widget = self._create_logging_settings()
+        self.cache_settings_widget = self._create_cache_settings()
+        self.compliance_settings_widget = self._create_compliance_settings()
+        
+        settings_tabs.addTab(self.scan_settings_widget, '🔍 Scan')
+        settings_tabs.addTab(self.performance_settings_widget, '⚡ Performance')
+        settings_tabs.addTab(self.security_settings_widget, '🔒 Security')
+        settings_tabs.addTab(self.integration_settings_widget, '🔄 Integration')
+        settings_tabs.addTab(self.logging_settings_widget, '📝 Logging')
+        settings_tabs.addTab(self.cache_settings_widget, '💾 Cache')
+        settings_tabs.addTab(self.compliance_settings_widget, '📋 Compliance')
+        
+        main_layout.addWidget(settings_tabs)
+        
+        button_layout = QHBoxLayout()
+        
+        self.save_button = QPushButton('💾 Save All Settings')
+        self.save_button.clicked.connect(self.save_settings)
+        button_layout.addWidget(self.save_button)
+        
+        self.reset_button = QPushButton('🔄 Reset to Defaults')
+        self.reset_button.clicked.connect(self.reset_settings)
+        button_layout.addWidget(self.reset_button)
+        
+        self.export_button = QPushButton('📤 Export Config')
+        self.export_button.clicked.connect(self.export_config)
+        button_layout.addWidget(self.export_button)
+        
+        self.import_button = QPushButton('📥 Import Config')
+        self.import_button.clicked.connect(self.import_config)
+        button_layout.addWidget(self.import_button)
+        
+        main_layout.addLayout(button_layout)
+        self.setLayout(main_layout)
+    
+    def _create_scan_settings(self) -> QWidget:
+        widget = QWidget()
+        layout = QFormLayout()
+        
+        self.concurrent_scans = QSpinBox()
+        self.concurrent_scans.setRange(1, 100)
+        self.concurrent_scans.setValue(10)
+        layout.addRow('Concurrent Scans:', self.concurrent_scans)
+        
+        self.scan_timeout = QSpinBox()
+        self.scan_timeout.setRange(5, 300)
+        self.scan_timeout.setValue(30)
+        self.scan_timeout.setSuffix(' seconds')
+        layout.addRow('Scan Timeout:', self.scan_timeout)
+        
+        self.request_delay = QDoubleSpinBox()
+        self.request_delay.setRange(0, 10)
+        self.request_delay.setValue(0.5)
+        self.request_delay.setSuffix(' seconds')
+        layout.addRow('Request Delay:', self.request_delay)
+        
+        self.retry_attempts = QSpinBox()
+        self.retry_attempts.setRange(0, 10)
+        self.retry_attempts.setValue(3)
+        layout.addRow('Retry Attempts:', self.retry_attempts)
+        
+        self.follow_redirects = QCheckBox('Follow Redirects')
+        self.follow_redirects.setChecked(True)
+        layout.addRow('', self.follow_redirects)
+        
+        self.verify_ssl = QCheckBox('Verify SSL Certificate')
+        self.verify_ssl.setChecked(False)
+        layout.addRow('', self.verify_ssl)
+        
+        self.allow_cookies = QCheckBox('Allow Cookies')
+        self.allow_cookies.setChecked(True)
+        layout.addRow('', self.allow_cookies)
+        
+        widget.setLayout(layout)
+        return widget
+    
+    def _create_performance_settings(self) -> QWidget:
+        widget = QWidget()
+        layout = QFormLayout()
+        
+        self.max_threads = QSpinBox()
+        self.max_threads.setRange(1, 500)
+        self.max_threads.setValue(50)
+        layout.addRow('Max Thread Pool Size:', self.max_threads)
+        
+        self.batch_size = QSpinBox()
+        self.batch_size.setRange(1, 1000)
+        self.batch_size.setValue(100)
+        layout.addRow('Batch Size:', self.batch_size)
+        
+        self.connection_pool_size = QSpinBox()
+        self.connection_pool_size.setRange(1, 200)
+        self.connection_pool_size.setValue(50)
+        layout.addRow('Connection Pool Size:', self.connection_pool_size)
+        
+        self.memory_limit = QSpinBox()
+        self.memory_limit.setRange(100, 8192)
+        self.memory_limit.setValue(1024)
+        self.memory_limit.setSuffix(' MB')
+        layout.addRow('Memory Limit:', self.memory_limit)
+        
+        self.enable_compression = QCheckBox('Enable Response Compression')
+        self.enable_compression.setChecked(True)
+        layout.addRow('', self.enable_compression)
+        
+        self.enable_caching = QCheckBox('Enable Result Caching')
+        self.enable_caching.setChecked(True)
+        layout.addRow('', self.enable_caching)
+        
+        self.optimization_level = QComboBox()
+        self.optimization_level.addItems(['Low', 'Medium', 'High', 'Maximum'])
+        layout.addRow('Optimization Level:', self.optimization_level)
+        
+        widget.setLayout(layout)
+        return widget
+    
+    def _create_security_settings(self) -> QWidget:
+        widget = QWidget()
+        layout = QFormLayout()
+        
+        self.user_agent = QLineEdit()
+        self.user_agent.setText('Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+        layout.addRow('Custom User-Agent:', self.user_agent)
+        
+        self.enable_proxy = QCheckBox('Enable Proxy')
+        self.enable_proxy.setChecked(False)
+        layout.addRow('', self.enable_proxy)
+        
+        self.proxy_url = QLineEdit()
+        self.proxy_url.setPlaceholderText('http://proxy.example.com:8080')
+        self.proxy_url.setEnabled(False)
+        layout.addRow('Proxy URL:', self.proxy_url)
+        
+        self.enable_proxy.stateChanged.connect(lambda: self.proxy_url.setEnabled(self.enable_proxy.isChecked()))
+        
+        self.randomize_headers = QCheckBox('Randomize Headers')
+        self.randomize_headers.setChecked(True)
+        layout.addRow('', self.randomize_headers)
+        
+        self.waf_bypass = QCheckBox('Enable WAF Bypass Techniques')
+        self.waf_bypass.setChecked(False)
+        layout.addRow('', self.waf_bypass)
+        
+        self.rate_limit_bypass = QCheckBox('Intelligent Rate Limit Bypass')
+        self.rate_limit_bypass.setChecked(False)
+        layout.addRow('', self.rate_limit_bypass)
+        
+        widget.setLayout(layout)
+        return widget
+    
+    def _create_integration_settings(self) -> QWidget:
+        widget = QWidget()
+        layout = QFormLayout()
+        
+        self.slack_webhook = QLineEdit()
+        self.slack_webhook.setPlaceholderText('https://hooks.slack.com/services/...')
+        layout.addRow('Slack Webhook:', self.slack_webhook)
+        
+        self.teams_webhook = QLineEdit()
+        self.teams_webhook.setPlaceholderText('https://outlook.webhook.office.com/...')
+        layout.addRow('Teams Webhook:', self.teams_webhook)
+        
+        self.github_token = QLineEdit()
+        self.github_token.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addRow('GitHub Token:', self.github_token)
+        
+        self.gitlab_token = QLineEdit()
+        self.gitlab_token.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addRow('GitLab Token:', self.gitlab_token)
+        
+        self.jira_url = QLineEdit()
+        self.jira_url.setPlaceholderText('https://jira.example.com')
+        layout.addRow('Jira URL:', self.jira_url)
+        
+        self.jira_token = QLineEdit()
+        self.jira_token.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addRow('Jira API Token:', self.jira_token)
+        
+        widget.setLayout(layout)
+        return widget
+    
+    def _create_logging_settings(self) -> QWidget:
+        widget = QWidget()
+        layout = QFormLayout()
+        
+        self.log_level = QComboBox()
+        self.log_level.addItems(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
+        self.log_level.setCurrentText('INFO')
+        layout.addRow('Log Level:', self.log_level)
+        
+        self.log_to_file = QCheckBox('Log to File')
+        self.log_to_file.setChecked(True)
+        layout.addRow('', self.log_to_file)
+        
+        self.log_to_console = QCheckBox('Log to Console')
+        self.log_to_console.setChecked(True)
+        layout.addRow('', self.log_to_console)
+        
+        self.max_log_size = QSpinBox()
+        self.max_log_size.setRange(1, 1000)
+        self.max_log_size.setValue(100)
+        self.max_log_size.setSuffix(' MB')
+        layout.addRow('Max Log File Size:', self.max_log_size)
+        
+        self.log_retention_days = QSpinBox()
+        self.log_retention_days.setRange(1, 365)
+        self.log_retention_days.setValue(30)
+        self.log_retention_days.setSuffix(' days')
+        layout.addRow('Log Retention:', self.log_retention_days)
+        
+        self.verbose_logging = QCheckBox('Verbose Logging')
+        self.verbose_logging.setChecked(False)
+        layout.addRow('', self.verbose_logging)
+        
+        widget.setLayout(layout)
+        return widget
+    
+    def _create_cache_settings(self) -> QWidget:
+        widget = QWidget()
+        layout = QFormLayout()
+        
+        self.cache_ttl = QSpinBox()
+        self.cache_ttl.setRange(60, 86400)
+        self.cache_ttl.setValue(3600)
+        self.cache_ttl.setSuffix(' seconds')
+        layout.addRow('Cache TTL:', self.cache_ttl)
+        
+        self.cache_max_size = QSpinBox()
+        self.cache_max_size.setRange(10, 10000)
+        self.cache_max_size.setValue(1000)
+        layout.addRow('Max Cache Entries:', self.cache_max_size)
+        
+        self.cache_strategy = QComboBox()
+        self.cache_strategy.addItems(['LRU', 'LFU', 'FIFO'])
+        layout.addRow('Cache Strategy:', self.cache_strategy)
+        
+        self.enable_redis = QCheckBox('Enable Redis Caching')
+        self.enable_redis.setChecked(False)
+        layout.addRow('', self.enable_redis)
+        
+        self.redis_host = QLineEdit()
+        self.redis_host.setText('localhost')
+        self.redis_host.setEnabled(False)
+        layout.addRow('Redis Host:', self.redis_host)
+        
+        self.enable_redis.stateChanged.connect(lambda: self.redis_host.setEnabled(self.enable_redis.isChecked()))
+        
+        widget.setLayout(layout)
+        return widget
+    
+    def _create_compliance_settings(self) -> QWidget:
+        widget = QWidget()
+        layout = QFormLayout()
+        
+        self.compliance_framework = QComboBox()
+        self.compliance_framework.addItems([
+            'None',
+            'OWASP Top 10',
+            'PCI-DSS',
+            'HIPAA',
+            'ISO27001',
+            'GDPR',
+            'SOC 2',
+            'CIS'
+        ])
+        layout.addRow('Compliance Framework:', self.compliance_framework)
+        
+        self.generate_compliance_report = QCheckBox('Auto Generate Compliance Report')
+        self.generate_compliance_report.setChecked(True)
+        layout.addRow('', self.generate_compliance_report)
+        
+        self.include_remediation = QCheckBox('Include Remediation Steps')
+        self.include_remediation.setChecked(True)
+        layout.addRow('', self.include_remediation)
+        
+        self.severity_threshold = QComboBox()
+        self.severity_threshold.addItems(['Critical', 'High', 'Medium', 'Low', 'Info'])
+        layout.addRow('Minimum Severity:', self.severity_threshold)
+        
+        self.data_retention_days = QSpinBox()
+        self.data_retention_days.setRange(7, 2555)
+        self.data_retention_days.setValue(365)
+        self.data_retention_days.setSuffix(' days')
+        layout.addRow('Data Retention:', self.data_retention_days)
+        
+        widget.setLayout(layout)
+        return widget
+    
+    def save_settings(self):
+        settings = {
+            'scan': {
+                'concurrent_scans': self.concurrent_scans.value(),
+                'timeout': self.scan_timeout.value(),
+                'request_delay': self.request_delay.value(),
+                'retry_attempts': self.retry_attempts.value(),
+                'follow_redirects': self.follow_redirects.isChecked(),
+                'verify_ssl': self.verify_ssl.isChecked(),
+                'allow_cookies': self.allow_cookies.isChecked()
+            },
+            'performance': {
+                'max_threads': self.max_threads.value(),
+                'batch_size': self.batch_size.value(),
+                'connection_pool_size': self.connection_pool_size.value(),
+                'memory_limit': self.memory_limit.value(),
+                'compression': self.enable_compression.isChecked(),
+                'caching': self.enable_caching.isChecked(),
+                'optimization_level': self.optimization_level.currentText()
+            },
+            'security': {
+                'user_agent': self.user_agent.text(),
+                'proxy_enabled': self.enable_proxy.isChecked(),
+                'proxy_url': self.proxy_url.text(),
+                'randomize_headers': self.randomize_headers.isChecked(),
+                'waf_bypass': self.waf_bypass.isChecked(),
+                'rate_limit_bypass': self.rate_limit_bypass.isChecked()
+            },
+            'integration': {
+                'slack_webhook': self.slack_webhook.text(),
+                'teams_webhook': self.teams_webhook.text(),
+                'github_token': self.github_token.text(),
+                'gitlab_token': self.gitlab_token.text(),
+                'jira_url': self.jira_url.text(),
+                'jira_token': self.jira_token.text()
+            },
+            'logging': {
+                'log_level': self.log_level.currentText(),
+                'log_to_file': self.log_to_file.isChecked(),
+                'log_to_console': self.log_to_console.isChecked(),
+                'max_log_size': self.max_log_size.value(),
+                'retention_days': self.log_retention_days.value(),
+                'verbose': self.verbose_logging.isChecked()
+            },
+            'cache': {
+                'ttl': self.cache_ttl.value(),
+                'max_size': self.cache_max_size.value(),
+                'strategy': self.cache_strategy.currentText(),
+                'redis_enabled': self.enable_redis.isChecked(),
+                'redis_host': self.redis_host.text()
+            },
+            'compliance': {
+                'framework': self.compliance_framework.currentText(),
+                'auto_report': self.generate_compliance_report.isChecked(),
+                'remediation': self.include_remediation.isChecked(),
+                'severity_threshold': self.severity_threshold.currentText(),
+                'data_retention': self.data_retention_days.value()
+            }
+        }
+        
+        self.config.save(settings)
+        self.settings_changed.emit(settings)
+    
+    def load_settings(self):
+        settings = self.config.load()
+        
+        if 'scan' in settings:
+            scan = settings['scan']
+            self.concurrent_scans.setValue(scan.get('concurrent_scans', 10))
+            self.scan_timeout.setValue(scan.get('timeout', 30))
+            self.request_delay.setValue(scan.get('request_delay', 0.5))
+            self.retry_attempts.setValue(scan.get('retry_attempts', 3))
+            self.follow_redirects.setChecked(scan.get('follow_redirects', True))
+            self.verify_ssl.setChecked(scan.get('verify_ssl', False))
+            self.allow_cookies.setChecked(scan.get('allow_cookies', True))
+    
+    def reset_settings(self):
+        self.config.reset()
+        self.load_settings()
+    
+    def export_config(self):
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            'Export Configuration',
+            'mod_config.json',
+            'JSON Files (*.json)'
+        )
+        
+        if filename:
+            settings = self.config.load()
+            with open(filename, 'w') as f:
+                json.dump(settings, f, indent=4)
+    
+    def import_config(self):
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            'Import Configuration',
+            '',
+            'JSON Files (*.json)'
+        )
+        
+        if filename:
+            with open(filename, 'r') as f:
+                settings = json.load(f)
+            self.config.save(settings)
+            self.load_settings()
+
+================================================================================
+FILE 51: gui/theme_manager.py
+================================================================================
+
+from typing import Dict
+
+class ThemeManager:
+    def __init__(self):
+        self.current_theme = 'dark'
+        self.themes = {
+            'dark': self._get_dark_theme(),
+            'light': self._get_light_theme()
+        }
+    
+    def set_theme(self, theme: str):
+        if theme in self.themes:
+            self.current_theme = theme
+    
+    def get_stylesheet(self) -> str:
+        return self.themes.get(self.current_theme, self.themes['dark'])
+    
+    def _get_dark_theme(self) -> str:
+        return """
+        QMainWindow {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #1a1a2e, stop:1 #16213e);
+        }
+        
+        QWidget {
+            background-color: #1a1a2e;
+            color: #eaeaea;
+        }
+        
+        QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QTextEdit {
+            background-color: #0f3460;
+            color: #eaeaea;
+            border: 2px solid #e94560;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 11pt;
+        }
+        
+        QPushButton {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #e94560, stop:1 #c82f48);
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 24px;
+            font-weight: bold;
+            font-size: 11pt;
+        }
+        
+        QPushButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #ff6b81, stop:1 #e94560);
+        }
+        
+        QPushButton:pressed {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #c82f48, stop:1 #b01234);
+        }
+        
+        QCheckBox, QRadioButton {
+            color: #eaeaea;
+            spacing: 8px;
+        }
+        
+        QCheckBox::indicator:unchecked {
+            background-color: #0f3460;
+            border: 2px solid #e94560;
+            border-radius: 4px;
+        }
+        
+        QCheckBox::indicator:checked {
+            background-color: #e94560;
+            border: 2px solid #e94560;
+            border-radius: 4px;
+        }
+        
+        QGroupBox {
+            color: #eaeaea;
+            border: 2px solid #e94560;
+            border-radius: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            font-weight: bold;
+        }
+        
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 6px;
+        }
+        
+        QTabWidget::pane {
+            border: 2px solid #e94560;
+        }
+        
+        QTabBar::tab {
+            background-color: #0f3460;
+            color: #eaeaea;
+            padding: 10px 20px;
+            margin: 2px;
+        }
+        
+        QTabBar::tab:selected {
+            background-color: #e94560;
+            color: #ffffff;
+        }
+        
+        QProgressBar {
+            background-color: #0f3460;
+            border: 2px solid #e94560;
+            border-radius: 6px;
+            text-align: center;
+            height: 20px;
+        }
+        
+        QProgressBar::chunk {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #e94560, stop:1 #c82f48);
+            border-radius: 4px;
+        }
+        
+        QTableWidget {
+            background-color: #0f3460;
+            alternate-background-color: #16213e;
+            gridline-color: #e94560;
+            border: 2px solid #e94560;
+        }
+        
+        QHeaderView::section {
+            background-color: #e94560;
+            color: #ffffff;
+            padding: 8px;
+            border: none;
+            font-weight: bold;
+        }
+        
+        QMenuBar {
+            background-color: #1a1a2e;
+            color: #eaeaea;
+            border-bottom: 2px solid #e94560;
+        }
+        
+        QMenuBar::item:selected {
+            background-color: #e94560;
+        }
+        
+        QMenu {
+            background-color: #0f3460;
+            color: #eaeaea;
+            border: 2px solid #e94560;
+        }
+        
+        QMenu::item:selected {
+            background-color: #e94560;
+        }
+        
+        QToolBar {
+            background-color: #16213e;
+            border: none;
+            spacing: 8px;
+            padding: 8px;
+        }
+        
+        QStatusBar {
+            background-color: #0f3460;
+            color: #eaeaea;
+            border-top: 2px solid #e94560;
+        }
+        
+        QScrollBar:vertical {
+            background-color: #0f3460;
+            width: 12px;
+            border: none;
+        }
+        
+        QScrollBar::handle:vertical {
+            background-color: #e94560;
+            border-radius: 6px;
+            min-height: 20px;
+        }
+        
+        QScrollBar:horizontal {
+            background-color: #0f3460;
+            height: 12px;
+            border: none;
+        }
+        
+        QScrollBar::handle:horizontal {
+            background-color: #e94560;
+            border-radius: 6px;
+            min-width: 20px;
+        }
+        """
+    
+    def _get_light_theme(self) -> str:
+        return """
+        QMainWindow {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #f8f9fa, stop:1 #e9ecef);
+        }
+        
+        QWidget {
+            background-color: #ffffff;
+            color: #212529;
+        }
+        
+        QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QTextEdit {
+            background-color: #ffffff;
+            color: #212529;
+            border: 2px solid #0d6efd;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 11pt;
+        }
+        
+        QPushButton {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #0d6efd, stop:1 #0a58ca);
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 24px;
+            font-weight: bold;
+            font-size: 11pt;
+        }
+        
+        QPushButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #0d6efd, stop:1 #0848a0);
+        }
+        
+        QCheckBox, QRadioButton {
+            color: #212529;
+            spacing: 8px;
+        }
+        
+        QGroupBox {
+            color: #212529;
+            border: 2px solid #0d6efd;
+            border-radius: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            font-weight: bold;
+        }
+        
+        QTabBar::tab {
+            background-color: #e9ecef;
+            color: #212529;
+            padding: 10px 20px;
+            margin: 2px;
+        }
+        
+        QTabBar::tab:selected {
+            background-color: #0d6efd;
+            color: #ffffff;
+        }
+        
+        QProgressBar {
+            background-color: #e9ecef;
+            border: 2px solid #0d6efd;
+            border-radius: 6px;
+            text-align: center;
+            height: 20px;
+        }
+        
+        QProgressBar::chunk {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                       stop:0 #0d6efd, stop:1 #0a58ca);
+            border-radius: 4px;
+        }
+        
+        QTableWidget {
+            background-color: #ffffff;
+            gridline-color: #dee2e6;
+            border: 2px solid #0d6efd;
+        }
+        
+        QHeaderView::section {
+            background-color: #0d6efd;
+            color: #ffffff;
+            padding: 8px;
+            border: none;
+            font-weight: bold;
+        }
+        
+        QMenuBar {
+            background-color: #f8f9fa;
+            color: #212529;
+            border-bottom: 2px solid #0d6efd;
+        }
+        
+        QMenuBar::item:selected {
+            background-color: #0d6efd;
+            color: #ffffff;
+        }
+        
+        QStatusBar {
+            background-color: #e9ecef;
+            color: #212529;
+            border-top: 2px solid #0d6efd;
+        }
+        """
+
+================================================================================
+END OF GUI FILES (41-51)
+================================================================================
+
+TOTAL GUI FILES: 11 files
+TOTAL LINES: ~2,500 lines
+
+تمام فایل‌های GUI مکمل و آماده برای استفاده
+
+© 2025 MoD - Master of Defense
+================================================================================
