@@ -12,6 +12,7 @@ from .advanced_settings_tab import AdvancedSettingsTab
 from .theme_manager import ThemeManager
 from .request_monitor_tab import RequestMonitorTab
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -22,8 +23,6 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(QSize(1400, 900))
     
     def init_ui(self):
-        self.request_monitor_tab = RequestMonitorTab()
-        self.tab_widget.addTab(self.request_monitor_tab, '📡 Request Monitor')
         self.create_menu_bar()
         self.create_toolbar()
         
@@ -38,8 +37,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
         self.tab_widget.setMovable(True)
         self.tab_widget.setTabsClosable(False)
-
-        self.scan_tab.request_sent.connect(self.request_monitor_tab.add_request)
+        
         self.scan_tab = ScanTab()
         self.results_tab = ResultsTab()
         self.subdomain_tab = SubdomainTab()
@@ -47,6 +45,7 @@ class MainWindow(QMainWindow):
         self.auth_tab = AuthTab()
         self.settings_tab = SettingsTab()
         self.advanced_settings_tab = AdvancedSettingsTab()
+        self.request_monitor_tab = RequestMonitorTab()
         
         self.tab_widget.addTab(self.scan_tab, '🎯 Vulnerability Scan')
         self.tab_widget.addTab(self.results_tab, '📊 Results')
@@ -55,6 +54,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.auth_tab, '🔐 Authentication')
         self.tab_widget.addTab(self.settings_tab, '⚙️ Settings')
         self.tab_widget.addTab(self.advanced_settings_tab, '🔧 Advanced')
+        self.tab_widget.addTab(self.request_monitor_tab, '📡 Request Monitor')
         
         layout.addWidget(self.tab_widget)
         
@@ -65,6 +65,7 @@ class MainWindow(QMainWindow):
         self.scan_tab.scan_started.connect(self.on_scan_started)
         self.scan_tab.scan_completed.connect(self.on_scan_completed)
         self.scan_tab.vulnerability_found.connect(self.on_vulnerability_found)
+        self.scan_tab.request_sent.connect(self.request_monitor_tab.add_request)
         
         self.subdomain_tab.scan_started.connect(lambda d: self.status_bar.showMessage(f'Enumerating: {d}'))
         self.subdomain_tab.scan_completed.connect(lambda r: self.status_bar.showMessage(f'Found {len(r)} subdomains'))
