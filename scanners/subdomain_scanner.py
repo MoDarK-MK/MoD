@@ -90,35 +90,45 @@ class DNSResolver:
             answers = self.resolver.resolve(subdomain, 'A')
             ips = [str(rdata) for rdata in answers]
             return True, ips
-        except (dns.exception.Timeout, dns.exception.NXDOMAIN, dns.exception.NoAnswer):
+        except (dns.resolver.Timeout, dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+            return False, []
+        except Exception:
             return False, []
     
     def resolve_aaaa_records(self, subdomain: str) -> List[str]:
         try:
             answers = self.resolver.resolve(subdomain, 'AAAA')
             return [str(rdata) for rdata in answers]
-        except (dns.exception.Timeout, dns.exception.NXDOMAIN, dns.exception.NoAnswer):
+        except (dns.resolver.Timeout, dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+            return []
+        except Exception:
             return []
     
     def resolve_cname(self, subdomain: str) -> Optional[str]:
         try:
             answers = self.resolver.resolve(subdomain, 'CNAME')
             return str(answers[0].target)
-        except (dns.exception.Timeout, dns.exception.NXDOMAIN, dns.exception.NoAnswer):
+        except (dns.resolver.Timeout, dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+            return None
+        except Exception:
             return None
     
     def resolve_mx_records(self, domain: str) -> List[str]:
         try:
             answers = self.resolver.resolve(domain, 'MX')
             return [str(rdata.exchange) for rdata in answers]
-        except (dns.exception.Timeout, dns.exception.NXDOMAIN, dns.exception.NoAnswer):
+        except (dns.resolver.Timeout, dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+            return []
+        except Exception:
             return []
     
     def resolve_txt_records(self, domain: str) -> List[str]:
         try:
             answers = self.resolver.resolve(domain, 'TXT')
             return [str(rdata).replace('"', '') for rdata in answers]
-        except (dns.exception.Timeout, dns.exception.NXDOMAIN, dns.exception.NoAnswer):
+        except (dns.resolver.Timeout, dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+            return []
+        except Exception:
             return []
     
     def attempt_zone_transfer(self, domain: str, nameserver: str) -> Optional[List[str]]:
@@ -130,6 +140,7 @@ class DNSResolver:
             return subdomains
         except Exception:
             return None
+
 
 
 class CDNDetector:
