@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
                              QHeaderView, QGroupBox, QFormLayout, QTextEdit,
-                             QProgressBar, QFileDialog, QMessageBox)
+                             QProgressBar, QFileDialog, QMessageBox, QSpinBox)
 from PyQt6.QtCore import pyqtSignal
 from utils.wayback_client import WaybackClient
 import json
