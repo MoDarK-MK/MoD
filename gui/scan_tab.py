@@ -1,4 +1,4 @@
-# scan_tab.py - بهبود شده برای سرعت
+# scan_tab.py - بهبود شده با Intelligent Scanner
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QCheckBox, QGroupBox,
                              QFormLayout, QSpinBox, QDoubleSpinBox, QProgressBar,
@@ -8,6 +8,7 @@ import requests
 import time
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from core.intelligent_scanner import IntelligentScanner
 
 
 class ScanWorker(QThread):
@@ -117,6 +118,35 @@ class ScanWorker(QThread):
         
         self.status_updated.emit(f'✅ Connected (Status: {base_response["status_code"]})')
         
+        intelligent_scan_types = {'XSS', 'SQL', 'SSTI'}
+        use_intelligent = any(st in intelligent_scan_types for st in self.scan_types)
+        
+        if use_intelligent:
+            self.status_updated.emit('📡 Stage 1: Intelligent Site Mapping...')
+            self.progress_updated.emit(5)
+            
+            try:
+                intelligent_scanner = IntelligentScanner(self.session, self.timeout)
+                intel_vulns = intelligent_scanner.scan_intelligent(self.target_url, max_pages=15)
+                
+                vulnerabilities.extend(intel_vulns)
+                
+                for vuln in intel_vulns:
+                    self.vulnerability_found.emit({
+                        'type': vuln.get('type'),
+                        'severity': f"{int(vuln.get('confidence', 0.5) * 100)}%",
+                        'url': vuln.get('url'),
+                        'evidence': vuln.get('evidence')
+                    })
+                
+                self.status_updated.emit(f'✅ Intelligent Scanner: {len(intel_vulns)} vulnerabilities')
+                self.progress_updated.emit(25)
+                
+            except Exception as e:
+                self.status_updated.emit(f'⚠️ Intelligent Scanner: {str(e)[:50]}')
+        
+        self.status_updated.emit('🔍 Stage 2: Running Traditional Scanners...')
+        
         for idx, scan_type in enumerate(self.scan_types):
             if self.should_stop:
                 break
@@ -166,7 +196,7 @@ class ScanWorker(QThread):
                 
                 self.status_updated.emit(f'✅ {scan_type}: {len(vulns)} vulnerabilities')
                 
-                progress = int((idx + 1) / total_scans * 100)
+                progress = 25 + int((idx + 1) / total_scans * 75)
                 self.progress_updated.emit(progress)
                 
             except Exception as e:
