@@ -1,4 +1,3 @@
-# scan_tab.py - اصلاح شده
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QCheckBox, QGroupBox,
                              QFormLayout, QSpinBox, QDoubleSpinBox, QProgressBar,
