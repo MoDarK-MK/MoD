@@ -2,10 +2,11 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QTableWidgetItem, QPushButton, QHeaderView, QLabel,
                              QLineEdit, QComboBox, QGroupBox, QMessageBox, QTabWidget)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QColor
 from scanners.waf_bypass_engine import WAFBypassEngine, IntelligentPayloadGenerator
 from typing import List, Dict
+import time
 
 
 class WAFBypassThread(QThread):
@@ -21,26 +22,29 @@ class WAFBypassThread(QThread):
         self.vector_type = vector_type
         self.should_stop = False
         self.engine = None
+        self._start_time = 0
     
     def run(self):
         try:
+            self._start_time = time.time()
+            
             self.status_updated.emit(f'⚙️ Initializing WAF Bypass on {self.target_url}')
             self.progress_updated.emit(5)
             
-            self.engine = WAFBypassEngine(self.target_url, timeout=15, max_workers=30)
+            self.engine = WAFBypassEngine(self.target_url, timeout=5, max_workers=100)
             
             self.status_updated.emit('🛡️ Detecting WAF...')
             self.progress_updated.emit(10)
             
             waf_type, confidence = self.engine.detect_waf()
-            self.status_updated.emit(f'✓ WAF Detected: {waf_type} (Confidence: {confidence*100:.0f}%)')
+            self.status_updated.emit(f'✓ WAF Detected: {waf_type} ({confidence*100:.0f}%)')
             self.progress_updated.emit(20)
             
-            self.status_updated.emit('📊 Getting baseline response...')
+            self.status_updated.emit('📊 Getting baseline...')
             self.engine.get_baseline_response()
             self.progress_updated.emit(30)
             
-            self.status_updated.emit(f'🚀 Starting Unlimited WAF Bypass with {self.vector_type} payloads...')
+            self.status_updated.emit(f'🚀 Starting Unlimited WAF Bypass - {self.vector_type}')
             self.progress_updated.emit(40)
             
             bypass_counter = 0
@@ -55,38 +59,64 @@ class WAFBypassThread(QThread):
                     unlimited=True
                 )
                 
-                for payload in payloads:
-                    if self.should_stop:
-                        break
+                from concurrent.futures import ThreadPoolExecutor, as_completed
+                
+                with ThreadPoolExecutor(max_workers=100) as executor:
+                    futures = {}
                     
-                    for injection_point in ['query', 'path']:
+                    for payload in payloads:
                         if self.should_stop:
                             break
                         
-                        result = self.engine.test_payload(payload, injection_point)
-                        test_counter += 1
+                        for injection_point in ['query', 'path']:
+                            if self.should_stop:
+                                break
+                            
+                            future = executor.submit(
+                                self.engine.test_payload_fast,
+                                payload,
+                                injection_point
+                            )
+                            futures[future] = (payload, injection_point)
+                    
+                    for future in as_completed(futures):
+                        if self.should_stop:
+                            executor.shutdown(wait=False)
+                            break
                         
-                        self.test_payload_live.emit(result)
+                        try:
+                            result = future.result(timeout=5)
+                            test_counter += 1
+                            
+                            self.test_payload_live.emit(result)
+                            
+                            if result['is_bypassed']:
+                                self.bypass_found.emit(result)
+                                bypass_counter += 1
+                                
+                            elapsed = time.time() - self._start_time
+                            speed = test_counter / max(elapsed, 1)
+                            
+                            if test_counter % 5 == 0:
+                                self.status_updated.emit(f'🔥 {bypass_counter} bypassed | {test_counter} tested | Speed: {speed:.1f}/s')
+                            
+                            if test_counter % 20 == 0:
+                                self.progress_updated.emit(min(40 + (test_counter % 50), 95))
                         
-                        if result['is_bypassed']:
-                            self.bypass_found.emit(result)
-                            bypass_counter += 1
-                            self.status_updated.emit(f'🔥 Found {bypass_counter} bypasses... (Tested {test_counter} payloads)')
-                        
-                        if test_counter % 10 == 0:
-                            self.progress_updated.emit(min(40 + (test_counter % 50), 95))
+                        except Exception:
+                            continue
                 
                 if self.should_stop:
                     break
                 
-                self.status_updated.emit(f'🔄 Generating new mutations... ({bypass_counter} bypassed, {test_counter} tested)')
+                self.status_updated.emit(f'🔄 Mutations: {bypass_counter} bypassed')
             
             self.progress_updated.emit(100)
-            self.status_updated.emit(f'⏹️ Bypass Stopped - {bypass_counter} Bypassed / {test_counter} Tested')
+            self.status_updated.emit(f'⏹️ Complete: {bypass_counter}/{test_counter}')
             self.bypass_completed.emit([])
             
         except Exception as e:
-            self.status_updated.emit(f'❌ Error: {str(e)}')
+            self.status_updated.emit(f'❌ Error: {str(e)[:50]}')
             self.bypass_completed.emit([])
     
     def stop(self):
@@ -109,7 +139,7 @@ class WAFBypassTab(QWidget):
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
         
-        title = QLabel('🔥 WAF BYPASS ENGINE - Real-Time Live Testing')
+        title = QLabel('🔥 WAF BYPASS ENGINE - Real-Time Fast Testing')
         title.setStyleSheet("""
             QLabel {
                 font-size: 22pt;
@@ -120,7 +150,7 @@ class WAFBypassTab(QWidget):
         """)
         main_layout.addWidget(title)
         
-        subtitle = QLabel('Enterprise-Grade Real-Time Payload Monitoring & Unlimited WAF Evasion')
+        subtitle = QLabel('Ultra-Fast Real-Time Payload Testing & Unlimited WAF Bypass')
         subtitle.setStyleSheet("""
             QLabel {
                 font-size: 10pt;
@@ -156,7 +186,7 @@ class WAFBypassTab(QWidget):
         url_layout.addWidget(url_label)
         
         self.target_input = QLineEdit()
-        self.target_input.setPlaceholderText('https://target.com/vulnerable?param=value')
+        self.target_input.setPlaceholderText('https://target.com/vulnerable')
         self.target_input.setMinimumHeight(40)
         self.target_input.setStyleSheet("""
             QLineEdit {
@@ -178,7 +208,7 @@ class WAFBypassTab(QWidget):
         
         options_layout = QHBoxLayout()
         
-        vector_label = QLabel('🎯 ATTACK VECTOR:')
+        vector_label = QLabel('🎯 VECTOR:')
         vector_label.setStyleSheet('color: #c9d1d9; font-weight: bold;')
         options_layout.addWidget(vector_label)
         
@@ -198,26 +228,6 @@ class WAFBypassTab(QWidget):
         """)
         options_layout.addWidget(self.vector_combo)
         
-        mode_label = QLabel('📊 MODE:')
-        mode_label.setStyleSheet('color: #c9d1d9; font-weight: bold;')
-        options_layout.addWidget(mode_label)
-        
-        self.mode_combo = QComboBox()
-        self.mode_combo.addItems(['Unlimited', 'Limited'])
-        self.mode_combo.setCurrentText('Unlimited')
-        self.mode_combo.setMinimumHeight(36)
-        self.mode_combo.setStyleSheet("""
-            QComboBox {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 2px solid #f85149;
-                border-radius: 4px;
-                padding: 6px 10px;
-                font-weight: bold;
-            }
-        """)
-        options_layout.addWidget(self.mode_combo)
-        
         options_layout.addStretch()
         config_layout.addLayout(options_layout)
         
@@ -226,7 +236,7 @@ class WAFBypassTab(QWidget):
         
         button_layout = QHBoxLayout()
         
-        self.start_button = QPushButton('▶️ START TESTING')
+        self.start_button = QPushButton('▶️ START')
         self.start_button.setMinimumHeight(50)
         self.start_button.clicked.connect(self.start_bypass)
         self.start_button.setStyleSheet("""
@@ -319,9 +329,13 @@ class WAFBypassTab(QWidget):
         self.tested_label.setStyleSheet('color: #58a6ff; font-weight: bold;')
         stats_layout.addWidget(self.tested_label)
         
-        self.success_rate = QLabel('📈 SUCCESS RATE: 0%')
+        self.success_rate = QLabel('📈 SUCCESS: 0%')
         self.success_rate.setStyleSheet('color: #2ea043; font-weight: bold;')
         stats_layout.addWidget(self.success_rate)
+        
+        self.speed_label = QLabel('⚡ SPEED: 0/s')
+        self.speed_label.setStyleSheet('color: #58a6ff; font-weight: bold;')
+        stats_layout.addWidget(self.speed_label)
         
         stats_layout.addStretch()
         status_layout.addLayout(stats_layout)
@@ -356,18 +370,16 @@ class WAFBypassTab(QWidget):
         self.results_table = QTableWidget()
         self.results_table.setColumnCount(6)
         self.results_table.setHorizontalHeaderLabels([
-            'Payload', 'Injection Point', 'Status', 'Confidence', 'Response Time', 'Technique'
+            'Payload', 'Injection', 'Status', 'Confidence', 'Time', 'Technique'
         ])
         
         header = self.results_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        for i in range(1, 6):
+            header.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
         
         self.results_table.setAlternatingRowColors(True)
+        self.results_table.setMaximumHeight(400)
         self.results_table.setStyleSheet("""
             QTableWidget {
                 background: #0d1117;
@@ -378,7 +390,7 @@ class WAFBypassTab(QWidget):
                 color: #c9d1d9;
             }
             QTableWidget::item {
-                padding: 8px;
+                padding: 4px;
             }
             QTableWidget::item:selected {
                 background: #f85149;
@@ -387,7 +399,7 @@ class WAFBypassTab(QWidget):
             QHeaderView::section {
                 background: #161b22;
                 color: #2ea043;
-                padding: 8px;
+                padding: 6px;
                 border: none;
                 border-right: 1px solid #2ea043;
                 font-weight: bold;
@@ -402,7 +414,7 @@ class WAFBypassTab(QWidget):
         self.all_tests_table = QTableWidget()
         self.all_tests_table.setColumnCount(7)
         self.all_tests_table.setHorizontalHeaderLabels([
-            'Payload', 'Injection', 'Status', 'HTTP Code', 'Response Time', 'Blocked', 'Detection'
+            'Payload', 'Injection', 'Status', 'Code', 'Time', 'Blocked', 'Detection'
         ])
         
         header2 = self.all_tests_table.horizontalHeader()
@@ -421,8 +433,8 @@ class WAFBypassTab(QWidget):
                 color: #c9d1d9;
             }
             QTableWidget::item {
-                padding: 6px;
-                font-size: 9pt;
+                padding: 4px;
+                font-size: 8pt;
             }
             QTableWidget::item:selected {
                 background: #1f6feb;
@@ -431,7 +443,7 @@ class WAFBypassTab(QWidget):
             QHeaderView::section {
                 background: #161b22;
                 color: #58a6ff;
-                padding: 8px;
+                padding: 6px;
                 border: none;
                 border-right: 1px solid #58a6ff;
                 font-weight: bold;
@@ -440,8 +452,8 @@ class WAFBypassTab(QWidget):
         
         all_tests_layout.addWidget(self.all_tests_table)
         
-        tabs.addTab(successful_tab, '✓ Successful Bypasses')
-        tabs.addTab(all_tests_tab, '📊 All Tests (Live)')
+        tabs.addTab(successful_tab, '✓ Bypassed')
+        tabs.addTab(all_tests_tab, '📊 All Tests')
         
         main_layout.addWidget(tabs, 1)
         
@@ -451,7 +463,7 @@ class WAFBypassTab(QWidget):
         target = self.target_input.text().strip()
         
         if not target:
-            QMessageBox.warning(self, 'Error', 'Please enter target URL')
+            QMessageBox.warning(self, 'Error', 'Enter target URL')
             return
         
         if not target.startswith('http'):
@@ -463,7 +475,6 @@ class WAFBypassTab(QWidget):
         self.stop_button.setEnabled(True)
         self.target_input.setEnabled(False)
         self.vector_combo.setEnabled(False)
-        self.mode_combo.setEnabled(False)
         
         self.results_table.setRowCount(0)
         self.all_tests_table.setRowCount(0)
@@ -486,8 +497,7 @@ class WAFBypassTab(QWidget):
         self.stop_button.setEnabled(False)
         self.target_input.setEnabled(True)
         self.vector_combo.setEnabled(True)
-        self.mode_combo.setEnabled(True)
-        self.status_label.setText('⏹️ Testing stopped by user')
+        self.status_label.setText('⏹️ Stopped')
     
     def clear_all(self):
         self.results_table.setRowCount(0)
@@ -496,8 +506,9 @@ class WAFBypassTab(QWidget):
         self.tested_payloads.clear()
         self.bypassed_label.setText('✓ BYPASSED: 0')
         self.tested_label.setText('📊 TESTED: 0')
-        self.success_rate.setText('📈 SUCCESS RATE: 0%')
-        self.status_label.setText('🟢 Ready for Testing')
+        self.success_rate.setText('📈 SUCCESS: 0%')
+        self.speed_label.setText('⚡ SPEED: 0/s')
+        self.status_label.setText('🟢 Ready')
     
     def update_status(self, text: str):
         self.status_label.setText(text)
@@ -506,111 +517,123 @@ class WAFBypassTab(QWidget):
             parts = text.split(': ')
             if len(parts) > 1:
                 self.waf_label.setText(f"🛡️ {parts[1]}")
+        
+        if 'Speed:' in text:
+            try:
+                speed_part = text.split('Speed: ')[1].split('/')[0]
+                self.speed_label.setText(f'⚡ SPEED: {speed_part}/s')
+            except:
+                pass
     
     def add_all_test(self, result: dict):
         self.tested_payloads.append(result)
         
+        if len(self.all_tests_table) > 1000:
+            self.all_tests_table.removeRow(0)
+        
         row = self.all_tests_table.rowCount()
         self.all_tests_table.insertRow(row)
         
-        payload_item = QTableWidgetItem(result['payload'][:60])
-        payload_item.setFont(QFont('Courier New', 8))
+        payload_item = QTableWidgetItem(result['payload'][:50])
+        payload_item.setFont(QFont('Courier New', 7))
         self.all_tests_table.setItem(row, 0, payload_item)
         
-        injection_item = QTableWidgetItem(result['injection_point'])
-        injection_item.setFont(QFont('Arial', 9))
+        injection_item = QTableWidgetItem(result['injection_point'][:6])
+        injection_item.setFont(QFont('Arial', 8))
         self.all_tests_table.setItem(row, 1, injection_item)
         
-        status_text = '✓ BYPASSED' if result['is_bypassed'] else '✗ BLOCKED'
+        status_text = '✓' if result['is_bypassed'] else '✗'
         status_color = '#2ea043' if result['is_bypassed'] else '#d1242f'
         status_item = QTableWidgetItem(status_text)
-        status_item.setFont(QFont('Arial', 9, QFont.Weight.Bold))
+        status_item.setFont(QFont('Arial', 8, QFont.Weight.Bold))
         status_item.setForeground(QColor(status_color))
         self.all_tests_table.setItem(row, 2, status_item)
         
-        code_item = QTableWidgetItem(str(result.get('response_status', 'N/A')))
-        code_item.setFont(QFont('Arial', 9))
+        code_item = QTableWidgetItem(str(result.get('response_status', '-')))
+        code_item.setFont(QFont('Arial', 8))
         self.all_tests_table.setItem(row, 3, code_item)
         
-        time_item = QTableWidgetItem(f"{result['response_time']:.3f}s")
-        time_item.setFont(QFont('Arial', 9))
+        time_item = QTableWidgetItem(f"{result['response_time']:.2f}s")
+        time_item.setFont(QFont('Arial', 8))
         self.all_tests_table.setItem(row, 4, time_item)
         
-        blocked_text = 'Yes' if result['is_blocked'] else 'No'
+        blocked_text = 'Y' if result['is_blocked'] else 'N'
         blocked_color = '#f85149' if result['is_blocked'] else '#2ea043'
         blocked_item = QTableWidgetItem(blocked_text)
-        blocked_item.setFont(QFont('Arial', 9))
+        blocked_item.setFont(QFont('Arial', 8))
         blocked_item.setForeground(QColor(blocked_color))
         self.all_tests_table.setItem(row, 5, blocked_item)
         
-        signals = ', '.join(result['detection_signals'][:1]) if result['detection_signals'] else 'None'
-        detection_item = QTableWidgetItem(signals[:50])
-        detection_item.setFont(QFont('Arial', 8))
+        signals = result['detection_signals'][0][:30] if result['detection_signals'] else 'OK'
+        detection_item = QTableWidgetItem(signals)
+        detection_item.setFont(QFont('Arial', 7))
         detection_item.setForeground(QColor('#d29922'))
         self.all_tests_table.setItem(row, 6, detection_item)
         
         self.tested_label.setText(f'📊 TESTED: {len(self.tested_payloads)}')
         self.update_success_rate()
         
-        self.all_tests_table.scrollToBottom()
+        if row % 50 == 0:
+            self.all_tests_table.scrollToBottom()
     
     def add_bypass(self, bypass_data: dict):
         self.bypassed_payloads.append(bypass_data)
         
+        if len(self.results_table) > 500:
+            self.results_table.removeRow(0)
+        
         row = self.results_table.rowCount()
         self.results_table.insertRow(row)
         
-        payload_item = QTableWidgetItem(bypass_data['payload'][:70])
-        payload_item.setFont(QFont('Courier New', 8))
+        payload_item = QTableWidgetItem(bypass_data['payload'][:60])
+        payload_item.setFont(QFont('Courier New', 7))
         self.results_table.setItem(row, 0, payload_item)
         
         injection_item = QTableWidgetItem(bypass_data['injection_point'])
-        injection_item.setFont(QFont('Arial', 9))
+        injection_item.setFont(QFont('Arial', 8))
         injection_item.setForeground(QColor('#f85149'))
         self.results_table.setItem(row, 1, injection_item)
         
-        status_item = QTableWidgetItem('✓ BYPASSED')
+        status_item = QTableWidgetItem('✓')
         status_item.setFont(QFont('Arial', 10, QFont.Weight.Bold))
         status_item.setForeground(QColor('#2ea043'))
         self.results_table.setItem(row, 2, status_item)
         
         confidence_item = QTableWidgetItem(f"{bypass_data['confidence']*100:.0f}%")
-        confidence_item.setFont(QFont('Arial', 9))
+        confidence_item.setFont(QFont('Arial', 8))
         confidence_item.setForeground(QColor('#58a6ff'))
         self.results_table.setItem(row, 3, confidence_item)
         
-        time_item = QTableWidgetItem(f"{bypass_data['response_time']:.3f}s")
-        time_item.setFont(QFont('Arial', 9))
+        time_item = QTableWidgetItem(f"{bypass_data['response_time']:.2f}s")
+        time_item.setFont(QFont('Arial', 8))
         self.results_table.setItem(row, 4, time_item)
         
-        technique_item = QTableWidgetItem(bypass_data.get('technique_used', 'Unknown'))
-        technique_item.setFont(QFont('Arial', 8))
+        technique_item = QTableWidgetItem(bypass_data.get('technique_used', 'N/A')[:20])
+        technique_item.setFont(QFont('Arial', 7))
         technique_item.setForeground(QColor('#d29922'))
         self.results_table.setItem(row, 5, technique_item)
         
         self.bypassed_label.setText(f'✓ BYPASSED: {len(self.bypassed_payloads)}')
         self.update_success_rate()
         
-        self.results_table.scrollToBottom()
+        if row % 20 == 0:
+            self.results_table.scrollToBottom()
     
     def update_success_rate(self):
         if self.tested_payloads:
             rate = (len(self.bypassed_payloads) / len(self.tested_payloads)) * 100
-            self.success_rate.setText(f'📈 SUCCESS RATE: {rate:.1f}%')
+            self.success_rate.setText(f'📈 SUCCESS: {rate:.1f}%')
     
     def bypass_finished(self, results: list):
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
         self.target_input.setEnabled(True)
         self.vector_combo.setEnabled(True)
-        self.mode_combo.setEnabled(True)
         
         QMessageBox.information(
             self,
-            'Testing Complete',
-            f'🎉 WAF Bypass Testing Finished!\n\n'
-            f'✓ Successful Bypasses: {len(self.bypassed_payloads)}\n'
-            f'📊 Total Tested: {len(self.tested_payloads)}\n'
-            f'📈 Success Rate: {(len(self.bypassed_payloads)/max(len(self.tested_payloads),1)*100):.1f}%\n\n'
-            f'💾 View results in the tabs'
+            'Complete',
+            f'✓ Bypassed: {len(self.bypassed_payloads)}\n'
+            f'📊 Tested: {len(self.tested_payloads)}\n'
+            f'📈 Success: {(len(self.bypassed_payloads)/max(len(self.tested_payloads),1)*100):.1f}%'
         )
