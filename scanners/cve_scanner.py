@@ -1,4 +1,3 @@
-# scanners/cve_scanner.py
 from typing import List, Dict, Optional, Tuple
 import requests
 import re
