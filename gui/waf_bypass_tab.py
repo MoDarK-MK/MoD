@@ -38,15 +38,18 @@ class WAFBypassThread(QThread):
             self.engine.get_baseline_response()
             self.progress_updated.emit(20)
             
-            self.status_updated.emit(f'🚀 Starting {self.vector_type}')
+            self.status_updated.emit(f'🚀 Starting Unlimited {self.vector_type}')
             self.progress_updated.emit(30)
             
             bypass_counter = 0
             test_counter = 0
+            iteration = 0
             
             while not self.should_stop:
                 if self.should_stop:
                     break
+                
+                iteration += 1
                 
                 payloads = IntelligentPayloadGenerator.generate_intelligent_payloads(
                     self.vector_type,
@@ -88,7 +91,7 @@ class WAFBypassThread(QThread):
                             if test_counter % 10 == 0:
                                 elapsed = time.time() - self._start_time
                                 speed = test_counter / max(elapsed, 1)
-                                self.status_updated.emit(f'🔥 {bypass_counter} | {test_counter} | {speed:.1f}/s')
+                                self.status_updated.emit(f'🔥 {bypass_counter} | {test_counter} | {speed:.1f}/s | Iter: {iteration}')
                                 self.progress_updated.emit(min(30 + (test_counter % 60), 95))
                         
                         except Exception:
@@ -98,7 +101,7 @@ class WAFBypassThread(QThread):
                     break
             
             self.progress_updated.emit(100)
-            self.status_updated.emit(f'⏹️ {bypass_counter}/{test_counter}')
+            self.status_updated.emit(f'⏹️ Complete: {bypass_counter}/{test_counter}')
             self.bypass_completed.emit([])
         
         except Exception as e:
@@ -125,7 +128,7 @@ class WAFBypassTab(QWidget):
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
         
-        title = QLabel('🔥 WAF BYPASS - Ultra Fast')
+        title = QLabel('🔥 WAF BYPASS - Unlimited')
         title.setStyleSheet("""
             QLabel {
                 font-size: 22pt;
@@ -404,6 +407,7 @@ class WAFBypassTab(QWidget):
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
         self.target_input.setEnabled(True)
+        self.status_label.setText('⏹️ Stopped by user')
     
     def clear_all(self):
         self.results_table.setRowCount(0)
@@ -421,7 +425,8 @@ class WAFBypassTab(QWidget):
         if '/' in text and '|' in text:
             try:
                 parts = text.split('|')
-                self.speed_label.setText(f"⚡ {parts[2].strip().split('/')[0]}/s")
+                speed = parts[2].strip().split('/')[0]
+                self.speed_label.setText(f"⚡ {speed}/s")
             except:
                 pass
     
@@ -453,6 +458,9 @@ class WAFBypassTab(QWidget):
         
         self.tested_label.setText(f'📊 {len(self.tested_payloads)}')
         self.update_success_rate()
+        
+        if row % 50 == 0:
+            self.all_tests_table.scrollToBottom()
     
     def add_bypass(self, bypass_data: dict):
         self.bypassed_payloads.append(bypass_data)
@@ -480,6 +488,9 @@ class WAFBypassTab(QWidget):
         
         self.bypassed_label.setText(f'✓ {len(self.bypassed_payloads)}')
         self.update_success_rate()
+        
+        if row % 20 == 0:
+            self.results_table.scrollToBottom()
     
     def update_success_rate(self):
         if self.tested_payloads:
@@ -494,7 +505,7 @@ class WAFBypassTab(QWidget):
         QMessageBox.information(
             self,
             'Complete',
-            f'✓ {len(self.bypassed_payloads)}\n'
-            f'📊 {len(self.tested_payloads)}\n'
-            f'📈 {len(self.bypassed_payloads)/max(len(self.tested_payloads),1)*100:.1f}%'
+            f'✓ Bypassed: {len(self.bypassed_payloads)}\n'
+            f'📊 Tested: {len(self.tested_payloads)}\n'
+            f'📈 Success Rate: {len(self.bypassed_payloads)/max(len(self.tested_payloads),1)*100:.1f}%'
         )
