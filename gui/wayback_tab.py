@@ -60,11 +60,6 @@ class WaybackTab(QWidget):
     fetch_started = pyqtSignal(str)
     fetch_completed = pyqtSignal(list)
     
-    def clear_urls(self):
-        self.urls.clear()
-        self.results_table.setRowCount(0)
-        self.count_label.setText('URLs Found: 0')
-        self.status_label.setText('URL list cleared')
     def __init__(self):
         super().__init__()
         self.fetch_thread = None
@@ -73,25 +68,6 @@ class WaybackTab(QWidget):
     
     def init_ui(self):
         button_layout = QHBoxLayout()
-        clear_button = QPushButton('CLEAR')
-        clear_button.setMinimumHeight(50)
-        clear_button.clicked.connect(self.clear_urls)
-        clear_button.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                        stop:0 #da3633, stop:1 #962314);
-                color: white;
-                border: 2px solid #f85149;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 13pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                        stop:0 #f85149, stop:1 #da3633);
-            }
-        """)
-        button_layout.addWidget(clear_button)
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
@@ -294,6 +270,26 @@ class WaybackTab(QWidget):
             }
         """)
         
+        clear_button = QPushButton('CLEAR')
+        clear_button.setMinimumHeight(50)
+        clear_button.clicked.connect(self.clear_urls)
+        clear_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                        stop:0 #da3633, stop:1 #962314);
+                color: white;
+                border: 2px solid #f85149;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 13pt;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                        stop:0 #f85149, stop:1 #da3633);
+            }
+        """)
+        button_layout.addWidget(clear_button)
+
         results_layout = QVBoxLayout()
         
         self.results_table = QTableWidget()
@@ -338,7 +334,13 @@ class WaybackTab(QWidget):
         main_layout.addWidget(results_group, 1)
         
         self.setLayout(main_layout)
-    
+
+    def clear_urls(self):
+        self.urls.clear()
+        self.results_table.setRowCount(0)
+        self.count_label.setText('URLs Found: 0')
+        self.status_label.setText('URL list cleared')
+
     def start_fetch(self):
         domain = self.domain_input.text().strip()
         
