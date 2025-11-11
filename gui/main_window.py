@@ -1,3 +1,4 @@
+# gui/main_window.py
 from PyQt6.QtWidgets import (QMainWindow, QTabWidget, QVBoxLayout, 
                              QWidget, QStatusBar, QMenuBar, QMenu, QToolBar, QMessageBox, QSizePolicy)
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
@@ -11,6 +12,7 @@ from .wayback_tab import WaybackTab
 from .advanced_settings_tab import AdvancedSettingsTab
 from .theme_manager import ThemeManager
 from .request_monitor_tab import RequestMonitorTab
+from .cve_scanner_tab import CVEScannerTab
 
 
 class MainWindow(QMainWindow):
@@ -40,21 +42,23 @@ class MainWindow(QMainWindow):
         
         self.scan_tab = ScanTab()
         self.results_tab = ResultsTab()
+        self.cve_scanner_tab = CVEScannerTab()
         self.subdomain_tab = SubdomainTab()
         self.wayback_tab = WaybackTab()
         self.auth_tab = AuthTab()
+        self.request_monitor_tab = RequestMonitorTab()
         self.settings_tab = SettingsTab()
         self.advanced_settings_tab = AdvancedSettingsTab()
-        self.request_monitor_tab = RequestMonitorTab()
         
         self.tab_widget.addTab(self.scan_tab, '🎯 Vulnerability Scan')
         self.tab_widget.addTab(self.results_tab, '📊 Results')
+        self.tab_widget.addTab(self.cve_scanner_tab, '🔍 CVE Scanner')
+        self.tab_widget.addTab(self.request_monitor_tab, '📡 Request Monitor')
         self.tab_widget.addTab(self.subdomain_tab, '🌐 Subdomain Enum')
         self.tab_widget.addTab(self.wayback_tab, '⏰ Wayback URLs')
         self.tab_widget.addTab(self.auth_tab, '🔐 Authentication')
         self.tab_widget.addTab(self.settings_tab, '⚙️ Settings')
         self.tab_widget.addTab(self.advanced_settings_tab, '🔧 Advanced')
-        self.tab_widget.addTab(self.request_monitor_tab, '📡 Request Monitor')
         
         layout.addWidget(self.tab_widget)
         
@@ -87,6 +91,11 @@ class MainWindow(QMainWindow):
         new_scan_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.scan_tab))
         file_menu.addAction(new_scan_action)
         
+        new_cve_scan = QAction('New &CVE Scan', self)
+        new_cve_scan.setShortcut('Ctrl+Shift+C')
+        new_cve_scan.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.cve_scanner_tab))
+        file_menu.addAction(new_cve_scan)
+        
         file_menu.addSeparator()
         
         export_action = QAction('&Export Results', self)
@@ -113,6 +122,16 @@ class MainWindow(QMainWindow):
         
         tools_menu = menubar.addMenu('&Tools')
         
+        cve_scanner_action = QAction('🔍 CVE Scanner', self)
+        cve_scanner_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.cve_scanner_tab))
+        tools_menu.addAction(cve_scanner_action)
+        
+        request_monitor_action = QAction('📡 Request Monitor', self)
+        request_monitor_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.request_monitor_tab))
+        tools_menu.addAction(request_monitor_action)
+        
+        tools_menu.addSeparator()
+        
         subdomain_action = QAction('🌐 Subdomain Scanner', self)
         subdomain_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.subdomain_tab))
         tools_menu.addAction(subdomain_action)
@@ -138,9 +157,21 @@ class MainWindow(QMainWindow):
         
         toolbar.addSeparator()
         
+        cve_scan_action = QAction('🔍 CVE Scan', self)
+        cve_scan_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.cve_scanner_tab))
+        toolbar.addAction(cve_scan_action)
+        
+        toolbar.addSeparator()
+        
         results_action = QAction('📊 Results', self)
         results_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.results_tab))
         toolbar.addAction(results_action)
+        
+        toolbar.addSeparator()
+        
+        monitor_action = QAction('📡 Monitor', self)
+        monitor_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.request_monitor_tab))
+        toolbar.addAction(monitor_action)
         
         toolbar.addSeparator()
         
@@ -196,9 +227,13 @@ class MainWindow(QMainWindow):
             'with modern UI/UX design\n\n'
             '© 2025 MoD Security Team\n\n'
             'Features:\n'
-            '• 15 Vulnerability Scanners\n'
+            '• 15+ Vulnerability Scanners\n'
+            '• 50+ CVE Detection\n'
+            '• Real-time Request Monitor\n'
             '• Multi-threaded Scanning\n'
             '• Advanced Authentication\n'
             '• Real-time Reporting\n'
-            '• Integration Support'
+            '• Dark/Light Theme\n'
+            '• Enterprise Grade Security\n\n'
+            'Professional Security Assessment Tool'
         )
