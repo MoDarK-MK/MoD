@@ -525,61 +525,61 @@ class WAFBypassTab(QWidget):
             except:
                 pass
     
-    def add_all_test(self, result: dict):
-        self.tested_payloads.append(result)
-        
-        if len(self.all_tests_table) > 1000:
-            self.all_tests_table.removeRow(0)
-        
-        row = self.all_tests_table.rowCount()
-        self.all_tests_table.insertRow(row)
-        
-        payload_item = QTableWidgetItem(result['payload'][:50])
-        payload_item.setFont(QFont('Courier New', 7))
-        self.all_tests_table.setItem(row, 0, payload_item)
-        
-        injection_item = QTableWidgetItem(result['injection_point'][:6])
-        injection_item.setFont(QFont('Arial', 8))
-        self.all_tests_table.setItem(row, 1, injection_item)
-        
-        status_text = '✓' if result['is_bypassed'] else '✗'
-        status_color = '#2ea043' if result['is_bypassed'] else '#d1242f'
-        status_item = QTableWidgetItem(status_text)
-        status_item.setFont(QFont('Arial', 8, QFont.Weight.Bold))
-        status_item.setForeground(QColor(status_color))
-        self.all_tests_table.setItem(row, 2, status_item)
-        
-        code_item = QTableWidgetItem(str(result.get('response_status', '-')))
-        code_item.setFont(QFont('Arial', 8))
-        self.all_tests_table.setItem(row, 3, code_item)
-        
-        time_item = QTableWidgetItem(f"{result['response_time']:.2f}s")
-        time_item.setFont(QFont('Arial', 8))
-        self.all_tests_table.setItem(row, 4, time_item)
-        
-        blocked_text = 'Y' if result['is_blocked'] else 'N'
-        blocked_color = '#f85149' if result['is_blocked'] else '#2ea043'
-        blocked_item = QTableWidgetItem(blocked_text)
-        blocked_item.setFont(QFont('Arial', 8))
-        blocked_item.setForeground(QColor(blocked_color))
-        self.all_tests_table.setItem(row, 5, blocked_item)
-        
-        signals = result['detection_signals'][0][:30] if result['detection_signals'] else 'OK'
-        detection_item = QTableWidgetItem(signals)
-        detection_item.setFont(QFont('Arial', 7))
-        detection_item.setForeground(QColor('#d29922'))
-        self.all_tests_table.setItem(row, 6, detection_item)
-        
-        self.tested_label.setText(f'📊 TESTED: {len(self.tested_payloads)}')
-        self.update_success_rate()
-        
-        if row % 50 == 0:
-            self.all_tests_table.scrollToBottom()
+        def add_all_test(self, result: dict):
+            self.tested_payloads.append(result)
+            
+            if self.all_tests_table.rowCount() > 1000:
+                self.all_tests_table.removeRow(0)
+            
+            row = self.all_tests_table.rowCount()
+            self.all_tests_table.insertRow(row)
+            
+            payload_item = QTableWidgetItem(result['payload'][:50])
+            payload_item.setFont(QFont('Courier New', 7))
+            self.all_tests_table.setItem(row, 0, payload_item)
+            
+            injection_item = QTableWidgetItem(result['injection_point'][:6])
+            injection_item.setFont(QFont('Arial', 8))
+            self.all_tests_table.setItem(row, 1, injection_item)
+            
+            status_text = '✓' if result['is_bypassed'] else '✗'
+            status_color = '#2ea043' if result['is_bypassed'] else '#d1242f'
+            status_item = QTableWidgetItem(status_text)
+            status_item.setFont(QFont('Arial', 8, QFont.Weight.Bold))
+            status_item.setForeground(QColor(status_color))
+            self.all_tests_table.setItem(row, 2, status_item)
+            
+            code_item = QTableWidgetItem(str(result.get('response_status', '-')))
+            code_item.setFont(QFont('Arial', 8))
+            self.all_tests_table.setItem(row, 3, code_item)
+            
+            time_item = QTableWidgetItem(f"{result['response_time']:.2f}s")
+            time_item.setFont(QFont('Arial', 8))
+            self.all_tests_table.setItem(row, 4, time_item)
+            
+            blocked_text = 'Y' if result['is_blocked'] else 'N'
+            blocked_color = '#f85149' if result['is_blocked'] else '#2ea043'
+            blocked_item = QTableWidgetItem(blocked_text)
+            blocked_item.setFont(QFont('Arial', 8))
+            blocked_item.setForeground(QColor(blocked_color))
+            self.all_tests_table.setItem(row, 5, blocked_item)
+            
+            signals = result['detection_signals'][0][:30] if result['detection_signals'] else 'OK'
+            detection_item = QTableWidgetItem(signals)
+            detection_item.setFont(QFont('Arial', 7))
+            detection_item.setForeground(QColor('#d29922'))
+            self.all_tests_table.setItem(row, 6, detection_item)
+            
+            self.tested_label.setText(f'📊 TESTED: {len(self.tested_payloads)}')
+            self.update_success_rate()
+            
+            if row % 50 == 0:
+                self.all_tests_table.scrollToBottom()
     
     def add_bypass(self, bypass_data: dict):
         self.bypassed_payloads.append(bypass_data)
         
-        if len(self.results_table) > 500:
+        if self.results_table.rowCount() > 500:
             self.results_table.removeRow(0)
         
         row = self.results_table.rowCount()
