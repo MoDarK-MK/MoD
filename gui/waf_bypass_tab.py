@@ -91,14 +91,13 @@ class WAFBypassThread(QThread):
                             result = future.result(timeout=1)
                             test_counter += 1
                             
-                            if result['response_status'] != 0:
-                                self.test_payload_live.emit(result)
+                            self.test_payload_live.emit(result)
                             
                             if result['is_bypassed']:
                                 self.bypass_found.emit(result)
                                 bypass_counter += 1
                             
-                            if test_counter % 20 == 0:
+                            if test_counter % 10 == 0:
                                 elapsed = time.time() - self._start_time
                                 speed = test_counter / max(elapsed, 1)
                                 self.status_updated.emit(f'🔥 {bypass_counter}|{test_counter}|{speed:.1f}/s|G{iteration}')
@@ -434,35 +433,44 @@ class WAFBypassTab(QWidget):
         self.status_label.setText(text)
     
     def add_all_test(self, result: dict):
+        if not result or result.get('payload') is None:
+            return
+        
         self.tested_payloads.append(result)
         
-        if self.all_tests_table.rowCount() >= 1000:
+        if self.all_tests_table.rowCount() >= 2000:
             self.all_tests_table.removeRow(0)
         
         row = self.all_tests_table.rowCount()
         self.all_tests_table.insertRow(row)
         
-        items = [
-            result['payload'][:40],
-            str(result.get('response_status', '-')),
-            f"{result['response_time']:.2f}s",
-            'Y' if result['is_blocked'] else 'N',
-            '✓' if result['is_bypassed'] else '✗',
-            result['detection_signals'][0][:20] if result['detection_signals'] else '-'
-        ]
+        payload_text = str(result.get('payload', ''))[:40]
+        code_text = str(result.get('response_status', '-'))
+        time_text = f"{float(result.get('response_time', 0)):.3f}s"
+        blocked_text = 'Y' if result.get('is_blocked', False) else 'N'
+        status_text = '✓' if result.get('is_bypassed', False) else '✗'
+        signal_text = result.get('detection_signals', [''])[0][:20] if result.get('detection_signals') else '-'
+        
+        items = [payload_text, code_text, time_text, blocked_text, status_text, signal_text]
         
         for i, text in enumerate(items):
-            item = QTableWidgetItem(text)
+            item = QTableWidgetItem(str(text))
             item.setFont(QFont('Arial', 7))
             if i == 4:
-                color = '#2ea043' if result['is_bypassed'] else '#d1242f'
+                color = '#2ea043' if result.get('is_bypassed', False) else '#d1242f'
                 item.setForeground(QColor(color))
             self.all_tests_table.setItem(row, i, item)
         
         self.tested_label.setText(f'📊 {len(self.tested_payloads)}')
         self.update_success_rate()
+        
+        if row % 100 == 0:
+            self.all_tests_table.scrollToBottom()
     
     def add_bypass(self, bypass_data: dict):
+        if not bypass_data or bypass_data.get('payload') is None:
+            return
+        
         self.bypassed_payloads.append(bypass_data)
         
         if self.results_table.rowCount() >= 500:
@@ -471,16 +479,16 @@ class WAFBypassTab(QWidget):
         row = self.results_table.rowCount()
         self.results_table.insertRow(row)
         
-        items = [
-            bypass_data['payload'][:50],
-            bypass_data['injection_point'],
-            f"{bypass_data['confidence']*100:.0f}%",
-            f"{bypass_data['response_time']:.2f}s",
-            '✓ BYPASSED'
-        ]
+        payload_text = str(bypass_data.get('payload', ''))[:50]
+        injection_text = str(bypass_data.get('injection_point', ''))
+        confidence_text = f"{float(bypass_data.get('confidence', 0))*100:.0f}%"
+        time_text = f"{float(bypass_data.get('response_time', 0)):.3f}s"
+        status_text = '✓ BYPASSED'
+        
+        items = [payload_text, injection_text, confidence_text, time_text, status_text]
         
         for i, text in enumerate(items):
-            item = QTableWidgetItem(text)
+            item = QTableWidgetItem(str(text))
             item.setFont(QFont('Arial', 8))
             if i == 4:
                 item.setForeground(QColor('#2ea043'))
@@ -488,6 +496,9 @@ class WAFBypassTab(QWidget):
         
         self.bypassed_label.setText(f'✓ {len(self.bypassed_payloads)}')
         self.update_success_rate()
+        
+        if row % 20 == 0:
+            self.results_table.scrollToBottom()
     
     def update_success_rate(self):
         if self.tested_payloads:
