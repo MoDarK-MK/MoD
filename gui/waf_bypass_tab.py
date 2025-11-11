@@ -38,41 +38,50 @@ class WAFBypassThread(QThread):
             self.engine.get_baseline_response()
             self.progress_updated.emit(20)
             
-            self.status_updated.emit(f'🚀 Starting Unlimited {self.vector_type}')
+            self.status_updated.emit(f'🚀 Smart Unlimited {self.vector_type}')
             self.progress_updated.emit(30)
             
             bypass_counter = 0
             test_counter = 0
             iteration = 0
             
+            payload_generator = IntelligentPayloadGenerator.generate_smart_payloads(self.vector_type)
+            
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            
+            batch_size = 100
+            
             while not self.should_stop:
-                if self.should_stop:
-                    break
-                
                 iteration += 1
                 
-                payloads = IntelligentPayloadGenerator.generate_intelligent_payloads(
-                    self.vector_type,
-                    unlimited=True
-                )
+                payloads_batch = []
+                for _ in range(batch_size):
+                    if self.should_stop:
+                        break
+                    try:
+                        payload = next(payload_generator)
+                        if payload not in self.engine.payload_cache:
+                            self.engine.payload_cache.add(payload)
+                            payloads_batch.append(payload)
+                    except:
+                        break
                 
-                from concurrent.futures import ThreadPoolExecutor, as_completed
+                if not payloads_batch:
+                    continue
                 
                 with ThreadPoolExecutor(max_workers=50) as executor:
                     futures = []
                     
-                    for payload in payloads:
+                    for payload in payloads_batch:
                         if self.should_stop:
                             break
                         
-                        if payload not in self.engine.payload_cache:
-                            self.engine.payload_cache.add(payload)
-                            future = executor.submit(
-                                self.engine.test_payload_fast,
-                                payload,
-                                'query'
-                            )
-                            futures.append(future)
+                        future = executor.submit(
+                            self.engine.test_payload_fast,
+                            payload,
+                            'query'
+                        )
+                        futures.append(future)
                     
                     for future in as_completed(futures, timeout=2):
                         if self.should_stop:
@@ -91,7 +100,7 @@ class WAFBypassThread(QThread):
                             if test_counter % 10 == 0:
                                 elapsed = time.time() - self._start_time
                                 speed = test_counter / max(elapsed, 1)
-                                self.status_updated.emit(f'🔥 {bypass_counter} | {test_counter} | {speed:.1f}/s | Iter: {iteration}')
+                                self.status_updated.emit(f'🔥 {bypass_counter} | {test_counter} | {speed:.1f}/s | Gen: {iteration}')
                                 self.progress_updated.emit(min(30 + (test_counter % 60), 95))
                         
                         except Exception:
@@ -101,7 +110,7 @@ class WAFBypassThread(QThread):
                     break
             
             self.progress_updated.emit(100)
-            self.status_updated.emit(f'⏹️ Complete: {bypass_counter}/{test_counter}')
+            self.status_updated.emit(f'⏹️ Smart Complete: {bypass_counter}/{test_counter}')
             self.bypass_completed.emit([])
         
         except Exception as e:
@@ -128,7 +137,7 @@ class WAFBypassTab(QWidget):
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
         
-        title = QLabel('🔥 WAF BYPASS - Unlimited')
+        title = QLabel('🔥 SMART WAF BYPASS - Intelligent Generator')
         title.setStyleSheet("""
             QLabel {
                 font-size: 22pt;
@@ -206,7 +215,7 @@ class WAFBypassTab(QWidget):
         
         button_layout = QHBoxLayout()
         
-        self.start_button = QPushButton('▶️ START')
+        self.start_button = QPushButton('▶️ START SMART')
         self.start_button.setMinimumHeight(45)
         self.start_button.clicked.connect(self.start_bypass)
         self.start_button.setStyleSheet("""
@@ -407,7 +416,7 @@ class WAFBypassTab(QWidget):
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
         self.target_input.setEnabled(True)
-        self.status_label.setText('⏹️ Stopped by user')
+        self.status_label.setText('⏹️ Stopped')
     
     def clear_all(self):
         self.results_table.setRowCount(0)
@@ -422,13 +431,6 @@ class WAFBypassTab(QWidget):
     
     def update_status(self, text: str):
         self.status_label.setText(text)
-        if '/' in text and '|' in text:
-            try:
-                parts = text.split('|')
-                speed = parts[2].strip().split('/')[0]
-                self.speed_label.setText(f"⚡ {speed}/s")
-            except:
-                pass
     
     def add_all_test(self, result: dict):
         self.tested_payloads.append(result)
@@ -458,9 +460,6 @@ class WAFBypassTab(QWidget):
         
         self.tested_label.setText(f'📊 {len(self.tested_payloads)}')
         self.update_success_rate()
-        
-        if row % 50 == 0:
-            self.all_tests_table.scrollToBottom()
     
     def add_bypass(self, bypass_data: dict):
         self.bypassed_payloads.append(bypass_data)
@@ -488,9 +487,6 @@ class WAFBypassTab(QWidget):
         
         self.bypassed_label.setText(f'✓ {len(self.bypassed_payloads)}')
         self.update_success_rate()
-        
-        if row % 20 == 0:
-            self.results_table.scrollToBottom()
     
     def update_success_rate(self):
         if self.tested_payloads:
