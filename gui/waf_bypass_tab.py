@@ -525,7 +525,7 @@ class WAFBypassTab(QWidget):
             except:
                 pass
     
-        def add_all_test(self, result: dict):
+    def add_all_test(self, result: dict):
             self.tested_payloads.append(result)
             
             if self.all_tests_table.rowCount() > 1000:
