@@ -94,13 +94,14 @@ class IntelligentPayloadGenerator:
 class WAFDetector:
     
     @staticmethod
-    def detect_waf(target_url: str, timeout: int = 2) -> Tuple[str, float]:
+    def detect_waf(target_url: str, timeout: int = 1) -> Tuple[str, float]:
         try:
             response = requests.get(
                 target_url,
                 timeout=timeout,
                 verify=False,
-                stream=True
+                stream=True,
+                allow_redirects=False
             )
             response.close()
             return ('Generic WAF', 0.5)
@@ -110,7 +111,7 @@ class WAFDetector:
 
 class WAFBypassEngine:
     
-    def __init__(self, target_url: str, timeout: int = 2, max_workers: int = 50):
+    def __init__(self, target_url: str, timeout: int = 1, max_workers: int = 50):
         self.target_url = target_url.rstrip('/')
         self.timeout = timeout
         self.max_workers = max_workers
@@ -124,9 +125,13 @@ class WAFBypassEngine:
         session = requests.Session()
         
         adapter = requests.adapters.HTTPAdapter(
-            pool_connections=100,
-            pool_maxsize=100,
-            max_retries=0
+            pool_connections=200,
+            pool_maxsize=200,
+            max_retries=requests.adapters.Retry(
+                total=0,
+                backoff_factor=0,
+                status_forcelist=[]
+            )
         )
         session.mount('http://', adapter)
         session.mount('https://', adapter)
@@ -134,6 +139,7 @@ class WAFBypassEngine:
         session.headers.update({
             'User-Agent': 'Mozilla/5.0',
             'Connection': 'keep-alive',
+            'Accept-Encoding': 'gzip',
         })
         session.verify = False
         session.trust_env = False
@@ -141,14 +147,16 @@ class WAFBypassEngine:
         return session
     
     def detect_waf(self) -> Tuple[str, float]:
-        return WAFDetector.detect_waf(self.target_url, 2)
+        return WAFDetector.detect_waf(self.target_url, 1)
     
     def get_baseline_response(self) -> Optional[Dict]:
         try:
             response = self.session.get(
                 self.target_url,
-                timeout=2,
-                verify=False
+                timeout=1,
+                verify=False,
+                stream=True,
+                allow_redirects=False
             )
             response.close()
             return {'status_code': response.status_code}
@@ -177,19 +185,24 @@ class WAFBypassEngine:
                 url = f"{self.target_url}/{payload}"
             
             start = time.time()
+            
             response = self.session.get(
                 url,
-                timeout=1,
+                timeout=0.5,
                 verify=False,
-                allow_redirects=False
+                allow_redirects=False,
+                stream=True
             )
+            
+            response.raw.read(128)
+            
             elapsed = time.time() - start
             response.close()
             
             result['response_status'] = response.status_code
             result['response_time'] = elapsed
             
-            if response.status_code in [200, 201]:
+            if response.status_code in [200, 201, 204]:
                 result['is_bypassed'] = True
                 result['confidence'] = 0.8
                 self.bypass_count += 1
@@ -202,10 +215,13 @@ class WAFBypassEngine:
         except requests.Timeout:
             result['is_blocked'] = True
             result['detection_signals'].append('Timeout')
-            result['response_time'] = 1.0
+            result['response_time'] = 0.5
+            return result
+        except requests.ConnectionError:
+            result['response_time'] = 0.1
             return result
         except Exception as e:
-            result['response_time'] = 1.0
+            result['response_time'] = 0.1
             return result
     
     def adaptive_bypass_unlimited(self, vector_type: str = 'XSS') -> List[Dict]:
@@ -215,7 +231,7 @@ class WAFBypassEngine:
         successful = []
         payload_generator = IntelligentPayloadGenerator.generate_smart_payloads(vector_type)
         
-        batch_size = 100
+        batch_size = 50
         
         while not self.should_stop:
             payloads_batch = []
@@ -244,12 +260,12 @@ class WAFBypassEngine:
                     future = executor.submit(self.test_payload_fast, payload, 'query')
                     futures.append(future)
                 
-                for future in as_completed(futures):
+                for future in as_completed(futures, timeout=1):
                     if self.should_stop:
                         break
                     
                     try:
-                        result = future.result(timeout=2)
+                        result = future.result(timeout=1)
                         if result['is_bypassed']:
                             successful.append(result)
                     except:

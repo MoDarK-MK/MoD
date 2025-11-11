@@ -28,17 +28,17 @@ class WAFBypassThread(QThread):
         try:
             self._start_time = time.time()
             
-            self.status_updated.emit('⚙️ Initializing...')
+            self.status_updated.emit('⚙️ Init...')
             self.progress_updated.emit(5)
             
-            self.engine = WAFBypassEngine(self.target_url, timeout=2, max_workers=50)
+            self.engine = WAFBypassEngine(self.target_url, timeout=1, max_workers=50)
             
-            self.status_updated.emit('🛡️ Detecting WAF...')
+            self.status_updated.emit('🛡️ WAF...')
             self.engine.detect_waf()
             self.engine.get_baseline_response()
             self.progress_updated.emit(20)
             
-            self.status_updated.emit(f'🚀 Smart Unlimited {self.vector_type}')
+            self.status_updated.emit(f'🚀 Smart {self.vector_type}')
             self.progress_updated.emit(30)
             
             bypass_counter = 0
@@ -49,7 +49,7 @@ class WAFBypassThread(QThread):
             
             from concurrent.futures import ThreadPoolExecutor, as_completed
             
-            batch_size = 100
+            batch_size = 50
             
             while not self.should_stop:
                 iteration += 1
@@ -83,24 +83,25 @@ class WAFBypassThread(QThread):
                         )
                         futures.append(future)
                     
-                    for future in as_completed(futures, timeout=2):
+                    for future in as_completed(futures, timeout=1):
                         if self.should_stop:
                             break
                         
                         try:
-                            result = future.result(timeout=2)
+                            result = future.result(timeout=1)
                             test_counter += 1
                             
-                            self.test_payload_live.emit(result)
+                            if result['response_status'] != 0:
+                                self.test_payload_live.emit(result)
                             
                             if result['is_bypassed']:
                                 self.bypass_found.emit(result)
                                 bypass_counter += 1
                             
-                            if test_counter % 10 == 0:
+                            if test_counter % 20 == 0:
                                 elapsed = time.time() - self._start_time
                                 speed = test_counter / max(elapsed, 1)
-                                self.status_updated.emit(f'🔥 {bypass_counter} | {test_counter} | {speed:.1f}/s | Gen: {iteration}')
+                                self.status_updated.emit(f'🔥 {bypass_counter}|{test_counter}|{speed:.1f}/s|G{iteration}')
                                 self.progress_updated.emit(min(30 + (test_counter % 60), 95))
                         
                         except Exception:
@@ -110,11 +111,11 @@ class WAFBypassThread(QThread):
                     break
             
             self.progress_updated.emit(100)
-            self.status_updated.emit(f'⏹️ Smart Complete: {bypass_counter}/{test_counter}')
+            self.status_updated.emit(f'⏹️ {bypass_counter}/{test_counter}')
             self.bypass_completed.emit([])
         
         except Exception as e:
-            self.status_updated.emit(f'❌ {str(e)[:40]}')
+            self.status_updated.emit(f'❌ {str(e)[:30]}')
             self.bypass_completed.emit([])
     
     def stop(self):
@@ -137,7 +138,7 @@ class WAFBypassTab(QWidget):
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
         
-        title = QLabel('🔥 SMART WAF BYPASS - Intelligent Generator')
+        title = QLabel('🔥 FAST WAF BYPASS')
         title.setStyleSheet("""
             QLabel {
                 font-size: 22pt;
@@ -215,7 +216,7 @@ class WAFBypassTab(QWidget):
         
         button_layout = QHBoxLayout()
         
-        self.start_button = QPushButton('▶️ START SMART')
+        self.start_button = QPushButton('▶️ START')
         self.start_button.setMinimumHeight(45)
         self.start_button.clicked.connect(self.start_bypass)
         self.start_button.setStyleSheet("""
@@ -503,5 +504,5 @@ class WAFBypassTab(QWidget):
             'Complete',
             f'✓ Bypassed: {len(self.bypassed_payloads)}\n'
             f'📊 Tested: {len(self.tested_payloads)}\n'
-            f'📈 Success Rate: {len(self.bypassed_payloads)/max(len(self.tested_payloads),1)*100:.1f}%'
+            f'📈 Rate: {len(self.bypassed_payloads)/max(len(self.tested_payloads),1)*100:.1f}%'
         )
