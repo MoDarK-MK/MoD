@@ -23,7 +23,11 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.theme_manager = ThemeManager()
-        self.scan_stats = {'total_scans': 0, 'vulnerabilities_found': 0, 'bypassed_wafs': 0}
+        self.scan_stats = {
+            'total_scans': 0,
+            'vulnerabilities_found': 0,
+            'bypassed_wafs': 0
+        }
         self.init_ui()
         self.apply_theme()
         self.setWindowTitle('MoD - Master of Defense v4.0 Enterprise | The Ultimate Pentesting Suite')
@@ -45,36 +49,6 @@ class MainWindow(QMainWindow):
         self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
         self.tab_widget.setMovable(True)
         self.tab_widget.setTabsClosable(False)
-        self.tab_widget.setStyleSheet("""
-            QTabWidget::pane {
-                border: 2px solid #30363d;
-                background: #0d1117;
-                border-radius: 8px;
-            }
-            QTabBar::tab {
-                background: #161b22;
-                color: #8b949e;
-                padding: 12px 24px;
-                margin-right: 4px;
-                border: 2px solid #30363d;
-                border-bottom: none;
-                font-weight: bold;
-                font-size: 11pt;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-            }
-            QTabBar::tab:hover {
-                background: #21262d;
-                color: #c9d1d9;
-                border: 2px solid #58a6ff;
-            }
-            QTabBar::tab:selected {
-                background: #0d1117;
-                color: #58a6ff;
-                border: 2px solid #1f6feb;
-                border-bottom: none;
-            }
-        """)
         
         self.scan_tab = ScanTab()
         self.results_tab = ResultsTab()
@@ -120,36 +94,6 @@ class MainWindow(QMainWindow):
     
     def create_menu_bar(self):
         menubar = self.menuBar()
-        menubar.setStyleSheet("""
-            QMenuBar {
-                background: #161b22;
-                color: #c9d1d9;
-                padding: 4px;
-                border-bottom: 2px solid #30363d;
-            }
-            QMenuBar::item {
-                background: transparent;
-                padding: 8px 12px;
-                border-radius: 4px;
-            }
-            QMenuBar::item:selected {
-                background: #1f6feb;
-                color: white;
-            }
-            QMenu {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-            }
-            QMenu::item {
-                padding: 8px 24px;
-            }
-            QMenu::item:selected {
-                background: #1f6feb;
-                color: white;
-            }
-        """)
         
         file_menu = menubar.addMenu('&File')
         
@@ -184,15 +128,11 @@ class MainWindow(QMainWindow):
         
         view_menu = menubar.addMenu('&View')
         
-        dark_theme_action = QAction('🌙 Dark Theme', self)
-        dark_theme_action.setShortcut('Ctrl+D')
-        dark_theme_action.triggered.connect(lambda: self.on_theme_changed('dark'))
-        view_menu.addAction(dark_theme_action)
-        
-        light_theme_action = QAction('☀️ Light Theme', self)
-        light_theme_action.setShortcut('Ctrl+L')
-        light_theme_action.triggered.connect(lambda: self.on_theme_changed('light'))
-        view_menu.addAction(light_theme_action)
+        themes = self.theme_manager.get_available_themes()
+        for theme in themes:
+            theme_action = QAction(f'🎨 {theme.replace("_", " ").title()}', self)
+            theme_action.triggered.connect(lambda checked, t=theme: self.on_theme_changed(t))
+            view_menu.addAction(theme_action)
         
         view_menu.addSeparator()
         
@@ -246,19 +186,6 @@ class MainWindow(QMainWindow):
     def create_toolbar(self):
         toolbar = QToolBar()
         toolbar.setMovable(False)
-        toolbar.setStyleSheet("""
-            QToolBar {
-                background: #161b22;
-                border-bottom: 2px solid #30363d;
-                padding: 8px;
-                spacing: 8px;
-            }
-            QToolBar::separator {
-                background: #30363d;
-                width: 2px;
-                margin: 0 8px;
-            }
-        """)
         self.addToolBar(toolbar)
         
         scan_action = QAction('🎯 Vuln Scan', self)
@@ -334,17 +261,6 @@ class MainWindow(QMainWindow):
     def create_status_bar(self):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.setStyleSheet("""
-            QStatusBar {
-                background: #161b22;
-                color: #c9d1d9;
-                border-top: 2px solid #30363d;
-                padding: 6px;
-            }
-            QStatusBar::item {
-                border: none;
-            }
-        """)
         
         status_widget = QWidget()
         status_layout = QHBoxLayout(status_widget)
@@ -416,7 +332,7 @@ class MainWindow(QMainWindow):
     def on_theme_changed(self, theme: str):
         self.theme_manager.set_theme(theme)
         self.apply_theme()
-        self.update_status(f'🎨 Theme changed to {theme.title()}', '#d29922')
+        self.update_status(f'🎨 Theme changed to {theme.replace("_", " ").title()}', '#d29922')
     
     def on_settings_changed(self, settings: dict):
         api_key = settings.get('api_key', '')
@@ -512,8 +428,8 @@ class MainWindow(QMainWindow):
             '   • Session Management\n'
             '   • Multi-auth Support\n\n'
             '⚙️ Enterprise Grade\n'
-            '   • Professional UI/UX\n'
-            '   • Dark/Light Themes\n'
+            '   • 11 Professional Themes\n'
+            '   • Dark/Light Support\n'
             '   • Export Capabilities\n'
             '   • Zero False Positives\n\n'
             '══════════════════════════════\n'
@@ -521,61 +437,3 @@ class MainWindow(QMainWindow):
             '   Built by Security Experts\n'
             '══════════════════════════════'
         )
-
-
-class ThemeManager:
-    
-    def __init__(self):
-        self.current_theme = 'dark'
-    
-    def set_theme(self, theme: str):
-        self.current_theme = theme
-    
-    def get_stylesheet(self) -> str:
-        if self.current_theme == 'dark':
-            return """
-                QMainWindow {
-                    background: #0d1117;
-                    color: #c9d1d9;
-                }
-                QWidget {
-                    background: #0d1117;
-                    color: #c9d1d9;
-                    font-family: 'Segoe UI', Arial;
-                }
-                QPushButton {
-                    background: #21262d;
-                    color: #c9d1d9;
-                    border: 1px solid #30363d;
-                    border-radius: 6px;
-                    padding: 8px 16px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background: #30363d;
-                    border: 1px solid #58a6ff;
-                }
-                QLineEdit, QTextEdit, QComboBox {
-                    background: #161b22;
-                    color: #c9d1d9;
-                    border: 1px solid #30363d;
-                    border-radius: 4px;
-                    padding: 6px;
-                }
-                QTableWidget {
-                    background: #0d1117;
-                    alternate-background-color: #161b22;
-                    gridline-color: #30363d;
-                }
-            """
-        else:
-            return """
-                QMainWindow {
-                    background: #ffffff;
-                    color: #24292f;
-                }
-                QWidget {
-                    background: #ffffff;
-                    color: #24292f;
-                }
-            """
