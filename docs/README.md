@@ -126,5 +126,11 @@ Verify installation
 python scanner.py --version
 
 ---
-### Stars
+### 🌟 Support the Project
+
+Love MOD? Give us a ⭐ on GitHub!
+
 [![Star History Chart](https://api.star-history.com/svg?repos=MoDarK-MK/MoD&type=date&legend=top-left)](https://www.star-history.com/#MoDarK-MK/MoD&type=date&legend=top-left)
+
+
+
