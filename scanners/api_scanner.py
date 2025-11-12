@@ -94,13 +94,15 @@ class APIEndpointDiscovery:
         '/internal/', '/api/internal/',
     ]
     
+    _api_pattern = re.compile(r'(["\']?)(/api/[a-zA-Z0-9/_-]+)\1')
+    _graphql_pattern = re.compile(r'(query|mutation|subscription)\s*{[^}]*}')
+    _param_pattern = re.compile(r'\{([a-zA-Z_][a-zA-Z0-9_]*)\}|:([a-zA-Z_][a-zA-Z0-9_]*)')
+    
     @staticmethod
     def discover_endpoints(response_content: str, base_url: str) -> List[APIEndpoint]:
         endpoints = []
         
-        api_pattern = r'(["\']?)(/api/[a-zA-Z0-9/_-]+)\1'
-        matches = re.findall(api_pattern, response_content)
-        
+        matches = APIEndpointDiscovery._api_pattern.findall(response_content)
         for match in matches:
             path = match[1] if isinstance(match, tuple) else match
             endpoint = APIEndpoint(
@@ -110,8 +112,7 @@ class APIEndpointDiscovery:
             )
             endpoints.append(endpoint)
         
-        graphql_pattern = r'(query|mutation|subscription)\s*{[^}]*}'
-        if re.search(graphql_pattern, response_content):
+        if APIEndpointDiscovery._graphql_pattern.search(response_content):
             endpoints.append(APIEndpoint(
                 path='/graphql',
                 method='POST',
@@ -122,30 +123,26 @@ class APIEndpointDiscovery:
     
     @staticmethod
     def extract_parameters_from_endpoint(endpoint_path: str) -> List[str]:
-        param_pattern = r'\{([a-zA-Z_][a-zA-Z0-9_]*)\}|:([a-zA-Z_][a-zA-Z0-9_]*)'
-        matches = re.findall(param_pattern, endpoint_path)
+        matches = APIEndpointDiscovery._param_pattern.findall(endpoint_path)
         return [m[0] or m[1] for m in matches]
 
 
 class AuthenticationAnalyzer:
     @staticmethod
     def detect_authentication_method(response_headers: Dict, response_content: str) -> AuthenticationMethod:
-        auth_header = response_headers.get('Authorization', '')
+        auth_header = response_headers.get('Authorization', '').lower()
         www_authenticate = response_headers.get('WWW-Authenticate', '').lower()
         
-        if 'bearer' in auth_header.lower():
+        if 'bearer' in auth_header or 'bearer' in www_authenticate:
             return AuthenticationMethod.BEARER_TOKEN
-        elif 'basic' in auth_header.lower():
+        if 'basic' in auth_header or 'basic' in www_authenticate or 'digest' in www_authenticate:
             return AuthenticationMethod.BASIC_AUTH
-        elif 'digest' in www_authenticate:
-            return AuthenticationMethod.BASIC_AUTH
-        elif 'bearer' in www_authenticate:
-            return AuthenticationMethod.BEARER_TOKEN
         
-        if 'x-api-key' in response_headers or 'api-key' in response_headers or 'apikey' in response_headers:
-            return AuthenticationMethod.API_KEY
+        for key in response_headers:
+            if 'api' in key.lower() and 'key' in key.lower():
+                return AuthenticationMethod.API_KEY
         
-        if 'x-api-key' in response_content.lower() or 'api_key' in response_content.lower():
+        if 'api_key' in response_content.lower() or 'x-api-key' in response_content.lower():
             return AuthenticationMethod.API_KEY
         
         return AuthenticationMethod.NONE
@@ -155,10 +152,7 @@ class AuthenticationAnalyzer:
         if len(unauthorized_response) != len(authenticated_response):
             return True, 0.7
         
-        unauthorized_hash = hash(unauthorized_response)
-        authenticated_hash = hash(authenticated_response)
-        
-        if unauthorized_hash == authenticated_hash:
+        if hash(unauthorized_response) == hash(authenticated_response):
             return True, 0.9
         
         return False, 0.0
@@ -166,63 +160,51 @@ class AuthenticationAnalyzer:
 
 class DataExposureAnalyzer:
     SENSITIVE_PATTERNS = {
-        'credit_card': r'\b(?:\d{4}[-\s]?){3}\d{4}\b',
-        'ssn': r'\b\d{3}-\d{2}-\d{4}\b',
-        'api_key': r'(?i)(api[_-]?key|apikey|access[_-]?key)\s*[:=]\s*["\']?([a-zA-Z0-9_-]+)["\']?',
-        'password': r'(?i)(password|passwd|pwd)\s*[:=]\s*["\']?([^"\'\s,;]+)["\']?',
-        'token': r'(?i)(token|auth|bearer)\s*[:=]\s*["\']?([a-zA-Z0-9._-]+)["\']?',
-        'email': r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
-        'private_key': r'-----BEGIN PRIVATE KEY-----',
-        'database_uri': r'(?i)(mongodb|mysql|postgresql|redis):\/\/[^\/]+',
+        'credit_card': re.compile(r'\b(?:\d{4}[-\s]?){3}\d{4}\b'),
+        'ssn': re.compile(r'\b\d{3}-\d{2}-\d{4}\b'),
+        'api_key': re.compile(r'(?i)(api[_-]?key|apikey|access[_-]?key)\s*[:=]\s*["\']?([a-zA-Z0-9_-]+)["\']?'),
+        'password': re.compile(r'(?i)(password|passwd|pwd)\s*[:=]\s*["\']?([^"\'\s,;]+)["\']?'),
+        'token': re.compile(r'(?i)(token|auth|bearer)\s*[:=]\s*["\']?([a-zA-Z0-9._-]+)["\']?'),
+        'email': re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'),
+        'private_key': re.compile(r'-----BEGIN PRIVATE KEY-----'),
+        'database_uri': re.compile(r'(?i)(mongodb|mysql|postgresql|redis):\/\/[^\/]+'),
     }
     
     @staticmethod
     def analyze_response_data(response_content: str) -> Tuple[bool, List[str], Dict]:
         exposed_data = []
-        findings = defaultdict(list)
+        findings = {}
         
-        try:
-            data = json.loads(response_content)
-            response_str = json.dumps(data)
-        except:
+        if len(response_content) > 100000:
+            response_str = response_content[:100000]
+        else:
             response_str = response_content
         
         for data_type, pattern in DataExposureAnalyzer.SENSITIVE_PATTERNS.items():
-            matches = re.findall(pattern, response_str)
+            matches = pattern.findall(response_str)
             if matches:
                 exposed_data.append(data_type)
-                findings[data_type] = matches[:3]
+                findings[data_type] = matches[:2]
         
-        return len(exposed_data) > 0, exposed_data, dict(findings)
+        return len(exposed_data) > 0, exposed_data, findings
 
 
 class RateLimitingAnalyzer:
-    RATE_LIMIT_HEADERS = [
-        'X-RateLimit-Limit',
-        'X-RateLimit-Remaining',
-        'X-RateLimit-Reset',
-        'RateLimit-Limit',
-        'RateLimit-Remaining',
-        'RateLimit-Reset',
-        'X-Rate-Limit-Limit',
-    ]
+    RATE_LIMIT_HEADERS = frozenset([
+        'x-ratelimit-limit', 'x-ratelimit-remaining', 'x-ratelimit-reset',
+        'ratelimit-limit', 'ratelimit-remaining', 'ratelimit-reset',
+        'x-rate-limit-limit', 'retry-after'
+    ])
     
     @staticmethod
     def detect_rate_limiting(response_headers: Dict) -> Tuple[bool, Optional[Dict]]:
         rate_limit_info = {}
         
-        for header in RateLimitingAnalyzer.RATE_LIMIT_HEADERS:
-            for key, value in response_headers.items():
-                if key.lower() == header.lower():
-                    rate_limit_info[header] = value
+        for key in response_headers:
+            if key.lower() in RateLimitingAnalyzer.RATE_LIMIT_HEADERS:
+                rate_limit_info[key] = response_headers[key]
         
-        if rate_limit_info:
-            return True, rate_limit_info
-        
-        if response_headers.get('Retry-After'):
-            return True, {'Retry-After': response_headers.get('Retry-After')}
-        
-        return False, None
+        return bool(rate_limit_info), rate_limit_info if rate_limit_info else None
     
     @staticmethod
     def detect_missing_rate_limiting(responses: List[Dict]) -> Tuple[bool, int]:
@@ -269,9 +251,14 @@ class CORSAnalyzer:
 
 
 class GraphQLAnalyzer:
+    _introspection_keywords = frozenset(['__schema', '__type', '__typename', 'queryType', 'mutationType', 'subscriptionType'])
+    _field_pattern = re.compile(r'"name"\s*:\s*"([a-zA-Z_][a-zA-Z0-9_]*)"')
+    
     @staticmethod
     def detect_graphql_endpoint(response_content: str, response_headers: Dict) -> bool:
-        if 'application/json' in response_headers.get('Content-Type', ''):
+        content_type = response_headers.get('Content-Type', '')
+        
+        if 'application/json' in content_type:
             if 'errors' in response_content or '__typename' in response_content:
                 return True
         
@@ -282,58 +269,41 @@ class GraphQLAnalyzer:
     
     @staticmethod
     def detect_introspection_enabled(response_content: str) -> bool:
-        introspection_keywords = [
-            '__schema',
-            '__type',
-            '__typename',
-            'queryType',
-            'mutationType',
-            'subscriptionType',
-        ]
-        
-        return any(keyword in response_content for keyword in introspection_keywords)
+        return any(keyword in response_content for keyword in GraphQLAnalyzer._introspection_keywords)
     
     @staticmethod
     def extract_graphql_fields(response_content: str) -> List[str]:
-        fields = []
-        
-        field_pattern = r'"name"\s*:\s*"([a-zA-Z_][a-zA-Z0-9_]*)"'
-        fields.extend(re.findall(field_pattern, response_content))
-        
-        return list(set(fields))
+        return list(set(GraphQLAnalyzer._field_pattern.findall(response_content)))
 
 
 class APIVersioningAnalyzer:
-    VERSION_PATTERNS = [
-        r'/api/v(\d+(?:\.\d+)?)',
-        r'/v(\d+(?:\.\d+)?)/api',
-        r'version=(\d+(?:\.\d+)?)',
-        r'api-version:\s*(\d+(?:\.\d+)?)',
+    _version_patterns = [
+        re.compile(r'/api/v(\d+(?:\.\d+)?)'),
+        re.compile(r'/v(\d+(?:\.\d+)?)/api'),
+        re.compile(r'version=(\d+(?:\.\d+)?)'),
+        re.compile(r'api-version:\s*(\d+(?:\.\d+)?)'),
     ]
+    _version_content_pattern = re.compile(r'(?i)version\s*[:=]\s*["\']?(\d+\.\d+\.\d+)["\']?')
     
     @staticmethod
     def detect_api_versions(urls: List[str], headers: Dict) -> List[str]:
         versions = set()
-        
         all_text = '\n'.join(urls) + '\n' + str(headers)
         
-        for pattern in APIVersioningAnalyzer.VERSION_PATTERNS:
-            matches = re.findall(pattern, all_text, re.IGNORECASE)
-            versions.update(matches)
+        for pattern in APIVersioningAnalyzer._version_patterns:
+            versions.update(pattern.findall(all_text))
         
         return sorted(list(versions))
     
     @staticmethod
     def detect_version_exposure(response_headers: Dict, response_content: str) -> Tuple[bool, Optional[str]]:
-        version_headers = ['API-Version', 'X-API-Version', 'X-Version', 'Server']
+        version_headers = {'api-version', 'x-api-version', 'x-version', 'server'}
         
-        for header in version_headers:
-            for key, value in response_headers.items():
-                if key.lower() == header.lower():
-                    return True, value
+        for key, value in response_headers.items():
+            if key.lower() in version_headers:
+                return True, value
         
-        version_pattern = r'(?i)version\s*[:=]\s*["\']?(\d+\.\d+\.\d+)["\']?'
-        match = re.search(version_pattern, response_content)
+        match = APIVersioningAnalyzer._version_content_pattern.search(response_content[:1000])
         if match:
             return True, match.group(1)
         
@@ -341,6 +311,20 @@ class APIVersioningAnalyzer:
 
 
 class APIScanner:
+    _remediation_cache = (
+        "Implement strong authentication (OAuth2, JWT, mTLS). "
+        "Validate and sanitize all API inputs. "
+        "Implement proper authorization checks. "
+        "Use HTTPS with TLS 1.2+. "
+        "Implement rate limiting and throttling. "
+        "Hide API version information. "
+        "Disable GraphQL introspection in production. "
+        "Remove sensitive data from API responses. "
+        "Implement CORS restrictions. "
+        "Monitor API usage for anomalies. "
+        "Implement API versioning and deprecation."
+    )
+    
     def __init__(self):
         self.endpoint_discovery = APIEndpointDiscovery()
         self.auth_analyzer = AuthenticationAnalyzer()
@@ -359,12 +343,12 @@ class APIScanner:
         vulnerabilities = []
         response_content = response.get('content', '')
         response_headers = response.get('headers', {})
-        response_time = response.get('response_time', 0)
         status_code = response.get('status_code', 0)
         
         endpoints = self.endpoint_discovery.discover_endpoints(response_content, target_url)
-        with self.lock:
-            self.discovered_endpoints.extend(endpoints)
+        if endpoints:
+            with self.lock:
+                self.discovered_endpoints.extend(endpoints)
         
         auth_method = self.auth_analyzer.detect_authentication_method(response_headers, response_content)
         
@@ -382,10 +366,9 @@ class APIScanner:
                 auth_required=False,
                 auth_bypassed=True,
                 confirmed=True,
-                remediation=self._get_remediation()
+                remediation=self._remediation_cache
             )
             vulnerabilities.append(vuln)
-            self.scan_statistics['no_auth'] += 1
         
         data_exposed, exposed_types, findings = self.data_analyzer.analyze_response_data(response_content)
         if data_exposed:
@@ -400,11 +383,11 @@ class APIScanner:
                 response_status=status_code,
                 response_size=len(response_content),
                 sensitive_data_exposed=exposed_types,
+                auth_required=False,
                 confirmed=True,
-                remediation=self._get_remediation()
+                remediation=self._remediation_cache
             )
             vulnerabilities.append(vuln)
-            self.scan_statistics['data_exposure'] += 1
         
         rate_limited, rate_info = self.rate_limit_analyzer.detect_rate_limiting(response_headers)
         if not rate_limited and status_code == 200:
@@ -418,12 +401,12 @@ class APIScanner:
                 evidence='No rate limiting headers detected',
                 response_status=status_code,
                 response_size=len(response_content),
+                auth_required=False,
                 rate_limit_status='Missing',
                 confirmed=True,
-                remediation=self._get_remediation()
+                remediation=self._remediation_cache
             )
             vulnerabilities.append(vuln)
-            self.scan_statistics['no_rate_limit'] += 1
         
         cors_issue, cors_problems = self.cors_analyzer.analyze_cors_policy(response_headers)
         if cors_issue:
@@ -437,11 +420,11 @@ class APIScanner:
                 evidence=f'CORS issues: {"; ".join(cors_problems)}',
                 response_status=status_code,
                 response_size=len(response_content),
+                auth_required=False,
                 confirmed=True,
-                remediation=self._get_remediation()
+                remediation=self._remediation_cache
             )
             vulnerabilities.append(vuln)
-            self.scan_statistics['cors_issue'] += 1
         
         is_graphql = self.graphql_analyzer.detect_graphql_endpoint(response_content, response_headers)
         if is_graphql:
@@ -458,12 +441,12 @@ class APIScanner:
                     evidence=f'GraphQL introspection enabled, fields exposed: {", ".join(fields[:5])}',
                     response_status=status_code,
                     response_size=len(response_content),
+                    auth_required=False,
                     endpoint_parameters=fields,
                     confirmed=True,
-                    remediation=self._get_remediation()
+                    remediation=self._remediation_cache
                 )
                 vulnerabilities.append(vuln)
-                self.scan_statistics['graphql_introspection'] += 1
         
         version_exposed, version = self.version_analyzer.detect_version_exposure(response_headers, response_content)
         if version_exposed:
@@ -477,31 +460,19 @@ class APIScanner:
                 evidence=f'API version exposed: {version}',
                 response_status=status_code,
                 response_size=len(response_content),
+                auth_required=False,
                 confirmed=True,
-                remediation=self._get_remediation()
+                remediation=self._remediation_cache
             )
             vulnerabilities.append(vuln)
-            self.scan_statistics['version_exposure'] += 1
         
-        with self.lock:
-            self.vulnerabilities.extend(vulnerabilities)
+        if vulnerabilities:
+            with self.lock:
+                self.vulnerabilities.extend(vulnerabilities)
+                for vuln in vulnerabilities:
+                    self.scan_statistics[vuln.api_type.value] += 1
         
         return vulnerabilities
-    
-    def _get_remediation(self) -> str:
-        return (
-            "Implement strong authentication (OAuth2, JWT, mTLS). "
-            "Validate and sanitize all API inputs. "
-            "Implement proper authorization checks. "
-            "Use HTTPS with TLS 1.2+. "
-            "Implement rate limiting and throttling. "
-            "Hide API version information. "
-            "Disable GraphQL introspection in production. "
-            "Remove sensitive data from API responses. "
-            "Implement CORS restrictions. "
-            "Monitor API usage for anomalies. "
-            "Implement API versioning and deprecation."
-        )
     
     def get_vulnerabilities(self) -> List[APIVulnerability]:
         with self.lock:
