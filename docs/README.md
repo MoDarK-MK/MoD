@@ -119,9 +119,6 @@ cd security-scanne
 Install dependencies
 pip install -r requirements.txt
 
-Run tests
-python -m pytest tests/
-
 Verify installation
 python scanner.py --version
 
@@ -131,3 +128,4 @@ python scanner.py --version
 Love MOD? Give us a ⭐ on GitHub!
 
 [![Star History Chart](https://api.star-history.com/svg?repos=MoDarK-MK/MoD&type=date&legend=top-left)](https://www.star-history.com/#MoDarK-MK/MoD&type=date&legend=top-left)
+
