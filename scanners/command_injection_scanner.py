@@ -1,12 +1,13 @@
-from typing import Dict, List, Optional, Tuple, Set, Pattern
+from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
-from collections import defaultdict
 import threading
 import time
 from urllib.parse import urlparse, parse_qs
-
+import base64
+import hashlib
 
 class CommandInjectionType(Enum):
     IN_BAND = "in_band"
@@ -17,7 +18,8 @@ class CommandInjectionType(Enum):
     FILTER_BYPASS = "filter_bypass"
     DOUBLE_BLIND = "double_blind"
     STACKED_QUERIES = "stacked_queries"
-
+    POLYGLOT = "polyglot"
+    EXPRESSION_INJECTION = "expression_injection"
 
 class OSSeparator(Enum):
     SEMICOLON = ";"
@@ -32,7 +34,6 @@ class OSSeparator(Enum):
     CARRIAGE_RETURN = "\r"
     COMMAND_SUBSTITUTION = "$()"
 
-
 class ShellType(Enum):
     BASH = "bash"
     SH = "sh"
@@ -44,7 +45,6 @@ class ShellType(Enum):
     POWERSHELL = "powershell"
     UNKNOWN = "unknown"
 
-
 @dataclass
 class CommandPayload:
     payload: str
@@ -55,8 +55,7 @@ class CommandPayload:
     severity: str = "Critical"
     detection_indicators: List[str] = field(default_factory=list)
     requires_confirmation: bool = True
-    false_positive_risk: float = 0.2
-
+    false_positive_risk: float = 0.15
 
 @dataclass
 class CommandInjectionVulnerability:
@@ -81,167 +80,119 @@ class CommandInjectionVulnerability:
     remediation: str = ""
     timestamp: float = field(default_factory=time.time)
 
-
-class CommandExecutionDetector:
-    COMMAND_PATTERNS = {
+class MegaCommandDetector:
+    PATTERNS = {
         'ls': {
-            'output_pattern': re.compile(r'^([-dlcbps])([-r][-w][-x]){3}'),
-            'indicators': ['drwx', '-rw-', 'total', '-rwxr', 'lrwx'],
-            'shell_types': [ShellType.BASH, ShellType.SH, ShellType.ZSH, ShellType.KSH],
+            'regex': re.compile(r'^([-dlcbps])([-r][-w][-x]){3}'),
+            'indicators': ['drwx', '-rw-', 'total', '-rwxr', 'lrwx', 'drwxr', 'drwxrwx'],
+            'shells': [ShellType.BASH, ShellType.SH, ShellType.ZSH, ShellType.KSH],
         },
         'dir': {
-            'output_pattern': re.compile(r'(?i)Directory of|Volume in drive|<DIR>'),
-            'indicators': ['Directory of', '<DIR>', 'Volume'],
-            'shell_types': [ShellType.CMD],
+            'regex': re.compile(r'(?i)Directory of|Volume in drive|<DIR>|\d{2}/\d{2}/\d{4}'),
+            'indicators': ['Directory of', '<DIR>', 'Volume', 'bytes free'],
+            'shells': [ShellType.CMD],
         },
         'id': {
-            'output_pattern': re.compile(r'uid=\d+\([^)]+\)\s+gid=\d+\([^)]+\)'),
+            'regex': re.compile(r'uid=\d+\([^)]+\)\s+gid=\d+\([^)]+\)'),
             'indicators': ['uid=', 'gid=', 'groups=', 'context='],
-            'shell_types': [ShellType.BASH, ShellType.SH, ShellType.ZSH],
+            'shells': [ShellType.BASH, ShellType.SH, ShellType.ZSH],
         },
         'whoami': {
-            'output_pattern': re.compile(r'^[a-zA-Z0-9_\-]+$', re.MULTILINE),
-            'indicators': ['root', 'admin', 'www-data', 'nginx', 'apache', 'nobody'],
-            'shell_types': [ShellType.BASH, ShellType.SH, ShellType.CMD],
+            'regex': re.compile(r'^[a-zA-Z0-9_\-]+$', re.MULTILINE),
+            'indicators': ['root', 'admin', 'www-data', 'nginx', 'apache', 'nobody', 'system'],
+            'shells': [ShellType.BASH, ShellType.SH, ShellType.CMD, ShellType.POWERSHELL],
         },
         'pwd': {
-            'output_pattern': re.compile(r'^/[\w/\-\.]+$', re.MULTILINE),
-            'indicators': ['/home/', '/var/', '/usr/', '/opt/', '/etc/'],
-            'shell_types': [ShellType.BASH, ShellType.SH, ShellType.ZSH],
+            'regex': re.compile(r'^/[\w/\-\.]+$', re.MULTILINE),
+            'indicators': ['/home/', '/var/', '/usr/', '/opt/', '/etc/', '/root/'],
+            'shells': [ShellType.BASH, ShellType.SH, ShellType.ZSH],
         },
         'ipconfig': {
-            'output_pattern': re.compile(r'(?i)IPv[46] Address|Subnet Mask|Default Gateway|Adapter'),
-            'indicators': ['IPv4', 'IPv6', 'Adapter', 'Subnet Mask', 'Default Gateway'],
-            'shell_types': [ShellType.CMD, ShellType.POWERSHELL],
+            'regex': re.compile(r'(?i)IPv[46] Address|Subnet Mask|Default Gateway|Ethernet adapter'),
+            'indicators': ['IPv4', 'IPv6', 'Adapter', 'Subnet Mask', 'Default Gateway', 'DNS Servers'],
+            'shells': [ShellType.CMD, ShellType.POWERSHELL],
         },
         'ifconfig': {
-            'output_pattern': re.compile(r'(?i)inet\s+(?:addr:)?\d+\.\d+\.\d+\.\d+'),
-            'indicators': ['inet ', 'ether ', 'netmask', 'broadcast'],
-            'shell_types': [ShellType.BASH, ShellType.SH],
+            'regex': re.compile(r'(?i)inet\s+(?:addr:)?\d+\.\d+\.\d+\.\d+'),
+            'indicators': ['inet ', 'ether ', 'netmask', 'broadcast', 'inet6'],
+            'shells': [ShellType.BASH, ShellType.SH],
         },
         'systeminfo': {
-            'output_pattern': re.compile(r'(?i)OS Name|OS Version|System Type|Processor'),
-            'indicators': ['OS Name', 'OS Version', 'System Type', 'Processor'],
-            'shell_types': [ShellType.CMD, ShellType.POWERSHELL],
+            'regex': re.compile(r'(?i)OS Name|OS Version|System Type|Processor\(s\)'),
+            'indicators': ['OS Name', 'OS Version', 'System Type', 'Processor', 'Total Physical Memory'],
+            'shells': [ShellType.CMD, ShellType.POWERSHELL],
         },
         'uname': {
-            'output_pattern': re.compile(r'(?i)linux|darwin|freebsd|sunos'),
-            'indicators': ['Linux', 'Darwin', 'GNU', 'x86_64', 'aarch64'],
-            'shell_types': [ShellType.BASH, ShellType.SH, ShellType.ZSH],
+            'regex': re.compile(r'(?i)linux|darwin|freebsd|sunos|netbsd'),
+            'indicators': ['Linux', 'Darwin', 'GNU', 'x86_64', 'aarch64', 'armv7l'],
+            'shells': [ShellType.BASH, ShellType.SH, ShellType.ZSH],
         },
         'cat': {
-            'output_pattern': re.compile(r'(?s).{10,}'),
-            'indicators': ['root:', 'bin:', 'daemon:', 'etc/', 'var/'],
-            'shell_types': [ShellType.BASH, ShellType.SH],
+            'regex': re.compile(r'(?s).{10,}'),
+            'indicators': ['root:', 'bin:', 'daemon:', 'etc/', 'var/', 'usr/'],
+            'shells': [ShellType.BASH, ShellType.SH],
         },
-        'type': {
-            'output_pattern': re.compile(r'(?i)(?:The|This) (?:system|file) cannot'),
-            'indicators': ['The system cannot', 'is not recognized'],
-            'shell_types': [ShellType.CMD],
+        'ps': {
+            'regex': re.compile(r'PID\s+TTY\s+TIME\s+CMD|USER\s+PID\s+%CPU'),
+            'indicators': ['PID', 'TTY', 'CMD', '%CPU', '%MEM'],
+            'shells': [ShellType.BASH, ShellType.SH, ShellType.ZSH],
+        },
+        'tasklist': {
+            'regex': re.compile(r'(?i)Image Name\s+PID\s+Session Name'),
+            'indicators': ['Image Name', 'PID', 'Session Name', 'Mem Usage'],
+            'shells': [ShellType.CMD, ShellType.POWERSHELL],
+        },
+        'netstat': {
+            'regex': re.compile(r'(?i)(?:tcp|udp)\s+\d+\s+\d+\.\d+\.\d+\.\d+:\d+'),
+            'indicators': ['ESTABLISHED', 'LISTENING', 'Proto', 'Local Address', 'Foreign Address'],
+            'shells': [ShellType.BASH, ShellType.SH, ShellType.CMD, ShellType.POWERSHELL],
+        },
+        'hostname': {
+            'regex': re.compile(r'^[a-zA-Z0-9\-\.]+$', re.MULTILINE),
+            'indicators': ['server', 'host', 'localhost', 'web', 'prod'],
+            'shells': [ShellType.BASH, ShellType.SH, ShellType.CMD],
         },
     }
     
     @staticmethod
-    def detect_command_execution(response_content: str) -> Tuple[bool, List[str], List[str]]:
-        detected_commands = []
-        indicators_found = []
+    def detect_all(response: str) -> Tuple[bool, List[str], List[str]]:
+        cmds = []
+        inds = []
         
-        for command, config in CommandExecutionDetector.COMMAND_PATTERNS.items():
-            pattern = config['output_pattern']
-            indicators = config['indicators']
-            
-            if pattern.search(response_content):
-                detected_commands.append(command)
-                
-                for indicator in indicators:
-                    if indicator in response_content:
-                        indicators_found.append(indicator)
+        for cmd, config in MegaCommandDetector.PATTERNS.items():
+            if config['regex'].search(response):
+                cmds.append(cmd)
+                for ind in config['indicators']:
+                    if ind in response:
+                        inds.append(ind)
         
-        return len(detected_commands) > 0, detected_commands, list(set(indicators_found))
-    
-    @staticmethod
-    def detect_process_listing(response_content: str) -> bool:
-        ps_patterns = [
-            re.compile(r'PID\s+TTY\s+TIME\s+CMD'),
-            re.compile(r'USER\s+PID\s+%CPU\s+%MEM'),
-            re.compile(r'(?i)Image Name\s+PID\s+Session Name'),
-        ]
-        
-        return any(pattern.search(response_content) for pattern in ps_patterns)
-    
-    @staticmethod
-    def detect_network_output(response_content: str) -> bool:
-        network_patterns = [
-            re.compile(r'(?i)(?:tcp|udp)\s+\d+\s+\d+\.\d+\.\d+\.\d+:\d+'),
-            re.compile(r'(?i)netstat|listening|established'),
-            re.compile(r'(?i)Proto\s+Local Address\s+Foreign Address'),
-        ]
-        
-        return any(pattern.search(response_content) for pattern in network_patterns)
+        return bool(cmds), cmds, list(set(inds))
 
-
-class TimingBasedCommandAnalyzer:
-    DELAY_COMMANDS = {
-        ShellType.BASH: ['sleep', 'ping -c'],
-        ShellType.SH: ['sleep', 'ping -c'],
-        ShellType.ZSH: ['sleep', 'ping -c'],
-        ShellType.CMD: ['timeout', 'ping -n'],
-        ShellType.POWERSHELL: ['Start-Sleep', 'ping -n'],
-    }
-    
-    _delay_patterns = {
-        'sleep': re.compile(r'sleep\s+(\d+)'),
-        'timeout': re.compile(r'timeout\s+(?:/t\s+)?(\d+)'),
-        'Start-Sleep': re.compile(r'Start-Sleep\s+-(?:s|Seconds)\s+(\d+)'),
-        'ping': re.compile(r'ping\s+-[cn]\s+(\d+)'),
-    }
+class AdvancedTimingAnalyzer:
+    @staticmethod
+    def analyze_delay(baseline: float, test: float, expected: int = 5) -> Tuple[bool, float, float]:
+        diff = test - baseline
+        threshold = expected * 0.65
+        upper = expected * 1.4
+        
+        is_delayed = threshold <= diff <= (expected + 12)
+        confidence = min((diff / expected) * 95, 99.0) if is_delayed else 0.0
+        
+        return is_delayed, diff, confidence
     
     @staticmethod
-    def analyze_delay(baseline_time: float, test_time: float, expected_delay: int = 5) -> Tuple[bool, float, float]:
-        time_difference = test_time - baseline_time
-        threshold = expected_delay * 0.7
-        upper_threshold = expected_delay * 1.3
-        
-        is_delayed = threshold <= time_difference <= (expected_delay + 10)
-        
-        if is_delayed:
-            confidence = min((time_difference / expected_delay) * 100, 100.0)
-        else:
-            confidence = 0.0
-        
-        return is_delayed, time_difference, confidence
-    
-    @staticmethod
-    def extract_delay_command(payload: str, shell_type: ShellType) -> Optional[int]:
-        delay_cmds = TimingBasedCommandAnalyzer.DELAY_COMMANDS.get(shell_type, [])
-        
-        for cmd in delay_cmds:
-            cmd_key = cmd.split()[0]
-            pattern = TimingBasedCommandAnalyzer._delay_patterns.get(cmd_key)
-            
-            if pattern:
-                match = pattern.search(payload)
-                if match:
-                    return int(match.group(1))
-        
-        return None
-    
-    @staticmethod
-    def detect_timing_variations(response_times: List[float]) -> Tuple[bool, float]:
-        if len(response_times) < 3:
+    def detect_timing_patterns(times: List[float]) -> Tuple[bool, float]:
+        if len(times) < 3:
             return False, 0.0
         
-        avg_time = sum(response_times) / len(response_times)
-        variance = sum((t - avg_time) ** 2 for t in response_times) / len(response_times)
+        avg = sum(times) / len(times)
+        variance = sum((t - avg) ** 2 for t in times) / len(times)
         std_dev = variance ** 0.5
         
-        is_suspicious = std_dev > 1.5
-        
-        return is_suspicious, std_dev
+        return std_dev > 1.8, std_dev
 
-
-class SeparatorAnalyzer:
-    SEPARATOR_PATTERNS = {
+class MegaSeparatorAnalyzer:
+    SEPARATORS = {
         OSSeparator.SEMICOLON: re.compile(r';'),
         OSSeparator.PIPE: re.compile(r'\|(?!\|)'),
         OSSeparator.PIPE_PIPE: re.compile(r'\|\|'),
@@ -255,85 +206,77 @@ class SeparatorAnalyzer:
     }
     
     @staticmethod
-    def detect_separators(payload: str) -> List[OSSeparator]:
-        found_separators = []
-        
-        for separator, pattern in SeparatorAnalyzer.SEPARATOR_PATTERNS.items():
+    def detect(payload: str) -> List[OSSeparator]:
+        found = []
+        for sep, pattern in MegaSeparatorAnalyzer.SEPARATORS.items():
             if pattern.search(payload):
-                found_separators.append(separator)
-        
-        return found_separators
+                found.append(sep)
+        return found
     
     @staticmethod
-    def extract_injected_command(payload: str, separator: OSSeparator) -> Optional[str]:
-        pattern = SeparatorAnalyzer.SEPARATOR_PATTERNS[separator]
+    def extract_command(payload: str, sep: OSSeparator) -> Optional[str]:
+        pattern = MegaSeparatorAnalyzer.SEPARATORS[sep]
         parts = pattern.split(payload)
         
         if len(parts) >= 2:
-            command = parts[-1].strip()
-            
-            if command.endswith(')'):
-                command = command[:-1].strip()
-            
-            return command
-        
+            cmd = parts[-1].strip()
+            if cmd.endswith(')'):
+                cmd = cmd[:-1].strip()
+            return cmd
         return None
     
     @staticmethod
-    def detect_command_chaining(payload: str) -> int:
-        chain_count = 0
-        for separator in SeparatorAnalyzer.SEPARATOR_PATTERNS.values():
-            chain_count += len(separator.findall(payload))
-        
-        return chain_count
+    def count_chaining(payload: str) -> int:
+        count = 0
+        for pattern in MegaSeparatorAnalyzer.SEPARATORS.values():
+            count += len(pattern.findall(payload))
+        return count
 
-
-class FilterBypassDetector:
-    BYPASS_TECHNIQUES = {
+class MegaBypassDetector:
+    TECHNIQUES = {
         'case_manipulation': re.compile(r'(?:[a-z]\*[a-z]|[A-Z]\*[A-Z])'),
         'backslash_escape': re.compile(r'\\[a-z]'),
-        'comment_injection': re.compile(r'/\*\*/|<!--.*-->'),
+        'comment_injection': re.compile(r'/\*\*/|<!--.*-->|#.*$'),
         'hex_encoding': re.compile(r'\\x[0-9a-fA-F]{2}'),
         'octal_encoding': re.compile(r'\\[0-7]{3}'),
-        'environment_variables': re.compile(r'\$[A-Z_]+|\${[^}]+}'),
+        'environment_var': re.compile(r'\$[A-Z_]+|\${[^}]+}'),
         'globbing': re.compile(r'[*?[\]]'),
         'brace_expansion': re.compile(r'\{[^}]+,[^}]+\}'),
         'unicode_escape': re.compile(r'\\u[0-9a-fA-F]{4}'),
-        'base64_encoding': re.compile(r'(?:echo|printf)\s+[A-Za-z0-9+/=]{20,}\s*\|\s*base64'),
+        'base64': re.compile(r'(?:echo|printf)\s+[A-Za-z0-9+/=]{20,}\s*\|\s*base64'),
         'variable_expansion': re.compile(r'\$\{[^}]+\}'),
-        'null_byte_injection': re.compile(r'%00|\\0'),
+        'null_byte': re.compile(r'%00|\\0'),
         'wildcard_obfuscation': re.compile(r'\$\{\w+//'),
         'double_encoding': re.compile(r'%25[0-9a-fA-F]{2}'),
+        'concatenation': re.compile(r'["\']?\+["\']?'),
+        'quoting': re.compile(r'["\'][^"\']*["\']'),
     }
     
     @staticmethod
-    def detect_bypass_techniques(payload: str) -> List[str]:
-        detected_techniques = []
-        
-        for technique, pattern in FilterBypassDetector.BYPASS_TECHNIQUES.items():
+    def detect(payload: str) -> List[str]:
+        found = []
+        for tech, pattern in MegaBypassDetector.TECHNIQUES.items():
             if pattern.search(payload):
-                detected_techniques.append(technique)
-        
-        return detected_techniques
+                found.append(tech)
+        return found
     
     @staticmethod
-    def calculate_obfuscation_complexity(payload: str) -> float:
-        complexity = 0.0
+    def complexity_score(payload: str) -> float:
+        score = 0.0
         
-        techniques = FilterBypassDetector.detect_bypass_techniques(payload)
-        complexity += len(techniques) * 0.2
+        techs = MegaBypassDetector.detect(payload)
+        score += len(techs) * 0.18
         
-        special_chars = len(re.findall(r'[^a-zA-Z0-9\s]', payload))
-        complexity += min(special_chars / 10, 0.3)
+        special = len(re.findall(r'[^a-zA-Z0-9\s]', payload))
+        score += min(special / 8, 0.35)
         
         encoding_layers = len(re.findall(r'(?:base64|hex|oct|\\x|\\u)', payload))
-        complexity += encoding_layers * 0.1
+        score += encoding_layers * 0.12
         
-        return min(complexity, 1.0)
+        return min(score, 1.0)
 
-
-class ShellDetectionEngine:
-    SHELL_INDICATORS = {
+class MegaShellDetector:
+    INDICATORS = {
         ShellType.BASH: [
             re.compile(r'bash.*version', re.I),
             re.compile(r'\$BASH_VERSION'),
@@ -363,74 +306,37 @@ class ShellDetectionEngine:
         ],
     }
     
-    COMMAND_SHELL_MAPPING = {
+    CMD_MAPPING = {
         'ipconfig': ShellType.CMD,
         'systeminfo': ShellType.CMD,
         'tasklist': ShellType.CMD,
         'dir': ShellType.CMD,
-        'type': ShellType.CMD,
         'Get-': ShellType.POWERSHELL,
         'Set-': ShellType.POWERSHELL,
-        'Start-Sleep': ShellType.POWERSHELL,
         'ls': ShellType.BASH,
         'cat': ShellType.BASH,
         'grep': ShellType.BASH,
-        'awk': ShellType.BASH,
-        'sed': ShellType.BASH,
         'id': ShellType.BASH,
         'whoami': ShellType.BASH,
         'pwd': ShellType.BASH,
         'uname': ShellType.BASH,
     }
     
-    _prompt_patterns = {
-        re.compile(r'\$\s*$|#\s*$', re.M): ShellType.BASH,
-        re.compile(r'>\s*$', re.M): ShellType.CMD,
-        re.compile(r'PS\s+[A-Z]:\\.*>\s*$', re.M): ShellType.POWERSHELL,
-        re.compile(r'%\s*$', re.M): ShellType.ZSH,
-    }
-    
     @staticmethod
-    def detect_shell_type(response_content: str, payload: str) -> Optional[ShellType]:
-        for command, shell_type in ShellDetectionEngine.COMMAND_SHELL_MAPPING.items():
-            if command in payload:
-                return shell_type
+    def detect(response: str, payload: str) -> Optional[ShellType]:
+        for cmd, shell in MegaShellDetector.CMD_MAPPING.items():
+            if cmd in payload:
+                return shell
         
-        for shell_type, indicators in ShellDetectionEngine.SHELL_INDICATORS.items():
-            for indicator in indicators:
-                if indicator.search(response_content):
-                    return shell_type
-        
-        prompt_shell = ShellDetectionEngine.detect_shell_prompt(response_content)
-        if prompt_shell:
-            return prompt_shell
+        for shell, indicators in MegaShellDetector.INDICATORS.items():
+            for ind in indicators:
+                if ind.search(response):
+                    return shell
         
         return ShellType.UNKNOWN
-    
-    @staticmethod
-    def detect_shell_prompt(response_content: str) -> Optional[ShellType]:
-        for pattern, shell_type in ShellDetectionEngine._prompt_patterns.items():
-            if pattern.search(response_content):
-                return shell_type
-        
-        return None
-    
-    @staticmethod
-    def detect_interactive_shell(response_content: str) -> bool:
-        interactive_indicators = [
-            r'Last login:',
-            r'Welcome to',
-            r'\$ $',
-            r'# $',
-            r'PS .*>',
-            r'C:\\.*>',
-        ]
-        
-        return any(re.search(indicator, response_content) for indicator in interactive_indicators)
 
-
-class ErrorBasedCommandAnalyzer:
-    ERROR_PATTERNS = {
+class MegaErrorAnalyzer:
+    ERRORS = {
         'command_not_found': re.compile(r"(?i)(command not found|'.*' is not recognized|No such file or directory)"),
         'permission_denied': re.compile(r"(?i)(permission denied|access is denied|operation not permitted)"),
         'syntax_error': re.compile(r"(?i)(syntax error|unexpected token|parse error|invalid syntax)"),
@@ -438,276 +344,180 @@ class ErrorBasedCommandAnalyzer:
         'shell_error': re.compile(r"(?i)(sh:|bash:|cmd:|powershell:)"),
         'execution_error': re.compile(r"(?i)(cannot execute|execution failed|unable to run)"),
         'segmentation_fault': re.compile(r"(?i)(segmentation fault|core dumped)"),
+        'access_violation': re.compile(r"(?i)(access violation|memory.*error)"),
     }
     
     @staticmethod
-    def analyze_error_response(response_content: str) -> Tuple[bool, List[str], List[str]]:
-        errors_found = []
-        error_messages = []
+    def analyze(response: str) -> Tuple[bool, List[str], List[str]]:
+        errors = []
+        messages = []
         
-        for error_type, pattern in ErrorBasedCommandAnalyzer.ERROR_PATTERNS.items():
-            matches = pattern.findall(response_content)
+        for etype, pattern in MegaErrorAnalyzer.ERRORS.items():
+            matches = pattern.findall(response)
             if matches:
-                errors_found.append(error_type)
-                error_messages.extend(matches[:2])
+                errors.append(etype)
+                messages.extend(matches[:2])
         
-        return len(errors_found) > 0, errors_found, error_messages
-    
-    @staticmethod
-    def detect_stack_trace(response_content: str) -> bool:
-        stack_trace_patterns = [
-            r'Traceback \(most recent call last\)',
-            r'at .*\.java:\d+',
-            r'in .*\.py", line \d+',
-            r'Stack trace:',
-        ]
-        
-        return any(re.search(pattern, response_content) for pattern in stack_trace_patterns)
-
-
-class OutputObfuscationDetector:
-    OBFUSCATION_PATTERNS = [
-        (r'[^\x20-\x7E]', 0.05),
-        (r'\\x[0-9a-fA-F]{2}', 0.1),
-        (r'&#\d+;', 0.1),
-        (r'%[0-9a-fA-F]{2}', 0.08),
-        (r'\x00', 0.2),
-    ]
-    
-    @staticmethod
-    def detect_obfuscation(response_content: str) -> Tuple[bool, float]:
-        obfuscation_score = 0.0
-        
-        for pattern, weight in OutputObfuscationDetector.OBFUSCATION_PATTERNS:
-            matches = len(re.findall(pattern, response_content))
-            obfuscation_score += matches * weight
-        
-        obfuscation_score = min(obfuscation_score, 1.0)
-        is_obfuscated = obfuscation_score > 0.3
-        
-        return is_obfuscated, obfuscation_score
-    
-    @staticmethod
-    def detect_binary_output(response_content: str) -> bool:
-        binary_threshold = sum(1 for c in response_content if ord(c) < 32 or ord(c) > 126)
-        return binary_threshold > len(response_content) * 0.3
-
+        return bool(errors), errors, messages
 
 class CommandInjectionScanner:
-    _remediation_cache = (
-        "Avoid using system command execution functions. "
-        "Use language-specific libraries instead of shell commands. "
-        "Implement strict input validation with allowlists. "
-        "Use parameterization/escaping for all inputs. "
-        "Run application with minimal privileges. "
-        "Disable dangerous system functions. "
-        "Implement Web Application Firewall (WAF) rules. "
-        "Use security context isolation (containers, sandboxes). "
-        "Apply principle of least privilege. "
-        "Sanitize all user inputs before processing. "
-        "Use safe APIs that don't invoke shell interpreters."
-    )
-    
-    def __init__(self):
-        self.execution_detector = CommandExecutionDetector()
-        self.timing_analyzer = TimingBasedCommandAnalyzer()
-        self.separator_analyzer = SeparatorAnalyzer()
-        self.filter_bypass_detector = FilterBypassDetector()
-        self.shell_detector = ShellDetectionEngine()
-        self.error_analyzer = ErrorBasedCommandAnalyzer()
-        self.obfuscation_detector = OutputObfuscationDetector()
+    def __init__(self, max_workers: int = 18):
+        self.cmd_detector = MegaCommandDetector()
+        self.timing_analyzer = AdvancedTimingAnalyzer()
+        self.sep_analyzer = MegaSeparatorAnalyzer()
+        self.bypass_detector = MegaBypassDetector()
+        self.shell_detector = MegaShellDetector()
+        self.error_analyzer = MegaErrorAnalyzer()
         
-        self.vulnerabilities: List[CommandInjectionVulnerability] = []
-        self.scan_statistics = defaultdict(int)
-        self.baseline_responses: Dict[str, str] = {}
-        self.baseline_times: Dict[str, float] = {}
+        self.vulnerabilities = []
         self.lock = threading.Lock()
+        self.max_workers = max_workers
     
-    def scan(self, target_url: str, response: Dict, payloads: List[str],
+    def scan(self, url: str, response: Dict, payloads: List[str],
             baseline_response: Optional[str] = None, baseline_time: Optional[float] = None) -> List[CommandInjectionVulnerability]:
-        vulnerabilities = []
-        response_content = response.get('content', '')
-        response_time = response.get('response_time', 0)
-        status_code = response.get('status_code', 0)
+        vulns = []
+        content = response.get('content', '')
+        resp_time = response.get('response_time', 0)
+        status = response.get('status_code', 0)
         
         if baseline_response is None:
-            baseline_response = response_content
-        
+            baseline_response = content
         if baseline_time is None:
-            baseline_time = response_time
+            baseline_time = resp_time
         
-        parameter = self._extract_parameter_name(target_url)
+        param = self._extract_param(url)
         
-        for payload in payloads:
-            is_vulnerable, injection_type, evidence, confidence = self._test_payload(
-                response_content,
-                baseline_response,
-                payload,
-                response_time,
-                baseline_time,
-                status_code
-            )
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = []
             
-            if is_vulnerable:
-                separators = self.separator_analyzer.detect_separators(payload)
-                separator = separators[0] if separators else OSSeparator.SEMICOLON
-                
-                shell_type = self.shell_detector.detect_shell_type(response_content, payload)
-                injected_command = self.separator_analyzer.extract_injected_command(payload, separator)
-                bypass_techniques = self.filter_bypass_detector.detect_bypass_techniques(payload)
-                
-                command_executed, detected_commands, indicators = self.execution_detector.detect_command_execution(response_content)
-                output_captured = '\n'.join(indicators[:10]) if indicators else None
-                
-                is_error, error_types, error_messages = self.error_analyzer.analyze_error_response(response_content)
-                
-                vuln = CommandInjectionVulnerability(
-                    vulnerability_type='OS Command Injection',
-                    injection_type=injection_type,
-                    shell_type=shell_type,
-                    url=target_url,
-                    parameter=parameter,
-                    payload=payload,
-                    severity=self._calculate_severity(injection_type, command_executed, bypass_techniques),
-                    evidence=evidence,
-                    response_time=response_time,
-                    command_executed=command_executed,
-                    output_captured=output_captured,
-                    executed_command=injected_command,
-                    shell_detected=shell_type.value if shell_type else None,
-                    confirmed=command_executed or (injection_type == CommandInjectionType.TIME_BASED and confidence > 0.9),
-                    confidence_score=confidence,
-                    bypass_techniques=bypass_techniques,
-                    error_types=error_types if is_error else [],
-                    indicators_found=indicators,
-                    remediation=self._remediation_cache
+            for payload in payloads:
+                future = executor.submit(
+                    self._test_payload,
+                    url, param, payload, content, baseline_response, resp_time, baseline_time, status
                 )
-                
-                if self._is_valid_vulnerability(vuln):
-                    vulnerabilities.append(vuln)
-                    
-                    with self.lock:
-                        self.scan_statistics[injection_type.value] += 1
-                        self.scan_statistics['total'] += 1
+                futures.append(future)
+            
+            for future in as_completed(futures):
+                vuln = future.result()
+                if vuln:
+                    vulns.append(vuln)
         
         with self.lock:
-            self.vulnerabilities.extend(vulnerabilities)
+            self.vulnerabilities.extend(vulns)
         
-        return vulnerabilities
+        return vulns
     
-    def _test_payload(self, response_content: str, baseline_response: str, payload: str,
-                     response_time: float, baseline_time: float, status_code: int) -> Tuple[bool, CommandInjectionType, str, float]:
+    def _test_payload(self, url, param, payload, content, baseline, resp_time, base_time, status):
+        is_vuln, inj_type, evidence, confidence = self._analyze(
+            content, baseline, payload, resp_time, base_time, status
+        )
         
-        command_executed, commands, indicators = self.execution_detector.detect_command_execution(response_content)
-        if command_executed and len(indicators) >= 2:
-            confidence = min(0.85 + (len(indicators) * 0.05), 1.0)
-            return True, CommandInjectionType.IN_BAND, f"Command execution detected: {', '.join(commands)} | Indicators: {', '.join(indicators[:5])}", confidence
+        if not is_vuln:
+            return None
         
-        if self.execution_detector.detect_process_listing(response_content):
-            return True, CommandInjectionType.IN_BAND, "Process listing detected (ps/tasklist output)", 0.9
+        seps = self.sep_analyzer.detect(payload)
+        sep = seps[0] if seps else OSSeparator.SEMICOLON
         
-        if self.execution_detector.detect_network_output(response_content):
-            return True, CommandInjectionType.IN_BAND, "Network command output detected (netstat/ifconfig)", 0.88
+        shell = self.shell_detector.detect(content, payload)
+        cmd = self.sep_analyzer.extract_command(payload, sep)
+        bypass = self.bypass_detector.detect(payload)
         
-        is_error, error_types, error_messages = self.error_analyzer.analyze_error_response(response_content)
-        if is_error and len(error_types) >= 2:
-            return True, CommandInjectionType.ERROR_BASED, f"Error-based injection: {', '.join(error_types)} | Messages: {', '.join(error_messages[:3])}", 0.75
+        cmd_executed, cmds, inds = self.cmd_detector.detect_all(content)
+        output = '\n'.join(inds[:12]) if inds else None
         
-        if self.error_analyzer.detect_stack_trace(response_content):
-            return True, CommandInjectionType.ERROR_BASED, "Stack trace detected in response", 0.7
+        is_error, errors, msgs = self.error_analyzer.analyze(content)
         
-        if response_time > 3:
-            is_delayed, time_diff, confidence = self.timing_analyzer.analyze_delay(baseline_time, response_time, 5)
-            if is_delayed:
-                return True, CommandInjectionType.TIME_BASED, f"Time-based injection confirmed: {time_diff:.2f}s delay (expected: 5s)", confidence / 100
+        severity = self._calc_severity(inj_type, cmd_executed, bypass)
         
-        size_diff = abs(len(response_content) - len(baseline_response))
-        if size_diff > 500:
-            if any(indicator in response_content for indicator in ['drwx', 'total', 'Directory of', 'uid=']):
-                return True, CommandInjectionType.IN_BAND, f"Significant response size change: {size_diff} bytes | Command output detected", 0.82
+        return CommandInjectionVulnerability(
+            vulnerability_type='Command Injection',
+            injection_type=inj_type,
+            shell_type=shell,
+            url=url,
+            parameter=param,
+            payload=payload,
+            severity=severity,
+            evidence=evidence,
+            response_time=resp_time,
+            command_executed=cmd_executed,
+            output_captured=output,
+            executed_command=cmd,
+            shell_detected=shell.value if shell else None,
+            confirmed=cmd_executed or (inj_type == CommandInjectionType.TIME_BASED and confidence > 0.88),
+            confidence_score=confidence,
+            bypass_techniques=bypass,
+            error_types=errors if is_error else [],
+            indicators_found=inds,
+            remediation=self._remediation()
+        )
+    
+    def _analyze(self, content, baseline, payload, resp_time, base_time, status):
+        cmd_exec, cmds, inds = self.cmd_detector.detect_all(content)
+        if cmd_exec and len(inds) >= 2:
+            conf = min(0.87 + (len(inds) * 0.04), 0.99)
+            return True, CommandInjectionType.IN_BAND, f"Cmd exec: {', '.join(cmds)} | Inds: {', '.join(inds[:6])}", conf
         
-        bypass_techniques = self.filter_bypass_detector.detect_bypass_techniques(payload)
-        obfuscation_complexity = self.filter_bypass_detector.calculate_obfuscation_complexity(payload)
+        is_err, errors, msgs = self.error_analyzer.analyze(content)
+        if is_err and len(errors) >= 2:
+            return True, CommandInjectionType.ERROR_BASED, f"Errors: {', '.join(errors)} | {', '.join(msgs[:3])}", 0.77
         
-        if len(bypass_techniques) >= 3 and obfuscation_complexity > 0.5:
-            return True, CommandInjectionType.FILTER_BYPASS, f"Advanced filter bypass: {', '.join(bypass_techniques[:5])} | Complexity: {obfuscation_complexity:.2f}", 0.68
+        if resp_time > 3:
+            delayed, diff, conf = self.timing_analyzer.analyze_delay(base_time, resp_time, 5)
+            if delayed:
+                return True, CommandInjectionType.TIME_BASED, f"Time-based: {diff:.2f}s delay (expected 5s)", conf / 100
         
-        is_obfuscated, obfuscation_score = self.obfuscation_detector.detect_obfuscation(response_content)
-        if is_obfuscated and any(keyword in response_content for keyword in ['uid=', 'root', 'admin', '/home/', '/var/']):
-            return True, CommandInjectionType.OUT_OF_BAND, f"Obfuscated command output detected | Score: {obfuscation_score:.2f}", 0.65
+        size_diff = abs(len(content) - len(baseline))
+        if size_diff > 600:
+            if any(x in content for x in ['drwx', 'total', 'uid=', 'Directory']):
+                return True, CommandInjectionType.IN_BAND, f"Size change: {size_diff}B | Cmd output", 0.84
         
-        if self.obfuscation_detector.detect_binary_output(response_content):
-            return True, CommandInjectionType.OUT_OF_BAND, "Binary data detected in response", 0.6
+        bypass = self.bypass_detector.detect(payload)
+        complexity = self.bypass_detector.complexity_score(payload)
         
-        chain_count = self.separator_analyzer.detect_command_chaining(payload)
-        if chain_count >= 3:
-            return True, CommandInjectionType.STACKED_QUERIES, f"Stacked command execution detected: {chain_count} chained commands", 0.7
+        if len(bypass) >= 3 and complexity > 0.5:
+            return True, CommandInjectionType.FILTER_BYPASS, f"Bypass: {', '.join(bypass[:6])} | Complexity: {complexity:.2f}", 0.71
+        
+        chain = self.sep_analyzer.count_chaining(payload)
+        if chain >= 3:
+            return True, CommandInjectionType.STACKED_QUERIES, f"Stacked: {chain} chained cmds", 0.72
         
         return False, CommandInjectionType.BLIND_INJECTION, "", 0.0
     
-    def _extract_parameter_name(self, url: str) -> str:
-        parsed = urlparse(url)
-        params = parse_qs(parsed.query)
-        
-        if params:
-            return list(params.keys())[0]
-        
-        path_parts = parsed.path.split('/')
-        return path_parts[-1] if path_parts else 'parameter'
-    
-    def _is_valid_vulnerability(self, vuln: CommandInjectionVulnerability) -> bool:
-        if vuln.confidence_score < 0.55:
-            return False
-        
-        false_positive_keywords = ['test', 'debug', 'sample', 'example', 'demo']
-        if any(word in vuln.payload.lower() for word in false_positive_keywords):
-            if not vuln.command_executed:
-                return False
-        
-        if vuln.injection_type == CommandInjectionType.ERROR_BASED and not vuln.error_types:
-            return False
-        
-        return vuln.confirmed or vuln.command_executed or vuln.confidence_score >= 0.8
-    
-    def _calculate_severity(self, injection_type: CommandInjectionType, command_executed: bool, bypass_techniques: List[str]) -> str:
-        if command_executed:
+    def _calc_severity(self, inj_type, cmd_exec, bypass):
+        if cmd_exec:
             return 'Critical'
-        
-        if injection_type == CommandInjectionType.TIME_BASED:
+        if inj_type == CommandInjectionType.TIME_BASED:
             return 'High'
-        
-        if injection_type == CommandInjectionType.IN_BAND:
+        if inj_type == CommandInjectionType.IN_BAND:
             return 'Critical'
-        
-        if len(bypass_techniques) >= 3:
+        if len(bypass) >= 3:
             return 'High'
-        
-        if injection_type == CommandInjectionType.ERROR_BASED:
-            return 'Medium'
-        
         return 'Medium'
     
-    def get_vulnerabilities(self) -> List[CommandInjectionVulnerability]:
-        with self.lock:
-            return self.vulnerabilities.copy()
+    def _extract_param(self, url):
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+        if params:
+            return list(params.keys())[0]
+        path = parsed.path.split('/')
+        return path[-1] if path else 'parameter'
     
-    def get_statistics(self) -> Dict[str, int]:
-        with self.lock:
-            return dict(self.scan_statistics)
+    def _remediation(self):
+        return (
+            "1. Avoid system() calls - use language libraries. "
+            "2. Input validation with strict allowlists. "
+            "3. Parameterization + escaping. "
+            "4. Run with minimal privileges. "
+            "5. Disable dangerous functions. "
+            "6. WAF rules for command patterns. "
+            "7. Container/sandbox isolation. "
+            "8. Least privilege principle. "
+            "9. Sanitize ALL inputs. "
+            "10. Safe APIs (no shell invocation)."
+        )
     
-    def set_baseline_response(self, parameter: str, response: str, response_time: float = 0.0):
-        self.baseline_responses[parameter] = response
-        self.baseline_times[parameter] = response_time
-    
-    def get_baseline_response(self, parameter: str) -> Optional[str]:
-        return self.baseline_responses.get(parameter)
-    
-    def get_baseline_time(self, parameter: str) -> Optional[float]:
-        return self.baseline_times.get(parameter)
+    def get_vulnerabilities(self):
+        with self.lock: return self.vulnerabilities.copy()
     
     def clear(self):
-        with self.lock:
-            self.vulnerabilities.clear()
-            self.scan_statistics.clear()
-            self.baseline_responses.clear()
-            self.baseline_times.clear()
+        with self.lock: self.vulnerabilities.clear()
