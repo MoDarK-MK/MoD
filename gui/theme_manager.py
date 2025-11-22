@@ -37,6 +37,40 @@ class ThemeStyles:
 
 class ThemeManager:
     THEMES = {
+        'cyber_green': {
+            'name': '🔥 Cyber Green (Matrix)',
+            'description': 'Cyber-themed dark green and black - Matrix style',
+            'colors': ThemeColors(
+                primary='#00FF41',
+                secondary='#00D936',
+                accent='#39FF14',
+                background='#0A0E0A',
+                surface='rgba(10, 20, 15, 0.85)',
+                text_primary='#00FF41',
+                text_secondary='#00D936',
+                success='#00FF41',
+                warning='#FFD700',
+                error='#FF0040',
+                info='#00D9FF',
+                border='rgba(0, 255, 65, 0.3)',
+                shadow='rgba(0, 255, 65, 0.2)',
+                gradient_start='#00FF41',
+                gradient_end='#00D936',
+                glass_bg='rgba(10, 20, 15, 0.7)',
+                glass_border='rgba(0, 255, 65, 0.25)',
+                glass_shadow='0 8px 32px rgba(0, 255, 65, 0.2)'
+            ),
+            'styles': ThemeStyles(
+                border_radius='20px',
+                blur='25px',
+                shadow='0 8px 32px rgba(0, 255, 65, 0.2)',
+                transition='all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                font_family='"Fira Code", "Courier New", monospace',
+                glass_shadow='0 8px 32px 0 rgba(0, 255, 65, 0.2)',
+                glass_backdrop='blur(25px) saturate(180%)',
+                glass_border_width='1px'
+            )
+        },
         'ios_liquid_glass_dark': {
             'name': 'iOS Dark (Liquid Glass)',
             'description': 'Dark theme with teal-cyan gradients and liquid glass effect',
@@ -141,7 +175,7 @@ class ThemeManager:
         }
     }
     
-    def __init__(self, default_theme: str = 'ios_liquid_glass_dark'):
+    def __init__(self, default_theme: str = 'cyber_green'):
         self.current_theme = default_theme
         self._theme_cache = {}
         self._custom_themes = {}
@@ -156,7 +190,7 @@ class ThemeManager:
         if theme_name in self._custom_themes:
             theme = self._custom_themes[theme_name]
         else:
-            theme = self.THEMES.get(theme_name, self.THEMES['ios_liquid_glass_dark'])
+            theme = self.THEMES.get(theme_name, self.THEMES['cyber_green'])
         
         self._theme_cache[theme_name] = theme
         return theme
@@ -186,7 +220,6 @@ class ThemeManager:
     
     def get_stylesheet(self, theme_name: Optional[str] = None) -> str:
         """Get QSS stylesheet for Qt applications"""
-        # Fix: Handle None theme_name
         if theme_name is None:
             theme_name = self.current_theme
         
@@ -195,9 +228,9 @@ class ThemeManager:
         styles = theme['styles']
         
         # Convert rgba to appropriate colors based on theme type
-        if 'dark' in theme_name.lower():
-            bg_surface = '#1E293B'
-            surface_hex = '#2D3748'
+        if 'dark' in theme_name.lower() or 'cyber' in theme_name.lower():
+            bg_surface = '#0A1410' if 'cyber' in theme_name.lower() else '#1E293B'
+            surface_hex = '#0F1E18' if 'cyber' in theme_name.lower() else '#2D3748'
         else:
             bg_surface = '#F8FAFC'
             surface_hex = '#FFFFFF'
@@ -221,7 +254,7 @@ QPushButton {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                                stop:0 {colors.gradient_start},
                                stop:1 {colors.gradient_end});
-    color: #FFFFFF;
+    color: {'#000000' if 'cyber' in theme_name.lower() else '#FFFFFF'};
     border: none;
     border-radius: 12px;
     padding: 10px 24px;
@@ -234,6 +267,7 @@ QPushButton:hover {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                                stop:0 {colors.gradient_end},
                                stop:1 {colors.gradient_start});
+    box-shadow: 0 0 20px {colors.primary};
 }}
 
 QPushButton:pressed {{
@@ -250,16 +284,17 @@ QPushButton:disabled {{
 QLineEdit, QTextEdit, QPlainTextEdit {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 2px solid {bg_surface};
+    border: 2px solid {colors.border.split(',')[0].replace('rgba(', '').replace(')', '').split()[0]};
     border-radius: 10px;
     padding: 10px 14px;
     selection-background-color: {colors.primary};
-    selection-color: #FFFFFF;
+    selection-color: {'#000000' if 'cyber' in theme_name.lower() else '#FFFFFF'};
 }}
 
 QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
     border: 2px solid {colors.primary};
     background-color: {colors.background};
+    box-shadow: 0 0 15px {colors.primary};
 }}
 
 /* Tables */
@@ -278,7 +313,7 @@ QTableWidget::item {{
 
 QTableWidget::item:selected {{
     background-color: {colors.primary};
-    color: #FFFFFF;
+    color: {'#000000' if 'cyber' in theme_name.lower() else '#FFFFFF'};
 }}
 
 QTableWidget::item:hover {{
@@ -319,13 +354,13 @@ QTabBar::tab:selected {{
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                stop:0 {colors.gradient_start},
                                stop:1 {colors.gradient_end});
-    color: #FFFFFF;
+    color: {'#000000' if 'cyber' in theme_name.lower() else '#FFFFFF'};
     font-weight: 700;
 }}
 
 QTabBar::tab:hover:!selected {{
     background-color: {colors.primary};
-    color: #FFFFFF;
+    color: {'#000000' if 'cyber' in theme_name.lower() else '#FFFFFF'};
 }}
 
 /* Progress Bar */
@@ -358,6 +393,7 @@ QComboBox {{
 
 QComboBox:hover {{
     border: 2px solid {colors.primary};
+    box-shadow: 0 0 10px {colors.primary};
 }}
 
 QComboBox:focus {{
@@ -383,7 +419,7 @@ QComboBox QAbstractItemView {{
     border: 2px solid {colors.primary};
     border-radius: 10px;
     selection-background-color: {colors.primary};
-    selection-color: #FFFFFF;
+    selection-color: {'#000000' if 'cyber' in theme_name.lower() else '#FFFFFF'};
     padding: 4px;
 }}
 
@@ -484,6 +520,7 @@ QCheckBox::indicator {{
 
 QCheckBox::indicator:hover {{
     border-color: {colors.primary};
+    box-shadow: 0 0 8px {colors.primary};
 }}
 
 QCheckBox::indicator:checked {{
@@ -510,6 +547,7 @@ QRadioButton::indicator {{
 
 QRadioButton::indicator:hover {{
     border-color: {colors.primary};
+    box-shadow: 0 0 8px {colors.primary};
 }}
 
 QRadioButton::indicator:checked {{
@@ -519,57 +557,12 @@ QRadioButton::indicator:checked {{
     border-color: {colors.primary};
 }}
 
-/* MenuBar */
-QMenuBar {{
-    background-color: {colors.background};
-    color: {colors.text_primary};
-    padding: 4px;
-}}
-
-QMenuBar::item {{
-    padding: 8px 14px;
-    border-radius: 6px;
-}}
-
-QMenuBar::item:selected {{
-    background-color: {colors.primary};
-    color: #FFFFFF;
-}}
-
-/* Menu */
-QMenu {{
-    background-color: {surface_hex};
-    color: {colors.text_primary};
-    border: 2px solid {bg_surface};
-    border-radius: 10px;
-    padding: 6px;
-}}
-
-QMenu::item {{
-    padding: 10px 28px;
-    border-radius: 6px;
-}}
-
-QMenu::item:selected {{
-    background-color: {colors.primary};
-    color: #FFFFFF;
-}}
-
-/* ToolTip */
-QToolTip {{
-    background-color: {surface_hex};
-    color: {colors.text_primary};
-    border: 2px solid {colors.primary};
-    border-radius: 8px;
-    padding: 8px;
-    font-size: 13px;
-}}
-
 /* StatusBar */
 QStatusBar {{
     background-color: {bg_surface};
     color: {colors.text_secondary};
     padding: 4px;
+    border-top: 1px solid {colors.primary};
 }}
 
 /* SpinBox */
@@ -584,28 +577,7 @@ QSpinBox, QDoubleSpinBox {{
 
 QSpinBox:focus, QDoubleSpinBox:focus {{
     border: 2px solid {colors.primary};
-}}
-
-/* Slider */
-QSlider::groove:horizontal {{
-    border: 2px solid {bg_surface};
-    height: 10px;
-    background: {bg_surface};
-    border-radius: 5px;
-}}
-
-QSlider::handle:horizontal {{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                               stop:0 {colors.gradient_start},
-                               stop:1 {colors.gradient_end});
-    border: none;
-    width: 20px;
-    margin: -6px 0;
-    border-radius: 10px;
-}}
-
-QSlider::handle:horizontal:hover {{
-    background: {colors.primary};
+    box-shadow: 0 0 10px {colors.primary};
 }}
 
 /* Frame */
@@ -631,17 +603,7 @@ QFrame {{
                 'secondary': theme['colors'].secondary,
                 'accent': theme['colors'].accent,
                 'background': theme['colors'].background,
-                'surface': theme['colors'].surface,
                 'text_primary': theme['colors'].text_primary,
-                'text_secondary': theme['colors'].text_secondary,
-                'success': theme['colors'].success,
-                'warning': theme['colors'].warning,
-                'error': theme['colors'].error,
-                'info': theme['colors'].info,
-                'border': theme['colors'].border,
-                'shadow': theme['colors'].shadow,
-                'gradient_start': theme['colors'].gradient_start,
-                'gradient_end': theme['colors'].gradient_end,
             }
         }
         
@@ -663,51 +625,11 @@ QFrame {{
             'secondary': colors.secondary,
             'accent': colors.accent,
             'background': colors.background,
-            'surface': colors.surface,
             'text_primary': colors.text_primary,
-            'text_secondary': colors.text_secondary,
-            'success': colors.success,
-            'warning': colors.warning,
-            'error': colors.error,
-            'info': colors.info,
         }
 
 
 if __name__ == '__main__':
-    # Test theme manager
     theme_manager = ThemeManager()
-    
-    print("=" * 60)
-    print("Theme Manager Test")
-    print("=" * 60)
-    
-    print("\n📋 Available themes:")
-    for theme_key, theme_name in theme_manager.get_theme_display_names().items():
-        print(f"  • {theme_name} ({theme_key})")
-    
-    print(f"\n✅ Current theme: {theme_manager.current_theme}")
-    
-    print("\n🎨 Generating stylesheets...")
-    for theme_key in theme_manager.get_available_themes():
-        qss = theme_manager.get_stylesheet(theme_key)
-        filename = f'{theme_key}.qss'
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(qss)
-        print(f"  ✓ {filename} generated")
-    
-    print("\n💾 Exporting theme configs...")
-    for theme_key in theme_manager.get_available_themes():
-        config = theme_manager.export_theme_config(theme_key, f'{theme_key}_config.json')
-        print(f"  ✓ {theme_key}_config.json exported")
-    
-    print("\n🎨 Color Palettes:")
-    for theme_key in theme_manager.get_available_themes():
-        theme = theme_manager.THEMES[theme_key]
-        print(f"\n  {theme['name']}:")
-        palette = theme_manager.get_color_palette(theme_key)
-        for color_name, color_value in palette.items():
-            print(f"    {color_name}: {color_value}")
-    
-    print("\n" + "=" * 60)
-    print("✅ All tests completed successfully!")
-    print("=" * 60)
+    print(f"✅ Default theme: {theme_manager.current_theme}")
+    print(f"🎨 Available themes: {list(theme_manager.get_theme_display_names().values())}")
