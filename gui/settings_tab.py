@@ -28,7 +28,6 @@ class SettingsTab(QWidget):
         title.setFont(title_font)
         main_layout.addWidget(title)
         
-        # Separator
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
         separator.setFrameShadow(QFrame.Shadow.Sunken)
@@ -45,28 +44,43 @@ class SettingsTab(QWidget):
         self.setLayout(main_layout)
     
     def get_stylesheet_for_theme(self):
-        """Get dynamic stylesheet based on current theme"""
         current_theme = self.theme_manager.current_theme
         colors = self.theme_manager.get_theme(current_theme)['colors']
         
-        is_dark = 'dark' in current_theme.lower()
+        is_dark = any(x in current_theme.lower() for x in ['dark', 'cyber', 'neon', 'blood', 'ocean', 'midnight', 'toxic', 'dracula', 'electric', 'pink'])
         
         if is_dark:
             primary_color = colors.primary
-            bg_color = '#0d1117'
-            surface_color = '#161b22'
-            text_color = '#c9d1d9'
-            text_secondary = '#8b949e'
-            border_color = '#30363d'
-            hover_color = '#21262d'
+            bg_color = colors.background
+            surface_color = colors.surface.split('(')[1].split(')')[0] if 'rgba' in colors.surface else colors.surface
+            if 'rgba' in colors.surface:
+                rgba_parts = surface_color.split(',')
+                surface_color = f"#{int(float(rgba_parts[0])):02x}{int(float(rgba_parts[1])):02x}{int(float(rgba_parts[2])):02x}"
+            text_color = colors.text_primary
+            text_secondary = colors.text_secondary
+            border_color = colors.border.split('(')[0] if 'rgba' in colors.border else colors.border
+            if 'rgba' in colors.border:
+                border_parts = colors.border.split('(')[1].split(')')[0].split(',')
+                border_color = f"#{int(float(border_parts[0])):02x}{int(float(border_parts[1])):02x}{int(float(border_parts[2])):02x}"
+            hover_color = colors.accent
         else:
             primary_color = colors.primary
-            bg_color = '#ffffff'
-            surface_color = '#f6f8fa'
-            text_color = '#0f172a'
-            text_secondary = '#64748b'
-            border_color = '#d0d7de'
-            hover_color = '#f3f4f6'
+            bg_color = colors.background
+            surface_color = colors.surface.split('(')[1].split(')')[0] if 'rgba' in colors.surface else colors.surface
+            if 'rgba' in colors.surface:
+                rgba_parts = surface_color.split(',')
+                surface_color = f"#{int(float(rgba_parts[0])):02x}{int(float(rgba_parts[1])):02x}{int(float(rgba_parts[2])):02x}"
+            else:
+                surface_color = '#F8FAFC'
+            text_color = colors.text_primary
+            text_secondary = colors.text_secondary
+            border_color = colors.border.split('(')[0] if 'rgba' in colors.border else colors.border
+            if 'rgba' in colors.border:
+                border_parts = colors.border.split('(')[1].split(')')[0].split(',')
+                border_color = f"#{int(float(border_parts[0])):02x}{int(float(border_parts[1])):02x}{int(float(border_parts[2])):02x}"
+            else:
+                border_color = '#D0D7DE'
+            hover_color = colors.accent
         
         return {
             'primary': primary_color,
@@ -80,19 +94,16 @@ class SettingsTab(QWidget):
         }
     
     def create_general_settings_tab(self):
-        """Create general settings tab with theme selector"""
         widget = QWidget()
         
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
         
-        # Get current theme colors
         styles = self.get_stylesheet_for_theme()
         
         widget.setStyleSheet(f"background: {styles['background']};")
         
-        # ============= Theme Selection =============
         theme_group = QGroupBox('🎨 APPLICATION THEME')
         theme_group.setStyleSheet(f"""
             QGroupBox {{
@@ -114,7 +125,6 @@ class SettingsTab(QWidget):
         theme_layout = QVBoxLayout()
         theme_layout.setSpacing(12)
         
-        # Theme selector
         theme_select_layout = QHBoxLayout()
         theme_label = QLabel('Current Theme:')
         theme_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 120px;')
@@ -123,18 +133,15 @@ class SettingsTab(QWidget):
         self.theme_combo = QComboBox()
         self.theme_combo.setMinimumHeight(40)
         
-        # اضافه کردن تم‌ها
         theme_display_names = self.theme_manager.get_theme_display_names()
         for theme_key, theme_name in theme_display_names.items():
             self.theme_combo.addItem(theme_name, theme_key)
         
-        # انتخاب تم فعلی
         current_theme = self.theme_manager.current_theme
         index = self.theme_combo.findData(current_theme)
         if index >= 0:
             self.theme_combo.setCurrentIndex(index)
         
-        # استایل ComboBox
         combo_stylesheet = f"""
             QComboBox {{
                 background: {styles['background']};
@@ -180,7 +187,6 @@ class SettingsTab(QWidget):
         theme_select_layout.addWidget(self.theme_combo, 1)
         theme_layout.addLayout(theme_select_layout)
         
-        # Theme description
         theme_desc_layout = QHBoxLayout()
         self.theme_desc_label = QLabel('Select a theme to change the application appearance')
         self.theme_desc_label.setStyleSheet(f'color: {styles["text_secondary"]}; font-size: 10pt;')
@@ -188,7 +194,6 @@ class SettingsTab(QWidget):
         theme_desc_layout.addWidget(self.theme_desc_label)
         theme_layout.addLayout(theme_desc_layout)
         
-        # Theme preview
         preview_layout = QHBoxLayout()
         preview_info = QLabel('💡 Changes will be applied immediately')
         preview_info.setStyleSheet(f'color: {styles["primary"]}; font-size: 10pt; font-weight: bold;')
@@ -199,7 +204,6 @@ class SettingsTab(QWidget):
         theme_group.setLayout(theme_layout)
         layout.addWidget(theme_group)
         
-        # ============= Display Settings =============
         display_group = QGroupBox('🖥️ DISPLAY SETTINGS')
         display_group.setStyleSheet(f"""
             QGroupBox {{
@@ -221,7 +225,6 @@ class SettingsTab(QWidget):
         display_layout = QVBoxLayout()
         display_layout.setSpacing(12)
         
-        # Auto-minimize
         auto_minimize_check = QCheckBox('Minimize to system tray')
         auto_minimize_check.setChecked(True)
         auto_minimize_check.setStyleSheet(f"""
@@ -246,7 +249,6 @@ class SettingsTab(QWidget):
         self.auto_minimize_check = auto_minimize_check
         display_layout.addWidget(auto_minimize_check)
         
-        # Show notifications
         notifications_check = QCheckBox('Show desktop notifications')
         notifications_check.setChecked(True)
         notifications_check.setStyleSheet(f"""
@@ -271,7 +273,6 @@ class SettingsTab(QWidget):
         self.notifications_check = notifications_check
         display_layout.addWidget(notifications_check)
         
-        # Auto-update
         auto_update_check = QCheckBox('Check for updates automatically')
         auto_update_check.setChecked(True)
         auto_update_check.setStyleSheet(f"""
@@ -299,7 +300,6 @@ class SettingsTab(QWidget):
         display_group.setLayout(display_layout)
         layout.addWidget(display_group)
         
-        # ============= Save Button =============
         layout.addStretch()
         
         save_layout = QHBoxLayout()
@@ -336,7 +336,6 @@ class SettingsTab(QWidget):
         return widget
     
     def create_ai_settings_tab(self):
-        """Create AI integration settings tab"""
         widget = QWidget()
         
         styles = self.get_stylesheet_for_theme()
@@ -346,7 +345,6 @@ class SettingsTab(QWidget):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
         
-        # ============= AI Model Configuration =============
         ai_group = QGroupBox('🤖 AI MODEL CONFIGURATION')
         ai_group.setStyleSheet(f"""
             QGroupBox {{
@@ -368,7 +366,6 @@ class SettingsTab(QWidget):
         ai_layout = QVBoxLayout()
         ai_layout.setSpacing(12)
         
-        # Provider selection
         provider_layout = QHBoxLayout()
         provider_label = QLabel('AI PROVIDER:')
         provider_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 150px;')
@@ -406,7 +403,6 @@ class SettingsTab(QWidget):
         provider_layout.addWidget(self.ai_provider_combo, 1)
         ai_layout.addLayout(provider_layout)
         
-        # API Key input
         api_key_layout = QHBoxLayout()
         api_key_label = QLabel('API KEY:')
         api_key_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 150px;')
@@ -436,7 +432,6 @@ class SettingsTab(QWidget):
         api_key_layout.addWidget(self.api_key_input, 1)
         ai_layout.addLayout(api_key_layout)
         
-        # Test button
         test_layout = QHBoxLayout()
         test_layout.addStretch()
         
@@ -468,7 +463,6 @@ class SettingsTab(QWidget):
         ai_group.setLayout(ai_layout)
         layout.addWidget(ai_group)
         
-        # ============= Supported Providers =============
         info_group = QGroupBox('📚 SUPPORTED AI PROVIDERS')
         info_group.setStyleSheet(f"""
             QGroupBox {{
@@ -505,19 +499,22 @@ class SettingsTab(QWidget):
         
         info_content = """
 🔹 OpenAI (GPT-4)
-   Website: https://openai.com/api/
-   API Key: https://platform.openai.com/api-keys
+   Website: [https://openai.com/api/](https://openai.com/api/)
+   API Key: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
    Model: gpt-4
 
+
 🔹 Anthropic (Claude)
-   Website: https://www.anthropic.com/
-   API Key: https://console.anthropic.com/
+   Website: [https://www.anthropic.com/](https://www.anthropic.com/)
+   API Key: [https://console.anthropic.com/](https://console.anthropic.com/)
    Model: claude-3-opus-20240229
 
+
 🔹 Google Gemini
-   Website: https://ai.google.dev/
-   API Key: https://makersuite.google.com/app/apikey
+   Website: [https://ai.google.dev/](https://ai.google.dev/)
+   API Key: [https://makersuite.google.com/app/apikey](https://makersuite.google.com/app/apikey)
    Model: gemini-pro
+
 
 💡 Without an API key, basic POC templates will be used.
 With a valid API key, advanced POC generation and analysis will be available.
@@ -532,7 +529,6 @@ With a valid API key, advanced POC generation and analysis will be available.
         return widget
     
     def create_scanner_settings_tab(self):
-        """Create scanner configuration tab"""
         widget = QWidget()
         
         styles = self.get_stylesheet_for_theme()
@@ -542,7 +538,6 @@ With a valid API key, advanced POC generation and analysis will be available.
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
         
-        # ============= Scanner Verification =============
         scan_group = QGroupBox('🔍 SCANNER VERIFICATION SETTINGS')
         scan_group.setStyleSheet(f"""
             QGroupBox {{
@@ -564,7 +559,6 @@ With a valid API key, advanced POC generation and analysis will be available.
         scan_layout = QVBoxLayout()
         scan_layout.setSpacing(12)
         
-        # Enable verification
         verify_check = QCheckBox('✓ Enable Real Vulnerability Verification')
         verify_check.setChecked(True)
         verify_check.setStyleSheet(f"""
@@ -589,7 +583,6 @@ With a valid API key, advanced POC generation and analysis will be available.
         self.verify_check = verify_check
         scan_layout.addWidget(verify_check)
         
-        # Info label
         info_label = QLabel('When enabled, the scanner will verify each detected vulnerability by testing actual parameters and payloads.')
         info_label.setStyleSheet(f'color: {styles["text_secondary"]}; font-size: 10pt; margin-left: 20px;')
         info_label.setWordWrap(True)
@@ -597,7 +590,6 @@ With a valid API key, advanced POC generation and analysis will be available.
         
         scan_layout.addSpacing(15)
         
-        # Timeout setting
         timeout_layout = QHBoxLayout()
         timeout_label = QLabel('Verification Timeout:')
         timeout_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 200px;')
@@ -628,7 +620,6 @@ With a valid API key, advanced POC generation and analysis will be available.
         timeout_layout.addStretch()
         scan_layout.addLayout(timeout_layout)
         
-        # Retries setting
         retries_layout = QHBoxLayout()
         retries_label = QLabel('Max Verification Retries:')
         retries_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 200px;')
@@ -658,7 +649,6 @@ With a valid API key, advanced POC generation and analysis will be available.
         retries_layout.addStretch()
         scan_layout.addLayout(retries_layout)
         
-        # Threads setting
         threads_layout = QHBoxLayout()
         threads_label = QLabel('Worker Threads:')
         threads_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 200px;')
@@ -691,7 +681,6 @@ With a valid API key, advanced POC generation and analysis will be available.
         scan_group.setLayout(scan_layout)
         layout.addWidget(scan_group)
         
-        # ============= Advanced Options =============
         advanced_group = QGroupBox('⚡ ADVANCED OPTIONS')
         advanced_group.setStyleSheet(f"""
             QGroupBox {{
@@ -768,21 +757,14 @@ With a valid API key, advanced POC generation and analysis will be available.
         return widget
     
     def on_theme_changed(self, index: int):
-        """Handle theme change"""
         theme_key = self.theme_combo.itemData(index)
         if theme_key:
-            # Update theme manager
             self.theme_manager.set_theme(theme_key)
-            
-            # Update description
             theme_name = self.theme_manager.THEMES[theme_key]['name']
             self.theme_desc_label.setText(f'Theme: {theme_name}')
-            
-            # Emit signal
             self.theme_changed.emit(theme_key)
     
     def on_provider_changed(self, provider: str):
-        """Handle provider change"""
         if provider == 'None':
             self.api_key_input.setEnabled(False)
             self.api_key_input.setText('')
@@ -790,7 +772,6 @@ With a valid API key, advanced POC generation and analysis will be available.
             self.api_key_input.setEnabled(True)
     
     def test_ai_connection(self):
-        """Test AI connection"""
         provider = self.ai_provider_combo.currentText()
         api_key = self.api_key_input.text().strip()
         
@@ -809,7 +790,6 @@ With a valid API key, advanced POC generation and analysis will be available.
         )
     
     def save_settings(self):
-        """Save all settings"""
         settings = {
             'theme': self.theme_combo.itemData(self.theme_combo.currentIndex()),
             'ai_provider': self.ai_provider_combo.currentText(),
