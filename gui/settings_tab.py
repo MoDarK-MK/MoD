@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdi
                              QMessageBox, QTabWidget, QSpinBox, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
-from core.theme_manager import ThemeManager
+from gui.theme_manager import ThemeManager
 
 
 class SettingsTab(QWidget):
