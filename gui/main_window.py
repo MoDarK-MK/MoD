@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (QMainWindow, QTabWidget, QVBoxLayout,
                              QMessageBox, QSizePolicy, QLabel, QHBoxLayout)
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QIcon, QFont
+
 from .scan_tab import ScanTab
 from .results_tab import ResultsTab
 from .settings_tab import SettingsTab
@@ -11,10 +12,10 @@ from .auth_tab import AuthTab
 from .subdomain_tab import SubdomainTab
 from .wayback_tab import WaybackTab
 from .advanced_settings_tab import AdvancedSettingsTab
-from .theme_manager import ThemeManager
 from .request_monitor_tab import RequestMonitorTab
 from .cve_scanner_tab import CVEScannerTab
 from .waf_bypass_tab import WAFBypassTab
+from core.theme_manager import ThemeManager  # ✅ Import from core
 import time
 
 
@@ -22,15 +23,20 @@ class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
-        self.theme_manager = ThemeManager()
+        
+        # ✅ Initialize Theme Manager FIRST
+        self.theme_manager = ThemeManager(default_theme='cyber_green')
+        
         self.scan_stats = {
             'total_scans': 0,
             'vulnerabilities_found': 0,
             'bypassed_wafs': 0
         }
+        
         self.init_ui()
         self.apply_theme()
-        self.setWindowTitle('MoD - Master of Defense v4.0 Enterprise | The Ultimate Pentesting Suite')
+        
+        self.setWindowTitle('🔥 MoD - Master of Defense v4.0 Enterprise | The Ultimate Pentesting Suite')
         self.setMinimumSize(QSize(1600, 1000))
         self.setup_status_timer()
     
@@ -50,6 +56,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.setMovable(True)
         self.tab_widget.setTabsClosable(False)
         
+        # ✅ Initialize tabs
         self.scan_tab = ScanTab()
         self.results_tab = ResultsTab()
         self.cve_scanner_tab = CVEScannerTab()
@@ -58,9 +65,13 @@ class MainWindow(QMainWindow):
         self.wayback_tab = WaybackTab()
         self.auth_tab = AuthTab()
         self.request_monitor_tab = RequestMonitorTab()
-        self.settings_tab = SettingsTab()
+        
+        # ✅ CRITICAL FIX: Pass theme_manager to SettingsTab
+        self.settings_tab = SettingsTab(self.theme_manager)
+        
         self.advanced_settings_tab = AdvancedSettingsTab()
         
+        # Add tabs
         self.tab_widget.addTab(self.scan_tab, '🎯 Vulnerability Scan')
         self.tab_widget.addTab(self.results_tab, '📊 Scan Results')
         self.tab_widget.addTab(self.cve_scanner_tab, '🔍 CVE Scanner')
@@ -76,6 +87,7 @@ class MainWindow(QMainWindow):
         
         self.create_status_bar()
         
+        # Connect signals
         self.scan_tab.scan_started.connect(self.on_scan_started)
         self.scan_tab.scan_completed.connect(self.on_scan_completed)
         self.scan_tab.vulnerability_found.connect(self.on_vulnerability_found)
@@ -87,14 +99,17 @@ class MainWindow(QMainWindow):
         self.wayback_tab.fetch_started.connect(lambda d: self.update_status(f'⏰ Fetching Wayback: {d}', '#d29922'))
         self.wayback_tab.fetch_completed.connect(self.on_wayback_completed)
         
+        # ✅ Connect theme and settings signals
         self.settings_tab.theme_changed.connect(self.on_theme_changed)
         self.settings_tab.settings_changed.connect(self.on_settings_changed)
+        
         self.auth_tab.auth_configured.connect(self.on_auth_configured)
         self.advanced_settings_tab.settings_changed.connect(self.on_advanced_settings_changed)
     
     def create_menu_bar(self):
         menubar = self.menuBar()
         
+        # File Menu
         file_menu = menubar.addMenu('&File')
         
         new_scan_action = QAction('🎯 &New Vulnerability Scan', self)
@@ -126,12 +141,14 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
         
+        # View Menu
         view_menu = menubar.addMenu('&View')
         
-        themes = self.theme_manager.get_available_themes()
-        for theme in themes:
-            theme_action = QAction(f'🎨 {theme.replace("_", " ").title()}', self)
-            theme_action.triggered.connect(lambda checked, t=theme: self.on_theme_changed(t))
+        # ✅ Get theme display names properly
+        theme_display_names = self.theme_manager.get_theme_display_names()
+        for theme_key, theme_name in theme_display_names.items():
+            theme_action = QAction(f'{theme_name}', self)
+            theme_action.triggered.connect(lambda checked, t=theme_key: self.on_theme_changed(t))
             view_menu.addAction(theme_action)
         
         view_menu.addSeparator()
@@ -141,6 +158,7 @@ class MainWindow(QMainWindow):
         fullscreen_action.triggered.connect(self.toggle_fullscreen)
         view_menu.addAction(fullscreen_action)
         
+        # Tools Menu
         tools_menu = menubar.addMenu('&Tools')
         
         cve_scanner_action = QAction('🔍 CVE Scanner', self)
@@ -170,6 +188,7 @@ class MainWindow(QMainWindow):
         wayback_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.wayback_tab))
         tools_menu.addAction(wayback_action)
         
+        # Help Menu
         help_menu = menubar.addMenu('&Help')
         
         docs_action = QAction('📚 Documentation', self)
@@ -186,6 +205,7 @@ class MainWindow(QMainWindow):
     def create_toolbar(self):
         toolbar = QToolBar()
         toolbar.setMovable(False)
+        toolbar.setIconSize(QSize(24, 24))
         self.addToolBar(toolbar)
         
         scan_action = QAction('🎯 Vuln Scan', self)
@@ -268,25 +288,25 @@ class MainWindow(QMainWindow):
         status_layout.setSpacing(15)
         
         self.status_label = QLabel('🟢 Ready | MoD v4.0 Enterprise')
-        self.status_label.setStyleSheet('color: #2ea043; font-weight: bold; font-size: 10pt;')
+        self.status_label.setStyleSheet('font-weight: bold; font-size: 10pt;')
         status_layout.addWidget(self.status_label)
         
         status_layout.addStretch()
         
         self.scans_label = QLabel('📊 Scans: 0')
-        self.scans_label.setStyleSheet('color: #58a6ff; font-weight: bold;')
+        self.scans_label.setStyleSheet('font-weight: bold;')
         status_layout.addWidget(self.scans_label)
         
         self.vulns_label = QLabel('🔍 Vulnerabilities: 0')
-        self.vulns_label.setStyleSheet('color: #f85149; font-weight: bold;')
+        self.vulns_label.setStyleSheet('font-weight: bold;')
         status_layout.addWidget(self.vulns_label)
         
         self.bypassed_label = QLabel('🔥 WAF Bypassed: 0')
-        self.bypassed_label.setStyleSheet('color: #d29922; font-weight: bold;')
+        self.bypassed_label.setStyleSheet('font-weight: bold;')
         status_layout.addWidget(self.bypassed_label)
         
         self.time_label = QLabel(f'🕐 {time.strftime("%H:%M:%S")}')
-        self.time_label.setStyleSheet('color: #8b949e; font-weight: bold;')
+        self.time_label.setStyleSheet('font-weight: bold;')
         status_layout.addWidget(self.time_label)
         
         self.status_bar.addPermanentWidget(status_widget, 1)
@@ -300,109 +320,157 @@ class MainWindow(QMainWindow):
         self.time_label.setText(f'🕐 {time.strftime("%H:%M:%S")}')
     
     def apply_theme(self):
-        stylesheet = self.theme_manager.get_stylesheet()
-        self.setStyleSheet(stylesheet)
+        """Apply current theme to entire application"""
+        try:
+            stylesheet = self.theme_manager.get_stylesheet()
+            self.setStyleSheet(stylesheet)
+        except Exception as e:
+            print(f"Error applying theme: {e}")
     
-    def update_status(self, message: str, color: str = '#58a6ff'):
+    def update_status(self, message: str, color: str = None):
+        """Update status bar message"""
         self.status_label.setText(message)
-        self.status_label.setStyleSheet(f'color: {color}; font-weight: bold; font-size: 10pt;')
+        if color:
+            self.status_label.setStyleSheet(f'color: {color}; font-weight: bold; font-size: 10pt;')
     
     def on_scan_started(self, target: str):
+        """Handle scan started event"""
         self.scan_stats['total_scans'] += 1
-        self.update_status(f'⚡ Scanning: {target}', '#58a6ff')
+        self.update_status(f'⚡ Scanning: {target}')
         self.scans_label.setText(f'📊 Scans: {self.scan_stats["total_scans"]}')
         self.results_tab.clear_results()
     
     def on_scan_completed(self, results: list):
+        """Handle scan completed event"""
         self.scan_stats['vulnerabilities_found'] += len(results)
-        self.update_status(f'✅ Scan completed - {len(results)} vulnerabilities found', '#2ea043')
+        self.update_status(f'✅ Scan completed - {len(results)} vulnerabilities found')
         self.vulns_label.setText(f'🔍 Vulnerabilities: {self.scan_stats["vulnerabilities_found"]}')
         self.results_tab.display_results(results)
         self.tab_widget.setCurrentWidget(self.results_tab)
     
     def on_vulnerability_found(self, vulnerability: dict):
+        """Handle vulnerability found event"""
         self.results_tab.add_vulnerability(vulnerability)
     
     def on_subdomain_completed(self, results: list):
-        self.update_status(f'✅ Found {len(results)} subdomains', '#2ea043')
+        """Handle subdomain scan completed"""
+        self.update_status(f'✅ Found {len(results)} subdomains')
     
     def on_wayback_completed(self, results: list):
-        self.update_status(f'✅ Found {len(results)} archived URLs', '#2ea043')
+        """Handle wayback fetch completed"""
+        self.update_status(f'✅ Found {len(results)} archived URLs')
     
-    def on_theme_changed(self, theme: str):
-        self.theme_manager.set_theme(theme)
+    def on_theme_changed(self, theme_key: str):
+        """Handle theme change from settings or menu"""
+        self.theme_manager.set_theme(theme_key)
         self.apply_theme()
-        self.update_status(f'🎨 Theme changed to {theme.replace("_", " ").title()}', '#d29922')
+        
+        theme_name = self.theme_manager.THEMES[theme_key]['name']
+        self.update_status(f'🎨 Theme changed to {theme_name}')
     
     def on_settings_changed(self, settings: dict):
+        """Handle settings changes"""
         api_key = settings.get('api_key', '')
-        api_provider = settings.get('api_provider', 'openai')
+        api_provider = settings.get('api_provider', 'None')
         
-        if api_key:
-            self.cve_scanner_tab.set_api_config(api_key, api_provider)
-            self.update_status(f'🔐 AI API configured: {api_provider}', '#2ea043')
+        if api_key and api_provider != 'None':
+            # Configure AI API for CVE Scanner
+            if hasattr(self.cve_scanner_tab, 'set_api_config'):
+                self.cve_scanner_tab.set_api_config(api_key, api_provider)
+            self.update_status(f'🔐 AI API configured: {api_provider}')
+        
+        # Apply other settings
+        print(f"Settings changed: {settings}")
     
     def on_auth_configured(self, auth_manager):
-        self.scan_tab.set_auth_manager(auth_manager)
-        self.update_status('🔐 Authentication configured', '#2ea043')
+        """Handle authentication configuration"""
+        if hasattr(self.scan_tab, 'set_auth_manager'):
+            self.scan_tab.set_auth_manager(auth_manager)
+        self.update_status('🔐 Authentication configured')
     
     def on_advanced_settings_changed(self, settings: dict):
-        self.update_status('⚙️ Advanced settings updated', '#58a6ff')
+        """Handle advanced settings changes"""
+        self.update_status('⚙️ Advanced settings updated')
     
     def toggle_fullscreen(self):
+        """Toggle fullscreen mode"""
         if self.isFullScreen():
             self.showNormal()
         else:
             self.showFullScreen()
     
     def export_results(self):
-        self.results_tab.export_results()
-        self.update_status('💾 Results exported successfully', '#2ea043')
+        """Export scan results"""
+        if hasattr(self.results_tab, 'export_results'):
+            self.results_tab.export_results()
+            self.update_status('💾 Results exported successfully')
+        else:
+            QMessageBox.information(self, 'Export', 'No results to export')
     
     def show_documentation(self):
+        """Show documentation dialog"""
         QMessageBox.information(
             self,
-            'MoD Documentation',
-            '📚 MoD v4.0 Enterprise Documentation\n\n'
-            '🎯 Vulnerability Scanner:\n'
-            '  - 15+ vulnerability types detection\n'
-            '  - Multi-threaded scanning\n'
-            '  - Real-time results\n\n'
-            '🔍 CVE Scanner:\n'
-            '  - 400+ CVE signatures\n'
-            '  - Smart verification system\n'
-            '  - AI-powered POC generation\n\n'
-            '🔥 WAF Bypass Engine:\n'
-            '  - Intelligent payload mutation\n'
-            '  - 50+ bypass techniques\n'
-            '  - Adaptive learning\n\n'
-            '📡 Request Monitor:\n'
-            '  - Real-time traffic analysis\n'
-            '  - Request/Response inspection\n\n'
-            '🌐 Subdomain Enumeration:\n'
-            '  - 10000+ wordlist\n'
-            '  - DNS resolution\n'
-            '  - Multi-threading\n\n'
-            '⏰ Wayback URLs:\n'
-            '  - Archive.org integration\n'
-            '  - CommonCrawl support\n'
-            '  - URL deduplication\n\n'
-            'For more info: https://mod-security.com/docs'
+            '📚 MoD Documentation',
+            '═══════════════════════════════════\n'
+            '   MoD v4.0 Enterprise Documentation\n'
+            '═══════════════════════════════════\n\n'
+            '🎯 VULNERABILITY SCANNER\n'
+            '  • 15+ vulnerability types detection\n'
+            '  • Multi-threaded scanning engine\n'
+            '  • Real-time vulnerability discovery\n'
+            '  • Smart payload generation\n\n'
+            '🔍 CVE SCANNER\n'
+            '  • 400+ CVE signatures database\n'
+            '  • Smart verification system\n'
+            '  • AI-powered POC generation\n'
+            '  • Zero false positives\n\n'
+            '🔥 WAF BYPASS ENGINE\n'
+            '  • Intelligent payload mutation\n'
+            '  • 50+ bypass techniques\n'
+            '  • Adaptive learning system\n'
+            '  • Real-time effectiveness tracking\n\n'
+            '📡 REQUEST MONITOR\n'
+            '  • Real-time traffic analysis\n'
+            '  • Request/Response inspection\n'
+            '  • Payload debugging tools\n\n'
+            '🌐 SUBDOMAIN ENUMERATION\n'
+            '  • 10000+ wordlist database\n'
+            '  • DNS resolution verification\n'
+            '  • Multi-threaded discovery\n\n'
+            '⏰ WAYBACK MACHINE\n'
+            '  • Archive.org integration\n'
+            '  • CommonCrawl support\n'
+            '  • Smart URL deduplication\n\n'
+            '🔐 AUTHENTICATION\n'
+            '  • Session management\n'
+            '  • Multi-auth support\n'
+            '  • Cookie handling\n\n'
+            '⚙️ ENTERPRISE FEATURES\n'
+            '  • 4 Premium themes\n'
+            '  • Dark/Light mode support\n'
+            '  • Export capabilities\n'
+            '  • Advanced configuration\n\n'
+            '══════════════════════════════\n'
+            'For detailed docs:\n'
+            'https://mod-security.com/docs\n'
+            '══════════════════════════════'
         )
     
     def show_about(self):
+        """Show about dialog"""
         QMessageBox.about(
             self,
             'About MoD',
             '═══════════════════════════════════\n'
-            '     MoD - Master of Defense\n'
+            '     🔥 MoD - Master of Defense 🔥\n'
             '═══════════════════════════════════\n\n'
             '🚀 Version 4.0.0 Enterprise Edition\n\n'
             '💎 The Ultimate Web Penetration Testing Suite\n'
             '   with World-Class Security Tools\n\n'
             '© 2025 MoD Security Team\n'
             '══════════════════════════════\n\n'
-            '✨ Premium Features:\n\n'
+            '✨ PREMIUM FEATURES:\n\n'
             '🎯 Vulnerability Scanner\n'
             '   • 15+ Attack Vectors\n'
             '   • Smart Detection Engine\n'
@@ -423,17 +491,24 @@ class MainWindow(QMainWindow):
             '   • Multi-threaded Scanning\n\n'
             '⏰ Wayback Machine\n'
             '   • Archive.org Integration\n'
-            '   • URL Extraction\n\n'
+            '   • URL Extraction & Analysis\n\n'
             '🔐 Advanced Authentication\n'
             '   • Session Management\n'
             '   • Multi-auth Support\n\n'
             '⚙️ Enterprise Grade\n'
-            '   • 11 Professional Themes\n'
-            '   • Dark/Light Support\n'
+            '   • 4 Professional Themes\n'
+            '   • Cyber Green (Matrix Style)\n'
+            '   • iOS Dark/Light\n'
+            '   • Modern Light\n'
             '   • Export Capabilities\n'
             '   • Zero False Positives\n\n'
             '══════════════════════════════\n'
             '🏆 World-Class Security Tool\n'
             '   Built by Security Experts\n'
-            '══════════════════════════════'
+            '══════════════════════════════\n\n'
+            '🌐 Website: https://mod-security.com\n'
+            '📧 Contact: support@mod-security.com\n'
+            '📚 Docs: https://mod-security.com/docs\n\n'
+            'Licensed under Enterprise License\n'
+            'All Rights Reserved © 2025'
         )
