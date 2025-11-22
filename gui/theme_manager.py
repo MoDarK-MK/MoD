@@ -38,7 +38,7 @@ class ThemeStyles:
 class ThemeManager:
     THEMES = {
         'ios_liquid_glass_dark': {
-            'name': 'iOS Liquid Glass Dark',
+            'name': 'iOS Dark (Liquid Glass)',
             'description': 'Dark theme with teal-cyan gradients and liquid glass effect',
             'colors': ThemeColors(
                 primary='#00D9A3',
@@ -72,36 +72,70 @@ class ThemeManager:
             )
         },
         'ios_liquid_glass_light': {
-            'name': 'iOS Liquid Glass Light',
+            'name': 'iOS Light (Liquid Glass)',
             'description': 'Light theme with teal-cyan gradients and liquid glass effect',
             'colors': ThemeColors(
                 primary='#00A67E',
                 secondary='#0097B2',
                 accent='#00D9A3',
                 background='#F5F8FA',
-                surface='rgba(255, 255, 255, 0.7)',
-                text_primary='#0A0E1A',
+                surface='rgba(255, 255, 255, 0.85)',
+                text_primary='#1A202C',
                 text_secondary='#4A5568',
                 success='#00C853',
-                warning='#FFC107',
-                error='#F44336',
+                warning='#F59E0B',
+                error='#EF4444',
                 info='#0097B2',
-                border='rgba(0, 166, 126, 0.2)',
-                shadow='rgba(0, 166, 126, 0.1)',
+                border='rgba(0, 166, 126, 0.25)',
+                shadow='rgba(0, 166, 126, 0.12)',
                 gradient_start='#00A67E',
                 gradient_end='#0097B2',
-                glass_bg='rgba(255, 255, 255, 0.65)',
-                glass_border='rgba(0, 166, 126, 0.18)',
-                glass_shadow='0 8px 32px rgba(0, 166, 126, 0.1)'
+                glass_bg='rgba(255, 255, 255, 0.75)',
+                glass_border='rgba(0, 166, 126, 0.2)',
+                glass_shadow='0 8px 32px rgba(0, 166, 126, 0.12)'
             ),
             'styles': ThemeStyles(
                 border_radius='20px',
                 blur='25px',
-                shadow='0 8px 32px rgba(0, 166, 126, 0.1)',
+                shadow='0 8px 32px rgba(0, 166, 126, 0.12)',
                 transition='all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 font_family='-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif',
-                glass_shadow='0 8px 32px 0 rgba(0, 166, 126, 0.1)',
+                glass_shadow='0 8px 32px 0 rgba(0, 166, 126, 0.12)',
                 glass_backdrop='blur(25px) saturate(180%)',
+                glass_border_width='1px'
+            )
+        },
+        'modern_light': {
+            'name': 'Modern Light',
+            'description': 'Clean and bright modern light theme',
+            'colors': ThemeColors(
+                primary='#0EA5E9',
+                secondary='#06B6D4',
+                accent='#22D3EE',
+                background='#FFFFFF',
+                surface='rgba(248, 250, 252, 0.95)',
+                text_primary='#0F172A',
+                text_secondary='#64748B',
+                success='#10B981',
+                warning='#F59E0B',
+                error='#EF4444',
+                info='#3B82F6',
+                border='rgba(226, 232, 240, 0.8)',
+                shadow='rgba(0, 0, 0, 0.08)',
+                gradient_start='#0EA5E9',
+                gradient_end='#06B6D4',
+                glass_bg='rgba(255, 255, 255, 0.85)',
+                glass_border='rgba(226, 232, 240, 0.6)',
+                glass_shadow='0 4px 24px rgba(0, 0, 0, 0.06)'
+            ),
+            'styles': ThemeStyles(
+                border_radius='16px',
+                blur='20px',
+                shadow='0 4px 24px rgba(0, 0, 0, 0.06)',
+                transition='all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                font_family='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+                glass_shadow='0 4px 24px rgba(0, 0, 0, 0.06)',
+                glass_backdrop='blur(20px) saturate(150%)',
                 glass_border_width='1px'
             )
         }
@@ -113,6 +147,7 @@ class ThemeManager:
         self._custom_themes = {}
     
     def get_theme(self, theme_name: Optional[str] = None) -> Dict:
+        """Get theme configuration"""
         theme_name = theme_name or self.current_theme
         
         if theme_name in self._theme_cache:
@@ -127,28 +162,48 @@ class ThemeManager:
         return theme
     
     def set_theme(self, theme_name: str):
+        """Set current theme"""
         if theme_name in self.THEMES or theme_name in self._custom_themes:
             self.current_theme = theme_name
             self._theme_cache.clear()
     
     def add_custom_theme(self, theme_name: str, theme_config: Dict):
+        """Add custom theme"""
         self._custom_themes[theme_name] = theme_config
     
     def get_available_themes(self) -> List[str]:
+        """Get list of available theme keys"""
         return list(self.THEMES.keys()) + list(self._custom_themes.keys())
+    
+    def get_theme_display_names(self) -> Dict[str, str]:
+        """Get human-readable theme names for UI"""
+        display_names = {}
+        for key, theme in self.THEMES.items():
+            display_names[key] = theme['name']
+        for key, theme in self._custom_themes.items():
+            display_names[key] = theme.get('name', key)
+        return display_names
     
     def get_stylesheet(self, theme_name: Optional[str] = None) -> str:
         """Get QSS stylesheet for Qt applications"""
+        # Fix: Handle None theme_name
+        if theme_name is None:
+            theme_name = self.current_theme
+        
         theme = self.get_theme(theme_name)
         colors = theme['colors']
         styles = theme['styles']
         
-        # Convert rgba to hex for Qt
-        bg_hex = '#0F172A'  # Approximation of rgba(15, 23, 42, 0.7)
-        surface_hex = '#1E293B'
+        # Convert rgba to appropriate colors based on theme type
+        if 'dark' in theme_name.lower():
+            bg_surface = '#1E293B'
+            surface_hex = '#2D3748'
+        else:
+            bg_surface = '#F8FAFC'
+            surface_hex = '#FFFFFF'
         
         return f'''
-/* iOS Liquid Glass Theme - Qt Stylesheet */
+/* {theme['name']} - Qt Stylesheet */
 
 QWidget {{
     background-color: {colors.background};
@@ -166,7 +221,7 @@ QPushButton {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                                stop:0 {colors.gradient_start},
                                stop:1 {colors.gradient_end});
-    color: {colors.background};
+    color: #FFFFFF;
     border: none;
     border-radius: 12px;
     padding: 10px 24px;
@@ -195,132 +250,148 @@ QPushButton:disabled {{
 QLineEdit, QTextEdit, QPlainTextEdit {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 1px solid {colors.border.replace('rgba', '').replace('(', '').replace(')', '').replace('0.2', '')};
+    border: 2px solid {bg_surface};
     border-radius: 10px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     selection-background-color: {colors.primary};
+    selection-color: #FFFFFF;
 }}
 
 QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
     border: 2px solid {colors.primary};
+    background-color: {colors.background};
 }}
 
 /* Tables */
 QTableWidget {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 1px solid {colors.border.split(',')[0].replace('rgba(', '#')};
+    border: 2px solid {bg_surface};
     border-radius: 12px;
-    gridline-color: {colors.border.split(',')[0].replace('rgba(', '#')};
+    gridline-color: {bg_surface};
 }}
 
 QTableWidget::item {{
-    padding: 8px;
+    padding: 10px;
+    border-bottom: 1px solid {bg_surface};
 }}
 
 QTableWidget::item:selected {{
     background-color: {colors.primary};
-    color: {colors.background};
+    color: #FFFFFF;
+}}
+
+QTableWidget::item:hover {{
+    background-color: {colors.accent};
 }}
 
 QHeaderView::section {{
-    background-color: {surface_hex};
+    background-color: {bg_surface};
     color: {colors.text_primary};
-    padding: 8px;
+    padding: 12px;
     border: none;
     border-bottom: 2px solid {colors.primary};
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 13px;
 }}
 
 /* Tabs */
 QTabWidget::pane {{
-    border: 1px solid {colors.border.split(',')[0].replace('rgba(', '#')};
+    border: 2px solid {bg_surface};
     border-radius: 12px;
     background-color: {surface_hex};
+    padding: 8px;
 }}
 
 QTabBar::tab {{
-    background-color: {surface_hex};
+    background-color: {bg_surface};
     color: {colors.text_secondary};
     border: none;
-    padding: 10px 20px;
+    padding: 12px 24px;
     border-top-left-radius: 10px;
     border-top-right-radius: 10px;
-    margin-right: 2px;
-    min-width: 80px;
+    margin-right: 4px;
+    min-width: 100px;
+    font-weight: 500;
 }}
 
 QTabBar::tab:selected {{
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                stop:0 {colors.gradient_start},
                                stop:1 {colors.gradient_end});
-    color: {colors.background};
-    font-weight: 600;
+    color: #FFFFFF;
+    font-weight: 700;
 }}
 
-QTabBar::tab:hover {{
+QTabBar::tab:hover:!selected {{
     background-color: {colors.primary};
-    color: {colors.background};
+    color: #FFFFFF;
 }}
 
 /* Progress Bar */
 QProgressBar {{
-    border: 1px solid {colors.border.split(',')[0].replace('rgba(', '#')};
-    border-radius: 8px;
-    background-color: {surface_hex};
+    border: 2px solid {bg_surface};
+    border-radius: 10px;
+    background-color: {bg_surface};
     text-align: center;
     color: {colors.text_primary};
-    height: 20px;
+    height: 24px;
+    font-weight: 600;
 }}
 
 QProgressBar::chunk {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                                stop:0 {colors.gradient_start},
                                stop:1 {colors.gradient_end});
-    border-radius: 7px;
+    border-radius: 8px;
 }}
 
 /* ComboBox */
 QComboBox {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 1px solid {colors.border.split(',')[0].replace('rgba(', '#')};
+    border: 2px solid {bg_surface};
     border-radius: 10px;
-    padding: 6px 12px;
-    min-height: 32px;
+    padding: 8px 14px;
+    min-height: 36px;
 }}
 
 QComboBox:hover {{
     border: 2px solid {colors.primary};
 }}
 
+QComboBox:focus {{
+    border: 2px solid {colors.primary};
+}}
+
 QComboBox::drop-down {{
     border: none;
-    width: 30px;
+    width: 32px;
 }}
 
 QComboBox::down-arrow {{
     image: none;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 5px solid {colors.text_primary};
-    margin-right: 10px;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid {colors.text_primary};
+    margin-right: 12px;
 }}
 
 QComboBox QAbstractItemView {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 1px solid {colors.border.split(',')[0].replace('rgba(', '#')};
-    border-radius: 8px;
+    border: 2px solid {colors.primary};
+    border-radius: 10px;
     selection-background-color: {colors.primary};
-    selection-color: {colors.background};
+    selection-color: #FFFFFF;
+    padding: 4px;
 }}
 
 /* ScrollBar Vertical */
 QScrollBar:vertical {{
-    background-color: {surface_hex};
-    width: 12px;
-    border-radius: 6px;
+    background-color: {bg_surface};
+    width: 14px;
+    border-radius: 7px;
     margin: 0px;
 }}
 
@@ -328,8 +399,8 @@ QScrollBar::handle:vertical {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                                stop:0 {colors.gradient_start},
                                stop:1 {colors.gradient_end});
-    border-radius: 6px;
-    min-height: 20px;
+    border-radius: 7px;
+    min-height: 30px;
 }}
 
 QScrollBar::handle:vertical:hover {{
@@ -346,9 +417,9 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
 
 /* ScrollBar Horizontal */
 QScrollBar:horizontal {{
-    background-color: {surface_hex};
-    height: 12px;
-    border-radius: 6px;
+    background-color: {bg_surface};
+    height: 14px;
+    border-radius: 7px;
     margin: 0px;
 }}
 
@@ -356,8 +427,8 @@ QScrollBar::handle:horizontal {{
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                stop:0 {colors.gradient_start},
                                stop:1 {colors.gradient_end});
-    border-radius: 6px;
-    min-width: 20px;
+    border-radius: 7px;
+    min-width: 30px;
 }}
 
 QScrollBar::handle:horizontal:hover {{
@@ -380,33 +451,39 @@ QLabel {{
 
 /* GroupBox */
 QGroupBox {{
-    border: 2px solid {colors.border.split(',')[0].replace('rgba(', '#')};
-    border-radius: 12px;
-    margin-top: 10px;
-    padding-top: 10px;
+    border: 2px solid {bg_surface};
+    border-radius: 14px;
+    margin-top: 12px;
+    padding-top: 12px;
     color: {colors.text_primary};
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 15px;
 }}
 
 QGroupBox::title {{
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    padding: 0 10px;
+    padding: 0 12px;
     color: {colors.primary};
 }}
 
 /* CheckBox */
 QCheckBox {{
     color: {colors.text_primary};
-    spacing: 8px;
+    spacing: 10px;
+    font-size: 14px;
 }}
 
 QCheckBox::indicator {{
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border-radius: 6px;
-    border: 2px solid {colors.border.split(',')[0].replace('rgba(', '#')};
+    border: 2px solid {bg_surface};
     background-color: {surface_hex};
+}}
+
+QCheckBox::indicator:hover {{
+    border-color: {colors.primary};
 }}
 
 QCheckBox::indicator:checked {{
@@ -419,15 +496,20 @@ QCheckBox::indicator:checked {{
 /* RadioButton */
 QRadioButton {{
     color: {colors.text_primary};
-    spacing: 8px;
+    spacing: 10px;
+    font-size: 14px;
 }}
 
 QRadioButton::indicator {{
-    width: 20px;
-    height: 20px;
-    border-radius: 10px;
-    border: 2px solid {colors.border.split(',')[0].replace('rgba(', '#')};
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    border: 2px solid {bg_surface};
     background-color: {surface_hex};
+}}
+
+QRadioButton::indicator:hover {{
+    border-color: {colors.primary};
 }}
 
 QRadioButton::indicator:checked {{
@@ -441,57 +523,63 @@ QRadioButton::indicator:checked {{
 QMenuBar {{
     background-color: {colors.background};
     color: {colors.text_primary};
+    padding: 4px;
 }}
 
 QMenuBar::item {{
-    padding: 6px 12px;
+    padding: 8px 14px;
     border-radius: 6px;
 }}
 
 QMenuBar::item:selected {{
     background-color: {colors.primary};
-    color: {colors.background};
+    color: #FFFFFF;
 }}
 
 /* Menu */
 QMenu {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 1px solid {colors.border.split(',')[0].replace('rgba(', '#')};
-    border-radius: 8px;
+    border: 2px solid {bg_surface};
+    border-radius: 10px;
+    padding: 6px;
 }}
 
 QMenu::item {{
-    padding: 8px 24px;
+    padding: 10px 28px;
+    border-radius: 6px;
 }}
 
 QMenu::item:selected {{
     background-color: {colors.primary};
-    color: {colors.background};
+    color: #FFFFFF;
 }}
 
 /* ToolTip */
 QToolTip {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 1px solid {colors.border.split(',')[0].replace('rgba(', '#')};
-    border-radius: 6px;
-    padding: 6px;
+    border: 2px solid {colors.primary};
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 13px;
 }}
 
 /* StatusBar */
 QStatusBar {{
-    background-color: {surface_hex};
+    background-color: {bg_surface};
     color: {colors.text_secondary};
+    padding: 4px;
 }}
 
 /* SpinBox */
 QSpinBox, QDoubleSpinBox {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 1px solid {colors.border.split(',')[0].replace('rgba(', '#')};
+    border: 2px solid {bg_surface};
     border-radius: 10px;
-    padding: 6px 12px;
+    padding: 8px 14px;
+    min-height: 36px;
 }}
 
 QSpinBox:focus, QDoubleSpinBox:focus {{
@@ -500,10 +588,10 @@ QSpinBox:focus, QDoubleSpinBox:focus {{
 
 /* Slider */
 QSlider::groove:horizontal {{
-    border: 1px solid {colors.border.split(',')[0].replace('rgba(', '#')};
-    height: 8px;
-    background: {surface_hex};
-    border-radius: 4px;
+    border: 2px solid {bg_surface};
+    height: 10px;
+    background: {bg_surface};
+    border-radius: 5px;
 }}
 
 QSlider::handle:horizontal {{
@@ -511,28 +599,28 @@ QSlider::handle:horizontal {{
                                stop:0 {colors.gradient_start},
                                stop:1 {colors.gradient_end});
     border: none;
-    width: 18px;
-    margin: -5px 0;
-    border-radius: 9px;
+    width: 20px;
+    margin: -6px 0;
+    border-radius: 10px;
 }}
 
 QSlider::handle:horizontal:hover {{
     background: {colors.primary};
 }}
+
+/* Frame */
+QFrame {{
+    border: 2px solid {bg_surface};
+    border-radius: 12px;
+    background-color: {surface_hex};
+}}
 '''
     
-    def get_css(self, theme_name: Optional[str] = None) -> str:
-        """Get CSS for web applications (same as before)"""
-        # Your existing get_css code remains the same
-        theme = self.get_theme(theme_name)
-        colors = theme['colors']
-        styles = theme['styles']
-        
-        # Return your existing CSS code
-        # (The long CSS string you had before)
-        return "/* Your existing CSS code */"
-    
     def export_theme_config(self, theme_name: Optional[str] = None, filepath: str = 'theme_config.json'):
+        """Export theme configuration to JSON file"""
+        if theme_name is None:
+            theme_name = self.current_theme
+            
         theme = self.get_theme(theme_name)
         
         config = {
@@ -554,19 +642,6 @@ QSlider::handle:horizontal:hover {{
                 'shadow': theme['colors'].shadow,
                 'gradient_start': theme['colors'].gradient_start,
                 'gradient_end': theme['colors'].gradient_end,
-                'glass_bg': theme['colors'].glass_bg,
-                'glass_border': theme['colors'].glass_border,
-                'glass_shadow': theme['colors'].glass_shadow,
-            },
-            'styles': {
-                'border_radius': theme['styles'].border_radius,
-                'blur': theme['styles'].blur,
-                'shadow': theme['styles'].shadow,
-                'transition': theme['styles'].transition,
-                'font_family': theme['styles'].font_family,
-                'glass_shadow': theme['styles'].glass_shadow,
-                'glass_backdrop': theme['styles'].glass_backdrop,
-                'glass_border_width': theme['styles'].glass_border_width,
             }
         }
         
@@ -576,6 +651,10 @@ QSlider::handle:horizontal:hover {{
         return config
     
     def get_color_palette(self, theme_name: Optional[str] = None) -> Dict[str, str]:
+        """Get color palette of theme"""
+        if theme_name is None:
+            theme_name = self.current_theme
+            
         theme = self.get_theme(theme_name)
         colors = theme['colors']
         
@@ -593,26 +672,42 @@ QSlider::handle:horizontal:hover {{
             'info': colors.info,
         }
 
+
 if __name__ == '__main__':
+    # Test theme manager
     theme_manager = ThemeManager()
     
-    print("Available themes:")
-    for theme_name in theme_manager.get_available_themes():
-        print(f"  - {theme_name}")
+    print("=" * 60)
+    print("Theme Manager Test")
+    print("=" * 60)
     
-    print("\nGenerating Qt Stylesheet...")
-    qss = theme_manager.get_stylesheet()
+    print("\n📋 Available themes:")
+    for theme_key, theme_name in theme_manager.get_theme_display_names().items():
+        print(f"  • {theme_name} ({theme_key})")
     
-    with open('ios_liquid_glass_theme.qss', 'w', encoding='utf-8') as f:
-        f.write(qss)
+    print(f"\n✅ Current theme: {theme_manager.current_theme}")
     
-    print("✅ Qt Stylesheet generated: ios_liquid_glass_theme.qss")
+    print("\n🎨 Generating stylesheets...")
+    for theme_key in theme_manager.get_available_themes():
+        qss = theme_manager.get_stylesheet(theme_key)
+        filename = f'{theme_key}.qss'
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(qss)
+        print(f"  ✓ {filename} generated")
     
-    print("\nExporting theme config...")
-    theme_manager.export_theme_config()
-    print("✅ Theme config exported: theme_config.json")
+    print("\n💾 Exporting theme configs...")
+    for theme_key in theme_manager.get_available_themes():
+        config = theme_manager.export_theme_config(theme_key, f'{theme_key}_config.json')
+        print(f"  ✓ {theme_key}_config.json exported")
     
-    print("\nColor Palette:")
-    palette = theme_manager.get_color_palette()
-    for color_name, color_value in palette.items():
-        print(f"  {color_name}: {color_value}")
+    print("\n🎨 Color Palettes:")
+    for theme_key in theme_manager.get_available_themes():
+        theme = theme_manager.THEMES[theme_key]
+        print(f"\n  {theme['name']}:")
+        palette = theme_manager.get_color_palette(theme_key)
+        for color_name, color_value in palette.items():
+            print(f"    {color_name}: {color_value}")
+    
+    print("\n" + "=" * 60)
+    print("✅ All tests completed successfully!")
+    print("=" * 60)
