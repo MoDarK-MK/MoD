@@ -1,7 +1,9 @@
 # gui/main_window.py
 from PyQt6.QtWidgets import (QMainWindow, QTabWidget, QVBoxLayout, 
                              QWidget, QStatusBar, QMenuBar, QMenu, QToolBar, 
-                             QMessageBox, QSizePolicy, QLabel, QHBoxLayout)
+                             QMessageBox, QSizePolicy, QLabel, QHBoxLayout,
+                             QDialog, QGridLayout, QFrame, QScrollArea, QPushButton,
+                             QCheckBox)
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QIcon, QFont
 
@@ -15,8 +17,227 @@ from .advanced_settings_tab import AdvancedSettingsTab
 from .request_monitor_tab import RequestMonitorTab
 from .cve_scanner_tab import CVEScannerTab
 from .waf_bypass_tab import WAFBypassTab
-from core.theme_manager import ThemeManager  # ✅ Import from core
+from gui.theme_manager import ThemeManager
 import time
+
+
+class ScannerCard(QFrame):
+    def __init__(self, scanner_id, title, icon, description, parent=None):
+        super().__init__(parent)
+        self.scanner_id = scanner_id
+        self.is_selected = True
+        self.setup_ui(title, icon, description)
+    
+    def setup_ui(self, title, icon, description):
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setMinimumHeight(100)
+        self.setMaximumHeight(100)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(6)
+        
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(10)
+        
+        icon_label = QLabel(icon)
+        icon_label.setStyleSheet('font-size: 22px;')
+        header_layout.addWidget(icon_label)
+        
+        title_label = QLabel(title)
+        title_label.setStyleSheet('font-size: 12pt; font-weight: 700;')
+        header_layout.addWidget(title_label)
+        
+        header_layout.addStretch()
+        
+        self.status_label = QLabel('✓')
+        self.status_label.setStyleSheet('font-size: 16px; color: #00FF41; font-weight: bold;')
+        header_layout.addWidget(self.status_label)
+        
+        layout.addLayout(header_layout)
+        
+        desc_label = QLabel(description)
+        desc_label.setStyleSheet('font-size: 9pt; opacity: 0.7;')
+        desc_label.setWordWrap(True)
+        layout.addWidget(desc_label)
+        
+        self.update_style()
+    
+    def mousePressEvent(self, event):
+        self.toggle_selection()
+        super().mousePressEvent(event)
+    
+    def toggle_selection(self):
+        self.is_selected = not self.is_selected
+        self.status_label.setText('✓' if self.is_selected else '✗')
+        self.status_label.setStyleSheet(
+            f'font-size: 16px; color: {"#00FF41" if self.is_selected else "#FF0040"}; font-weight: bold;'
+        )
+        self.update_style()
+    
+    def update_style(self):
+        if self.is_selected:
+            self.setStyleSheet('''
+                ScannerCard {
+                    background: rgba(0, 255, 65, 0.1);
+                    border: 2px solid rgba(0, 255, 65, 0.35);
+                    border-radius: 10px;
+                }
+                ScannerCard:hover {
+                    background: rgba(0, 255, 65, 0.15);
+                    border: 2px solid rgba(0, 255, 65, 0.5);
+                    transform: translateY(-2px);
+                }
+            ''')
+        else:
+            self.setStyleSheet('''
+                ScannerCard {
+                    background: rgba(255, 0, 64, 0.06);
+                    border: 2px solid rgba(255, 0, 64, 0.25);
+                    border-radius: 10px;
+                }
+                ScannerCard:hover {
+                    background: rgba(255, 0, 64, 0.1);
+                    border: 2px solid rgba(255, 0, 64, 0.35);
+                }
+            ''')
+
+
+class ScannerSelectionDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.scanner_cards = {}
+        self.selected_scanners = set()
+        self.init_ui()
+    
+    def init_ui(self):
+        self.setWindowTitle('🔍 Scanner Selection Manager')
+        self.setMinimumSize(900, 700)
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(15)
+        
+        title_label = QLabel('🔍 ADVANCED SCANNER SELECTION')
+        title_font = QFont()
+        title_font.setPointSize(16)
+        title_font.setBold(True)
+        title_label.setFont(title_font)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(title_label)
+        
+        desc_label = QLabel('Select which vulnerability scanners to include in your security assessment')
+        desc_label.setStyleSheet('font-size: 10pt; opacity: 0.8;')
+        desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(desc_label)
+        
+        toolbar_layout = QHBoxLayout()
+        toolbar_layout.setSpacing(10)
+        
+        select_all_btn = QPushButton('✓ Select All')
+        select_all_btn.setMinimumHeight(38)
+        select_all_btn.setMinimumWidth(120)
+        select_all_btn.clicked.connect(self.select_all)
+        toolbar_layout.addWidget(select_all_btn)
+        
+        deselect_all_btn = QPushButton('✗ Deselect All')
+        deselect_all_btn.setMinimumHeight(38)
+        deselect_all_btn.setMinimumWidth(120)
+        deselect_all_btn.clicked.connect(self.deselect_all)
+        toolbar_layout.addWidget(deselect_all_btn)
+        
+        toolbar_layout.addStretch()
+        
+        self.count_label = QLabel('Selected: 0/15')
+        self.count_label.setStyleSheet('font-size: 12pt; font-weight: 700; color: #00FF41;')
+        toolbar_layout.addWidget(self.count_label)
+        
+        main_layout.addLayout(toolbar_layout)
+        
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setMinimumHeight(450)
+        
+        scroll_widget = QWidget()
+        scanner_layout = QGridLayout(scroll_widget)
+        scanner_layout.setSpacing(12)
+        
+        scanners = [
+            ('sql', 'SQL Injection', '💉', 'Database query manipulation attacks'),
+            ('xss', 'Cross-Site Scripting', '🔥', 'JavaScript injection vulnerabilities'),
+            ('xxe', 'XML External Entity', '📄', 'XML parser exploitation'),
+            ('ssrf', 'Server-Side Request Forgery', '🌐', 'Internal network access'),
+            ('lfi', 'Local File Inclusion', '📁', 'Server file disclosure'),
+            ('rfi', 'Remote File Inclusion', '🔗', 'External file execution'),
+            ('cmd', 'Command Injection', '⚡', 'OS command execution'),
+            ('open_redirect', 'Open Redirect', '🔄', 'Unvalidated redirects'),
+            ('cors', 'CORS Misconfiguration', '🔐', 'Cross-origin policy issues'),
+            ('clickjacking', 'Clickjacking', '🖱️', 'UI redress attacks'),
+            ('csrf', 'CSRF', '🎭', 'Cross-site request forgery'),
+            ('security_headers', 'Security Headers', '🛡️', 'HTTP header analysis'),
+            ('ssti', 'Template Injection', '🎨', 'Server-side template flaws'),
+            ('jwt', 'JWT Vulnerabilities', '🔑', 'Token security analysis'),
+            ('path_traversal', 'Path Traversal', '📂', 'Directory traversal'),
+        ]
+        
+        row = 0
+        col = 0
+        for scanner_id, title, icon, description in scanners:
+            card = ScannerCard(scanner_id, title, icon, description)
+            self.scanner_cards[scanner_id] = card
+            self.selected_scanners.add(scanner_id)
+            
+            scanner_layout.addWidget(card, row, col)
+            
+            col += 1
+            if col > 2:
+                col = 0
+                row += 1
+        
+        scroll_area.setWidget(scroll_widget)
+        main_layout.addWidget(scroll_area)
+        
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(15)
+        
+        apply_btn = QPushButton('✅ Apply Selection')
+        apply_btn.setMinimumHeight(45)
+        apply_btn.setMinimumWidth(180)
+        apply_btn.clicked.connect(self.accept)
+        button_layout.addWidget(apply_btn)
+        
+        cancel_btn = QPushButton('❌ Cancel')
+        cancel_btn.setMinimumHeight(45)
+        cancel_btn.setMinimumWidth(180)
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+        
+        button_layout.addStretch()
+        
+        main_layout.addLayout(button_layout)
+        
+        self.update_count()
+    
+    def select_all(self):
+        for card in self.scanner_cards.values():
+            if not card.is_selected:
+                card.toggle_selection()
+        self.update_count()
+    
+    def deselect_all(self):
+        for card in self.scanner_cards.values():
+            if card.is_selected:
+                card.toggle_selection()
+        self.update_count()
+    
+    def update_count(self):
+        selected = sum(1 for card in self.scanner_cards.values() if card.is_selected)
+        total = len(self.scanner_cards)
+        self.count_label.setText(f'Selected: {selected}/{total}')
+    
+    def get_selected_scanners(self):
+        return [sid for sid, card in self.scanner_cards.items() if card.is_selected]
 
 
 class MainWindow(QMainWindow):
@@ -24,7 +245,6 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        # ✅ Initialize Theme Manager FIRST
         self.theme_manager = ThemeManager(default_theme='cyber_green')
         
         self.scan_stats = {
@@ -56,7 +276,6 @@ class MainWindow(QMainWindow):
         self.tab_widget.setMovable(True)
         self.tab_widget.setTabsClosable(False)
         
-        # ✅ Initialize tabs
         self.scan_tab = ScanTab()
         self.results_tab = ResultsTab()
         self.cve_scanner_tab = CVEScannerTab()
@@ -65,13 +284,9 @@ class MainWindow(QMainWindow):
         self.wayback_tab = WaybackTab()
         self.auth_tab = AuthTab()
         self.request_monitor_tab = RequestMonitorTab()
-        
-        # ✅ CRITICAL FIX: Pass theme_manager to SettingsTab
         self.settings_tab = SettingsTab(self.theme_manager)
-        
         self.advanced_settings_tab = AdvancedSettingsTab()
         
-        # Add tabs
         self.tab_widget.addTab(self.scan_tab, '🎯 Vulnerability Scan')
         self.tab_widget.addTab(self.results_tab, '📊 Scan Results')
         self.tab_widget.addTab(self.cve_scanner_tab, '🔍 CVE Scanner')
@@ -87,19 +302,17 @@ class MainWindow(QMainWindow):
         
         self.create_status_bar()
         
-        # Connect signals
         self.scan_tab.scan_started.connect(self.on_scan_started)
         self.scan_tab.scan_completed.connect(self.on_scan_completed)
         self.scan_tab.vulnerability_found.connect(self.on_vulnerability_found)
         self.scan_tab.request_sent.connect(self.request_monitor_tab.add_request)
         
-        self.subdomain_tab.scan_started.connect(lambda d: self.update_status(f'🌐 Enumerating: {d}', '#58a6ff'))
+        self.subdomain_tab.scan_started.connect(lambda d: self.update_status(f'🌐 Enumerating: {d}'))
         self.subdomain_tab.scan_completed.connect(self.on_subdomain_completed)
         
-        self.wayback_tab.fetch_started.connect(lambda d: self.update_status(f'⏰ Fetching Wayback: {d}', '#d29922'))
+        self.wayback_tab.fetch_started.connect(lambda d: self.update_status(f'⏰ Fetching Wayback: {d}'))
         self.wayback_tab.fetch_completed.connect(self.on_wayback_completed)
         
-        # ✅ Connect theme and settings signals
         self.settings_tab.theme_changed.connect(self.on_theme_changed)
         self.settings_tab.settings_changed.connect(self.on_settings_changed)
         
@@ -109,7 +322,6 @@ class MainWindow(QMainWindow):
     def create_menu_bar(self):
         menubar = self.menuBar()
         
-        # File Menu
         file_menu = menubar.addMenu('&File')
         
         new_scan_action = QAction('🎯 &New Vulnerability Scan', self)
@@ -129,6 +341,13 @@ class MainWindow(QMainWindow):
         
         file_menu.addSeparator()
         
+        scanner_selection_action = QAction('🔍 Scanner &Selection', self)
+        scanner_selection_action.setShortcut('Ctrl+Shift+S')
+        scanner_selection_action.triggered.connect(self.show_scanner_selection)
+        file_menu.addAction(scanner_selection_action)
+        
+        file_menu.addSeparator()
+        
         export_action = QAction('💾 &Export Results', self)
         export_action.setShortcut('Ctrl+E')
         export_action.triggered.connect(self.export_results)
@@ -141,10 +360,8 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
         
-        # View Menu
         view_menu = menubar.addMenu('&View')
         
-        # ✅ Get theme display names properly
         theme_display_names = self.theme_manager.get_theme_display_names()
         for theme_key, theme_name in theme_display_names.items():
             theme_action = QAction(f'{theme_name}', self)
@@ -158,8 +375,14 @@ class MainWindow(QMainWindow):
         fullscreen_action.triggered.connect(self.toggle_fullscreen)
         view_menu.addAction(fullscreen_action)
         
-        # Tools Menu
         tools_menu = menubar.addMenu('&Tools')
+        
+        scanner_manager_action = QAction('🔍 Scanner Manager', self)
+        scanner_manager_action.setShortcut('Ctrl+M')
+        scanner_manager_action.triggered.connect(self.show_scanner_selection)
+        tools_menu.addAction(scanner_manager_action)
+        
+        tools_menu.addSeparator()
         
         cve_scanner_action = QAction('🔍 CVE Scanner', self)
         cve_scanner_action.setShortcut('Ctrl+1')
@@ -188,7 +411,6 @@ class MainWindow(QMainWindow):
         wayback_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.wayback_tab))
         tools_menu.addAction(wayback_action)
         
-        # Help Menu
         help_menu = menubar.addMenu('&Help')
         
         docs_action = QAction('📚 Documentation', self)
@@ -212,6 +434,13 @@ class MainWindow(QMainWindow):
         scan_action.setToolTip('Start Vulnerability Scan (Ctrl+N)')
         scan_action.triggered.connect(lambda: self.tab_widget.setCurrentWidget(self.scan_tab))
         toolbar.addAction(scan_action)
+        
+        toolbar.addSeparator()
+        
+        scanner_select_action = QAction('🔍 Scanners', self)
+        scanner_select_action.setToolTip('Scanner Selection (Ctrl+Shift+S)')
+        scanner_select_action.triggered.connect(self.show_scanner_selection)
+        toolbar.addAction(scanner_select_action)
         
         toolbar.addSeparator()
         
@@ -320,7 +549,6 @@ class MainWindow(QMainWindow):
         self.time_label.setText(f'🕐 {time.strftime("%H:%M:%S")}')
     
     def apply_theme(self):
-        """Apply current theme to entire application"""
         try:
             stylesheet = self.theme_manager.get_stylesheet()
             self.setStyleSheet(stylesheet)
@@ -328,20 +556,23 @@ class MainWindow(QMainWindow):
             print(f"Error applying theme: {e}")
     
     def update_status(self, message: str, color: str = None):
-        """Update status bar message"""
         self.status_label.setText(message)
         if color:
             self.status_label.setStyleSheet(f'color: {color}; font-weight: bold; font-size: 10pt;')
     
+    def show_scanner_selection(self):
+        dialog = ScannerSelectionDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            selected = dialog.get_selected_scanners()
+            self.update_status(f'🔍 Scanner selection updated: {len(selected)} scanners active')
+    
     def on_scan_started(self, target: str):
-        """Handle scan started event"""
         self.scan_stats['total_scans'] += 1
         self.update_status(f'⚡ Scanning: {target}')
         self.scans_label.setText(f'📊 Scans: {self.scan_stats["total_scans"]}')
         self.results_tab.clear_results()
     
     def on_scan_completed(self, results: list):
-        """Handle scan completed event"""
         self.scan_stats['vulnerabilities_found'] += len(results)
         self.update_status(f'✅ Scan completed - {len(results)} vulnerabilities found')
         self.vulns_label.setText(f'🔍 Vulnerabilities: {self.scan_stats["vulnerabilities_found"]}')
@@ -349,58 +580,44 @@ class MainWindow(QMainWindow):
         self.tab_widget.setCurrentWidget(self.results_tab)
     
     def on_vulnerability_found(self, vulnerability: dict):
-        """Handle vulnerability found event"""
         self.results_tab.add_vulnerability(vulnerability)
     
     def on_subdomain_completed(self, results: list):
-        """Handle subdomain scan completed"""
         self.update_status(f'✅ Found {len(results)} subdomains')
     
     def on_wayback_completed(self, results: list):
-        """Handle wayback fetch completed"""
         self.update_status(f'✅ Found {len(results)} archived URLs')
     
     def on_theme_changed(self, theme_key: str):
-        """Handle theme change from settings or menu"""
         self.theme_manager.set_theme(theme_key)
         self.apply_theme()
-        
         theme_name = self.theme_manager.THEMES[theme_key]['name']
         self.update_status(f'🎨 Theme changed to {theme_name}')
     
     def on_settings_changed(self, settings: dict):
-        """Handle settings changes"""
         api_key = settings.get('api_key', '')
         api_provider = settings.get('api_provider', 'None')
         
         if api_key and api_provider != 'None':
-            # Configure AI API for CVE Scanner
             if hasattr(self.cve_scanner_tab, 'set_api_config'):
                 self.cve_scanner_tab.set_api_config(api_key, api_provider)
             self.update_status(f'🔐 AI API configured: {api_provider}')
-        
-        # Apply other settings
-        print(f"Settings changed: {settings}")
     
     def on_auth_configured(self, auth_manager):
-        """Handle authentication configuration"""
         if hasattr(self.scan_tab, 'set_auth_manager'):
             self.scan_tab.set_auth_manager(auth_manager)
         self.update_status('🔐 Authentication configured')
     
     def on_advanced_settings_changed(self, settings: dict):
-        """Handle advanced settings changes"""
         self.update_status('⚙️ Advanced settings updated')
     
     def toggle_fullscreen(self):
-        """Toggle fullscreen mode"""
         if self.isFullScreen():
             self.showNormal()
         else:
             self.showFullScreen()
     
     def export_results(self):
-        """Export scan results"""
         if hasattr(self.results_tab, 'export_results'):
             self.results_tab.export_results()
             self.update_status('💾 Results exported successfully')
@@ -408,7 +625,6 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, 'Export', 'No results to export')
     
     def show_documentation(self):
-        """Show documentation dialog"""
         QMessageBox.information(
             self,
             '📚 MoD Documentation',
@@ -428,37 +644,22 @@ class MainWindow(QMainWindow):
             '🔥 WAF BYPASS ENGINE\n'
             '  • Intelligent payload mutation\n'
             '  • 50+ bypass techniques\n'
-            '  • Adaptive learning system\n'
-            '  • Real-time effectiveness tracking\n\n'
+            '  • Adaptive learning system\n\n'
             '📡 REQUEST MONITOR\n'
             '  • Real-time traffic analysis\n'
-            '  • Request/Response inspection\n'
-            '  • Payload debugging tools\n\n'
+            '  • Request/Response inspection\n\n'
             '🌐 SUBDOMAIN ENUMERATION\n'
             '  • 10000+ wordlist database\n'
-            '  • DNS resolution verification\n'
             '  • Multi-threaded discovery\n\n'
             '⏰ WAYBACK MACHINE\n'
             '  • Archive.org integration\n'
-            '  • CommonCrawl support\n'
             '  • Smart URL deduplication\n\n'
-            '🔐 AUTHENTICATION\n'
-            '  • Session management\n'
-            '  • Multi-auth support\n'
-            '  • Cookie handling\n\n'
-            '⚙️ ENTERPRISE FEATURES\n'
-            '  • 4 Premium themes\n'
-            '  • Dark/Light mode support\n'
-            '  • Export capabilities\n'
-            '  • Advanced configuration\n\n'
             '══════════════════════════════\n'
-            'For detailed docs:\n'
             'https://mod-security.com/docs\n'
             '══════════════════════════════'
         )
     
     def show_about(self):
-        """Show about dialog"""
         QMessageBox.about(
             self,
             'About MoD',
@@ -466,49 +667,31 @@ class MainWindow(QMainWindow):
             '     🔥 MoD - Master of Defense 🔥\n'
             '═══════════════════════════════════\n\n'
             '🚀 Version 4.0.0 Enterprise Edition\n\n'
-            '💎 The Ultimate Web Penetration Testing Suite\n'
-            '   with World-Class Security Tools\n\n'
+            '💎 The Ultimate Web Penetration Testing Suite\n\n'
             '© 2025 MoD Security Team\n'
             '══════════════════════════════\n\n'
             '✨ PREMIUM FEATURES:\n\n'
             '🎯 Vulnerability Scanner\n'
             '   • 15+ Attack Vectors\n'
-            '   • Smart Detection Engine\n'
-            '   • Real-time Analysis\n\n'
+            '   • Smart Detection Engine\n\n'
             '🔍 CVE Scanner\n'
             '   • 400+ CVE Database\n'
-            '   • AI-Powered POC Generation\n'
-            '   • Advanced Fingerprinting\n\n'
+            '   • AI-Powered POC Generation\n\n'
             '🔥 WAF Bypass Engine\n'
-            '   • Intelligent Payload Mutation\n'
             '   • 50+ Bypass Techniques\n'
-            '   • Adaptive Learning System\n\n'
+            '   • Adaptive Learning\n\n'
             '📡 Request Monitor\n'
-            '   • Real-time Traffic Analysis\n'
-            '   • Request/Response Inspector\n\n'
+            '   • Real-time Analysis\n\n'
             '🌐 Subdomain Enumeration\n'
-            '   • 10000+ Wordlist\n'
-            '   • Multi-threaded Scanning\n\n'
-            '⏰ Wayback Machine\n'
-            '   • Archive.org Integration\n'
-            '   • URL Extraction & Analysis\n\n'
-            '🔐 Advanced Authentication\n'
-            '   • Session Management\n'
-            '   • Multi-auth Support\n\n'
+            '   • 10000+ Wordlist\n\n'
             '⚙️ Enterprise Grade\n'
             '   • 4 Professional Themes\n'
-            '   • Cyber Green (Matrix Style)\n'
-            '   • iOS Dark/Light\n'
-            '   • Modern Light\n'
-            '   • Export Capabilities\n'
-            '   • Zero False Positives\n\n'
+            '   • Cyber Green (Matrix)\n'
+            '   • Export Capabilities\n\n'
             '══════════════════════════════\n'
             '🏆 World-Class Security Tool\n'
-            '   Built by Security Experts\n'
             '══════════════════════════════\n\n'
-            '🌐 Website: https://mod-security.com\n'
-            '📧 Contact: support@mod-security.com\n'
-            '📚 Docs: https://mod-security.com/docs\n\n'
-            'Licensed under Enterprise License\n'
-            'All Rights Reserved © 2025'
+            '🌐 https://mod-security.com\n'
+            '📧 support@mod-security.com\n\n'
+            'Enterprise License © 2025'
         )
