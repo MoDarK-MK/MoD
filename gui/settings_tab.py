@@ -1,17 +1,19 @@
 # gui/settings_tab.py
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QGroupBox, QComboBox, QCheckBox, QTextEdit,
-                             QMessageBox, QTabWidget)
+                             QMessageBox, QTabWidget, QSpinBox, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
+from core.theme_manager import ThemeManager
 
 
 class SettingsTab(QWidget):
     theme_changed = pyqtSignal(str)
     settings_changed = pyqtSignal(dict)
     
-    def __init__(self):
+    def __init__(self, theme_manager: ThemeManager):
         super().__init__()
+        self.theme_manager = theme_manager
         self.init_ui()
     
     def init_ui(self):
@@ -19,148 +21,445 @@ class SettingsTab(QWidget):
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
         
-        title = QLabel('APPLICATION SETTINGS')
-        title.setStyleSheet("""
-            QLabel {
-                font-size: 20pt;
-                font-weight: bold;
-                color: #58a6ff;
-            }
-        """)
+        title = QLabel('⚙️ APPLICATION SETTINGS')
+        title_font = QFont()
+        title_font.setPointSize(16)
+        title_font.setBold(True)
+        title.setFont(title_font)
         main_layout.addWidget(title)
         
-        tabs = QTabWidget()
-        tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: 2px solid #30363d;
-                background: #0d1117;
-                border-radius: 6px;
-            }
-            QTabBar::tab {
-                background: #161b22;
-                color: #8b949e;
-                padding: 10px 20px;
-                margin-right: 2px;
-                border: 1px solid #30363d;
-                border-bottom: 2px solid transparent;
-                font-weight: bold;
-            }
-            QTabBar::tab:hover {
-                background: #21262d;
-                color: #c9d1d9;
-            }
-            QTabBar::tab:selected {
-                background: #0d1117;
-                color: #58a6ff;
-                border-bottom: 2px solid #1f6feb;
-            }
-        """)
+        # Separator
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        main_layout.addWidget(separator)
         
-        tabs.addTab(self.create_ai_settings_tab(), 'AI INTEGRATION')
-        tabs.addTab(self.create_scanner_settings_tab(), 'SCANNER CONFIG')
-        tabs.addTab(self.create_general_settings_tab(), 'GENERAL')
+        tabs = QTabWidget()
+        
+        tabs.addTab(self.create_general_settings_tab(), '🎨 GENERAL')
+        tabs.addTab(self.create_ai_settings_tab(), '🤖 AI INTEGRATION')
+        tabs.addTab(self.create_scanner_settings_tab(), '🔍 SCANNER CONFIG')
         
         main_layout.addWidget(tabs, 1)
         
         self.setLayout(main_layout)
     
-    def create_ai_settings_tab(self):
+    def get_stylesheet_for_theme(self):
+        """Get dynamic stylesheet based on current theme"""
+        current_theme = self.theme_manager.current_theme
+        colors = self.theme_manager.get_theme(current_theme)['colors']
+        
+        is_dark = 'dark' in current_theme.lower()
+        
+        if is_dark:
+            primary_color = colors.primary
+            bg_color = '#0d1117'
+            surface_color = '#161b22'
+            text_color = '#c9d1d9'
+            text_secondary = '#8b949e'
+            border_color = '#30363d'
+            hover_color = '#21262d'
+        else:
+            primary_color = colors.primary
+            bg_color = '#ffffff'
+            surface_color = '#f6f8fa'
+            text_color = '#0f172a'
+            text_secondary = '#64748b'
+            border_color = '#d0d7de'
+            hover_color = '#f3f4f6'
+        
+        return {
+            'primary': primary_color,
+            'background': bg_color,
+            'surface': surface_color,
+            'text': text_color,
+            'text_secondary': text_secondary,
+            'border': border_color,
+            'hover': hover_color,
+            'is_dark': is_dark
+        }
+    
+    def create_general_settings_tab(self):
+        """Create general settings tab with theme selector"""
         widget = QWidget()
-        widget.setStyleSheet("background: #0d1117;")
+        
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
         
-        ai_group = QGroupBox('AI MODEL CONFIGURATION')
-        ai_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
+        # Get current theme colors
+        styles = self.get_stylesheet_for_theme()
+        
+        widget.setStyleSheet(f"background: {styles['background']};")
+        
+        # ============= Theme Selection =============
+        theme_group = QGroupBox('🎨 APPLICATION THEME')
+        theme_group.setStyleSheet(f"""
+            QGroupBox {{
+                color: {styles['text']};
                 font-weight: bold;
-                border: 2px solid #30363d;
+                border: 2px solid {styles['border']};
                 border-radius: 8px;
                 padding-top: 12px;
-            }
-            QGroupBox::title {
+                background: {styles['surface']};
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 left: 12px;
                 padding: 0 8px;
-                color: #58a6ff;
-            }
+                color: {styles['primary']};
+            }}
+        """)
+        
+        theme_layout = QVBoxLayout()
+        theme_layout.setSpacing(12)
+        
+        # Theme selector
+        theme_select_layout = QHBoxLayout()
+        theme_label = QLabel('Current Theme:')
+        theme_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 120px;')
+        theme_label.setMinimumHeight(36)
+        
+        self.theme_combo = QComboBox()
+        self.theme_combo.setMinimumHeight(40)
+        
+        # اضافه کردن تم‌ها
+        theme_display_names = self.theme_manager.get_theme_display_names()
+        for theme_key, theme_name in theme_display_names.items():
+            self.theme_combo.addItem(theme_name, theme_key)
+        
+        # انتخاب تم فعلی
+        current_theme = self.theme_manager.current_theme
+        index = self.theme_combo.findData(current_theme)
+        if index >= 0:
+            self.theme_combo.setCurrentIndex(index)
+        
+        # استایل ComboBox
+        combo_stylesheet = f"""
+            QComboBox {{
+                background: {styles['background']};
+                color: {styles['text']};
+                border: 2px solid {styles['border']};
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-weight: bold;
+                font-size: 12pt;
+            }}
+            QComboBox:hover {{
+                border: 2px solid {styles['primary']};
+            }}
+            QComboBox:focus {{
+                border: 2px solid {styles['primary']};
+                background: {styles['surface']};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 30px;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid {styles['text']};
+                margin-right: 10px;
+            }}
+            QComboBox QAbstractItemView {{
+                background: {styles['surface']};
+                color: {styles['text']};
+                border: 2px solid {styles['primary']};
+                border-radius: 6px;
+                selection-background-color: {styles['primary']};
+                selection-color: #ffffff;
+                padding: 4px;
+            }}
+        """
+        self.theme_combo.setStyleSheet(combo_stylesheet)
+        self.theme_combo.currentIndexChanged.connect(self.on_theme_changed)
+        
+        theme_select_layout.addWidget(theme_label)
+        theme_select_layout.addWidget(self.theme_combo, 1)
+        theme_layout.addLayout(theme_select_layout)
+        
+        # Theme description
+        theme_desc_layout = QHBoxLayout()
+        self.theme_desc_label = QLabel('Select a theme to change the application appearance')
+        self.theme_desc_label.setStyleSheet(f'color: {styles["text_secondary"]}; font-size: 10pt;')
+        self.theme_desc_label.setWordWrap(True)
+        theme_desc_layout.addWidget(self.theme_desc_label)
+        theme_layout.addLayout(theme_desc_layout)
+        
+        # Theme preview
+        preview_layout = QHBoxLayout()
+        preview_info = QLabel('💡 Changes will be applied immediately')
+        preview_info.setStyleSheet(f'color: {styles["primary"]}; font-size: 10pt; font-weight: bold;')
+        preview_layout.addWidget(preview_info)
+        preview_layout.addStretch()
+        theme_layout.addLayout(preview_layout)
+        
+        theme_group.setLayout(theme_layout)
+        layout.addWidget(theme_group)
+        
+        # ============= Display Settings =============
+        display_group = QGroupBox('🖥️ DISPLAY SETTINGS')
+        display_group.setStyleSheet(f"""
+            QGroupBox {{
+                color: {styles['text']};
+                font-weight: bold;
+                border: 2px solid {styles['border']};
+                border-radius: 8px;
+                padding-top: 12px;
+                background: {styles['surface']};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 8px;
+                color: {styles['primary']};
+            }}
+        """)
+        
+        display_layout = QVBoxLayout()
+        display_layout.setSpacing(12)
+        
+        # Auto-minimize
+        auto_minimize_check = QCheckBox('Minimize to system tray')
+        auto_minimize_check.setChecked(True)
+        auto_minimize_check.setStyleSheet(f"""
+            QCheckBox {{
+                color: {styles['text']};
+                font-weight: bold;
+                font-size: 11pt;
+                spacing: 8px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                border: 2px solid {styles['border']};
+                background: {styles['background']};
+            }}
+            QCheckBox::indicator:checked {{
+                background: {styles['primary']};
+                border: 2px solid {styles['primary']};
+            }}
+        """)
+        self.auto_minimize_check = auto_minimize_check
+        display_layout.addWidget(auto_minimize_check)
+        
+        # Show notifications
+        notifications_check = QCheckBox('Show desktop notifications')
+        notifications_check.setChecked(True)
+        notifications_check.setStyleSheet(f"""
+            QCheckBox {{
+                color: {styles['text']};
+                font-weight: bold;
+                font-size: 11pt;
+                spacing: 8px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                border: 2px solid {styles['border']};
+                background: {styles['background']};
+            }}
+            QCheckBox::indicator:checked {{
+                background: {styles['primary']};
+                border: 2px solid {styles['primary']};
+            }}
+        """)
+        self.notifications_check = notifications_check
+        display_layout.addWidget(notifications_check)
+        
+        # Auto-update
+        auto_update_check = QCheckBox('Check for updates automatically')
+        auto_update_check.setChecked(True)
+        auto_update_check.setStyleSheet(f"""
+            QCheckBox {{
+                color: {styles['text']};
+                font-weight: bold;
+                font-size: 11pt;
+                spacing: 8px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                border: 2px solid {styles['border']};
+                background: {styles['background']};
+            }}
+            QCheckBox::indicator:checked {{
+                background: {styles['primary']};
+                border: 2px solid {styles['primary']};
+            }}
+        """)
+        self.auto_update_check = auto_update_check
+        display_layout.addWidget(auto_update_check)
+        
+        display_group.setLayout(display_layout)
+        layout.addWidget(display_group)
+        
+        # ============= Save Button =============
+        layout.addStretch()
+        
+        save_layout = QHBoxLayout()
+        save_layout.addStretch()
+        
+        save_btn = QPushButton('💾 SAVE SETTINGS')
+        save_btn.setMinimumHeight(40)
+        save_btn.setMinimumWidth(180)
+        save_btn.clicked.connect(self.save_settings)
+        save_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                           stop:0 {styles['primary']},
+                                           stop:1 rgba(0, 0, 0, 0.2));
+                color: white;
+                border: 2px solid {styles['primary']};
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 11pt;
+            }}
+            QPushButton:hover {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                           stop:0 rgba(255, 255, 255, 0.1),
+                                           stop:1 {styles['primary']});
+            }}
+            QPushButton:pressed {{
+                padding-top: 2px;
+            }}
+        """)
+        save_layout.addWidget(save_btn)
+        
+        layout.addLayout(save_layout)
+        
+        return widget
+    
+    def create_ai_settings_tab(self):
+        """Create AI integration settings tab"""
+        widget = QWidget()
+        
+        styles = self.get_stylesheet_for_theme()
+        widget.setStyleSheet(f"background: {styles['background']};")
+        
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(15)
+        
+        # ============= AI Model Configuration =============
+        ai_group = QGroupBox('🤖 AI MODEL CONFIGURATION')
+        ai_group.setStyleSheet(f"""
+            QGroupBox {{
+                color: {styles['text']};
+                font-weight: bold;
+                border: 2px solid {styles['border']};
+                border-radius: 8px;
+                padding-top: 12px;
+                background: {styles['surface']};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 8px;
+                color: {styles['primary']};
+            }}
         """)
         
         ai_layout = QVBoxLayout()
+        ai_layout.setSpacing(12)
         
+        # Provider selection
         provider_layout = QHBoxLayout()
         provider_label = QLabel('AI PROVIDER:')
-        provider_label.setStyleSheet('color: #c9d1d9; font-weight: bold; min-width: 150px;')
-        provider_layout.addWidget(provider_label)
+        provider_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 150px;')
+        provider_label.setMinimumHeight(40)
         
         self.ai_provider_combo = QComboBox()
-        self.ai_provider_combo.addItems(['None', 'OpenAI', 'Anthropic', 'Google Gemini'])
-        self.ai_provider_combo.setMinimumHeight(36)
-        self.ai_provider_combo.setStyleSheet("""
-            QComboBox {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 2px solid #30363d;
-                border-radius: 4px;
-                padding: 6px 10px;
+        self.ai_provider_combo.addItems(['None', 'OpenAI (GPT-4)', 'Anthropic (Claude)', 'Google Gemini'])
+        self.ai_provider_combo.setMinimumHeight(40)
+        
+        combo_stylesheet = f"""
+            QComboBox {{
+                background: {styles['background']};
+                color: {styles['text']};
+                border: 2px solid {styles['border']};
+                border-radius: 6px;
+                padding: 8px 12px;
                 font-weight: bold;
-            }
-            QComboBox:hover {
-                border: 2px solid #1f6feb;
-            }
-        """)
+                font-size: 11pt;
+            }}
+            QComboBox:hover {{
+                border: 2px solid {styles['primary']};
+            }}
+            QComboBox QAbstractItemView {{
+                background: {styles['surface']};
+                color: {styles['text']};
+                border: 2px solid {styles['primary']};
+                selection-background-color: {styles['primary']};
+                selection-color: white;
+            }}
+        """
+        self.ai_provider_combo.setStyleSheet(combo_stylesheet)
         self.ai_provider_combo.currentTextChanged.connect(self.on_provider_changed)
+        
+        provider_layout.addWidget(provider_label)
         provider_layout.addWidget(self.ai_provider_combo, 1)
         ai_layout.addLayout(provider_layout)
         
+        # API Key input
         api_key_layout = QHBoxLayout()
         api_key_label = QLabel('API KEY:')
-        api_key_label.setStyleSheet('color: #c9d1d9; font-weight: bold; min-width: 150px;')
-        api_key_layout.addWidget(api_key_label)
+        api_key_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 150px;')
+        api_key_label.setMinimumHeight(40)
         
         self.api_key_input = QLineEdit()
         self.api_key_input.setPlaceholderText('Enter your API key here...')
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.api_key_input.setMinimumHeight(36)
-        self.api_key_input.setStyleSheet("""
-            QLineEdit {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 2px solid #30363d;
-                border-radius: 4px;
+        self.api_key_input.setMinimumHeight(40)
+        self.api_key_input.setStyleSheet(f"""
+            QLineEdit {{
+                background: {styles['background']};
+                color: {styles['text']};
+                border: 2px solid {styles['border']};
+                border-radius: 6px;
                 padding: 8px 12px;
                 font-size: 11pt;
-            }
-            QLineEdit:focus {
-                border: 2px solid #1f6feb;
-            }
+                font-weight: bold;
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {styles['primary']};
+                background: {styles['surface']};
+            }}
         """)
+        
+        api_key_layout.addWidget(api_key_label)
         api_key_layout.addWidget(self.api_key_input, 1)
         ai_layout.addLayout(api_key_layout)
         
+        # Test button
         test_layout = QHBoxLayout()
         test_layout.addStretch()
         
-        test_btn = QPushButton('TEST CONNECTION')
-        test_btn.setMinimumHeight(36)
-        test_btn.setMinimumWidth(150)
+        test_btn = QPushButton('🧪 TEST CONNECTION')
+        test_btn.setMinimumHeight(40)
+        test_btn.setMinimumWidth(160)
         test_btn.clicked.connect(self.test_ai_connection)
-        test_btn.setStyleSheet("""
-            QPushButton {
+        test_btn.setStyleSheet(f"""
+            QPushButton {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #0969da, stop:1 #0757b8);
+                                           stop:0 {styles['primary']},
+                                           stop:1 rgba(0, 0, 0, 0.2));
                 color: white;
-                border: 2px solid #1f6feb;
+                border: 2px solid {styles['primary']};
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 11pt;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #1f6feb, stop:1 #0969da);
-            }
+                                           stop:0 rgba(255, 255, 255, 0.1),
+                                           stop:1 {styles['primary']});
+            }}
         """)
         test_layout.addWidget(test_btn)
         
@@ -169,56 +468,59 @@ class SettingsTab(QWidget):
         ai_group.setLayout(ai_layout)
         layout.addWidget(ai_group)
         
-        info_group = QGroupBox('SUPPORTED AI PROVIDERS')
-        info_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
+        # ============= Supported Providers =============
+        info_group = QGroupBox('📚 SUPPORTED AI PROVIDERS')
+        info_group.setStyleSheet(f"""
+            QGroupBox {{
+                color: {styles['text']};
                 font-weight: bold;
-                border: 2px solid #30363d;
+                border: 2px solid {styles['border']};
                 border-radius: 8px;
                 padding-top: 12px;
-            }
-            QGroupBox::title {
+                background: {styles['surface']};
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 left: 12px;
                 padding: 0 8px;
-                color: #58a6ff;
-            }
+                color: {styles['primary']};
+            }}
         """)
         
         info_layout = QVBoxLayout()
         
         info_text = QTextEdit()
         info_text.setReadOnly(True)
-        info_text.setStyleSheet("""
-            QTextEdit {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 1px solid #30363d;
-                border-radius: 4px;
-                padding: 10px;
+        info_text.setStyleSheet(f"""
+            QTextEdit {{
+                background: {styles['background']};
+                color: {styles['text']};
+                border: 1px solid {styles['border']};
+                border-radius: 6px;
+                padding: 12px;
                 font-size: 10pt;
-            }
+                font-family: 'Courier New';
+            }}
         """)
         
         info_content = """
-OpenAI (GPT-4):
-  • Model: gpt-4
-  • Website: https://openai.com/api/
-  • Get Key: https://platform.openai.com/api-keys
+🔹 OpenAI (GPT-4)
+   Website: https://openai.com/api/
+   API Key: https://platform.openai.com/api-keys
+   Model: gpt-4
 
-Anthropic (Claude):
-  • Model: claude-3-opus-20240229
-  • Website: https://www.anthropic.com/
-  • Get Key: https://console.anthropic.com/
+🔹 Anthropic (Claude)
+   Website: https://www.anthropic.com/
+   API Key: https://console.anthropic.com/
+   Model: claude-3-opus-20240229
 
-Google Gemini:
-  • Model: gemini-pro
-  • Website: https://ai.google.dev/
-  • Get Key: https://makersuite.google.com/app/apikey
+🔹 Google Gemini
+   Website: https://ai.google.dev/
+   API Key: https://makersuite.google.com/app/apikey
+   Model: gemini-pro
 
-Note: POC generation and advanced verification requires a valid AI API key.
-Without API key, smart verification and basic POC templates will be used.
+💡 Without an API key, basic POC templates will be used.
+With a valid API key, advanced POC generation and analysis will be available.
         """
         
         info_text.setText(info_content)
@@ -230,260 +532,298 @@ Without API key, smart verification and basic POC templates will be used.
         return widget
     
     def create_scanner_settings_tab(self):
+        """Create scanner configuration tab"""
         widget = QWidget()
-        widget.setStyleSheet("background: #0d1117;")
+        
+        styles = self.get_stylesheet_for_theme()
+        widget.setStyleSheet(f"background: {styles['background']};")
+        
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
         
-        scan_group = QGroupBox('SCANNER VERIFICATION SETTINGS')
-        scan_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
+        # ============= Scanner Verification =============
+        scan_group = QGroupBox('🔍 SCANNER VERIFICATION SETTINGS')
+        scan_group.setStyleSheet(f"""
+            QGroupBox {{
+                color: {styles['text']};
                 font-weight: bold;
-                border: 2px solid #30363d;
+                border: 2px solid {styles['border']};
                 border-radius: 8px;
                 padding-top: 12px;
-            }
-            QGroupBox::title {
+                background: {styles['surface']};
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 left: 12px;
                 padding: 0 8px;
-                color: #58a6ff;
-            }
+                color: {styles['primary']};
+            }}
         """)
         
         scan_layout = QVBoxLayout()
+        scan_layout.setSpacing(12)
         
-        verify_check = QCheckBox('Enable Real Vulnerability Verification')
+        # Enable verification
+        verify_check = QCheckBox('✓ Enable Real Vulnerability Verification')
         verify_check.setChecked(True)
-        verify_check.setStyleSheet("""
-            QCheckBox {
-                color: #c9d1d9;
+        verify_check.setStyleSheet(f"""
+            QCheckBox {{
+                color: {styles['text']};
                 font-weight: bold;
                 font-size: 11pt;
                 spacing: 8px;
-            }
-            QCheckBox::indicator {
-                width: 18px;
-                height: 18px;
-            }
-            QCheckBox::indicator:checked {
-                background: #238636;
-                border: 2px solid #2ea043;
-            }
+            }}
+            QCheckBox::indicator {{
+                width: 20px;
+                height: 20px;
+                border-radius: 4px;
+                border: 2px solid {styles['border']};
+                background: {styles['background']};
+            }}
+            QCheckBox::indicator:checked {{
+                background: {styles['primary']};
+                border: 2px solid {styles['primary']};
+            }}
         """)
         self.verify_check = verify_check
         scan_layout.addWidget(verify_check)
         
-        info_label = QLabel('When enabled, the scanner will verify each detected CVE by testing actual parameters and payloads.')
-        info_label.setStyleSheet('color: #8b949e; font-size: 10pt; margin-left: 20px;')
+        # Info label
+        info_label = QLabel('When enabled, the scanner will verify each detected vulnerability by testing actual parameters and payloads.')
+        info_label.setStyleSheet(f'color: {styles["text_secondary"]}; font-size: 10pt; margin-left: 20px;')
         info_label.setWordWrap(True)
         scan_layout.addWidget(info_label)
         
-        scan_layout.addSpacing(20)
+        scan_layout.addSpacing(15)
         
+        # Timeout setting
         timeout_layout = QHBoxLayout()
-        timeout_label = QLabel('Verification Timeout (seconds):')
-        timeout_label.setStyleSheet('color: #c9d1d9; font-weight: bold; min-width: 200px;')
-        timeout_layout.addWidget(timeout_label)
+        timeout_label = QLabel('Verification Timeout:')
+        timeout_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 200px;')
+        timeout_label.setMinimumHeight(40)
         
-        self.timeout_spin = QLineEdit('10')
-        self.timeout_spin.setMaximumWidth(100)
-        self.timeout_spin.setMinimumHeight(36)
-        self.timeout_spin.setStyleSheet("""
-            QLineEdit {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 2px solid #30363d;
-                border-radius: 4px;
+        self.timeout_spin = QSpinBox()
+        self.timeout_spin.setRange(5, 120)
+        self.timeout_spin.setValue(10)
+        self.timeout_spin.setSuffix(' seconds')
+        self.timeout_spin.setMinimumHeight(40)
+        self.timeout_spin.setMinimumWidth(120)
+        self.timeout_spin.setStyleSheet(f"""
+            QSpinBox {{
+                background: {styles['background']};
+                color: {styles['text']};
+                border: 2px solid {styles['border']};
+                border-radius: 6px;
                 padding: 6px 10px;
                 font-weight: bold;
-            }
+            }}
+            QSpinBox:focus {{
+                border: 2px solid {styles['primary']};
+            }}
         """)
+        
+        timeout_layout.addWidget(timeout_label)
         timeout_layout.addWidget(self.timeout_spin)
         timeout_layout.addStretch()
         scan_layout.addLayout(timeout_layout)
         
+        # Retries setting
         retries_layout = QHBoxLayout()
-        retries_label = QLabel('Verification Retries:')
-        retries_label.setStyleSheet('color: #c9d1d9; font-weight: bold; min-width: 200px;')
-        retries_layout.addWidget(retries_label)
+        retries_label = QLabel('Max Verification Retries:')
+        retries_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 200px;')
+        retries_label.setMinimumHeight(40)
         
-        self.retries_spin = QLineEdit('3')
-        self.retries_spin.setMaximumWidth(100)
-        self.retries_spin.setMinimumHeight(36)
-        self.retries_spin.setStyleSheet("""
-            QLineEdit {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 2px solid #30363d;
-                border-radius: 4px;
+        self.retries_spin = QSpinBox()
+        self.retries_spin.setRange(0, 10)
+        self.retries_spin.setValue(3)
+        self.retries_spin.setMinimumHeight(40)
+        self.retries_spin.setMinimumWidth(120)
+        self.retries_spin.setStyleSheet(f"""
+            QSpinBox {{
+                background: {styles['background']};
+                color: {styles['text']};
+                border: 2px solid {styles['border']};
+                border-radius: 6px;
                 padding: 6px 10px;
                 font-weight: bold;
-            }
+            }}
+            QSpinBox:focus {{
+                border: 2px solid {styles['primary']};
+            }}
         """)
+        
+        retries_layout.addWidget(retries_label)
         retries_layout.addWidget(self.retries_spin)
         retries_layout.addStretch()
         scan_layout.addLayout(retries_layout)
         
+        # Threads setting
+        threads_layout = QHBoxLayout()
+        threads_label = QLabel('Worker Threads:')
+        threads_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 200px;')
+        threads_label.setMinimumHeight(40)
+        
+        self.threads_spin = QSpinBox()
+        self.threads_spin.setRange(5, 50)
+        self.threads_spin.setValue(20)
+        self.threads_spin.setMinimumHeight(40)
+        self.threads_spin.setMinimumWidth(120)
+        self.threads_spin.setStyleSheet(f"""
+            QSpinBox {{
+                background: {styles['background']};
+                color: {styles['text']};
+                border: 2px solid {styles['border']};
+                border-radius: 6px;
+                padding: 6px 10px;
+                font-weight: bold;
+            }}
+            QSpinBox:focus {{
+                border: 2px solid {styles['primary']};
+            }}
+        """)
+        
+        threads_layout.addWidget(threads_label)
+        threads_layout.addWidget(self.threads_spin)
+        threads_layout.addStretch()
+        scan_layout.addLayout(threads_layout)
+        
         scan_group.setLayout(scan_layout)
         layout.addWidget(scan_group)
         
-        verify_group = QGroupBox('VERIFICATION METHODS')
-        verify_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
+        # ============= Advanced Options =============
+        advanced_group = QGroupBox('⚡ ADVANCED OPTIONS')
+        advanced_group.setStyleSheet(f"""
+            QGroupBox {{
+                color: {styles['text']};
                 font-weight: bold;
-                border: 2px solid #30363d;
+                border: 2px solid {styles['border']};
                 border-radius: 8px;
                 padding-top: 12px;
-            }
-            QGroupBox::title {
+                background: {styles['surface']};
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 left: 12px;
                 padding: 0 8px;
-                color: #58a6ff;
-            }
+                color: {styles['primary']};
+            }}
         """)
         
-        verify_layout = QVBoxLayout()
+        advanced_layout = QVBoxLayout()
+        advanced_layout.setSpacing(10)
         
-        methods_info = QTextEdit()
-        methods_info.setReadOnly(True)
-        methods_info.setMaximumHeight(200)
-        methods_info.setStyleSheet("""
-            QTextEdit {
-                background: #161b22;
-                color: #2ea043;
-                border: 1px solid #238636;
-                border-radius: 4px;
-                padding: 10px;
-                font-size: 9pt;
-                font-family: 'Courier New';
-            }
-        """)
-        
-        methods_text = """VERIFICATION METHODS USED:
-
-✓ PAYLOAD_RESPONSE: Tests if payload response contains expected indicators
-✓ TIME_BASED: Measures response delay to confirm time-based vulnerabilities
-✓ ERROR_BASED: Detects SQL/XML errors in response
-✓ RESPONSE_DIFF: Analyzes response size and content differences
-✓ METADATA_ACCESS: Attempts to access cloud metadata endpoints
-✓ EXPRESSION_EVAL: Tests expression evaluation in templates
-✓ FILE_DISCLOSURE: Attempts to read sensitive files
-✓ DEBUG_DETECTION: Identifies debug mode and sensitive information
-        """
-        
-        methods_info.setText(methods_text)
-        verify_layout.addWidget(methods_info)
-        
-        verify_group.setLayout(verify_layout)
-        layout.addWidget(verify_group)
-        
-        layout.addStretch()
-        return widget
-    
-    def create_general_settings_tab(self):
-        widget = QWidget()
-        widget.setStyleSheet("background: #0d1117;")
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(15)
-        
-        theme_group = QGroupBox('APPLICATION THEME')
-        theme_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 8px;
-                padding-top: 12px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-        
-        theme_layout = QVBoxLayout()
-        
-        dark_check = QCheckBox('Dark Theme (Default)')
-        dark_check.setChecked(True)
-        dark_check.setEnabled(False)
-        dark_check.setStyleSheet("""
-            QCheckBox {
-                color: #c9d1d9;
+        verify_ssl_check = QCheckBox('🔒 Verify SSL certificates')
+        verify_ssl_check.setChecked(False)
+        verify_ssl_check.setStyleSheet(f"""
+            QCheckBox {{
+                color: {styles['text']};
                 font-weight: bold;
                 font-size: 11pt;
                 spacing: 8px;
-            }
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                border: 2px solid {styles['border']};
+                background: {styles['background']};
+            }}
+            QCheckBox::indicator:checked {{
+                background: {styles['primary']};
+                border: 2px solid {styles['primary']};
+            }}
         """)
-        theme_layout.addWidget(dark_check)
+        self.verify_ssl_check = verify_ssl_check
+        advanced_layout.addWidget(verify_ssl_check)
         
-        theme_group.setLayout(theme_layout)
-        layout.addWidget(theme_group)
-        
-        save_layout = QHBoxLayout()
-        save_layout.addStretch()
-        
-        save_btn = QPushButton('SAVE SETTINGS')
-        save_btn.setMinimumHeight(40)
-        save_btn.setMinimumWidth(150)
-        save_btn.clicked.connect(self.save_settings)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #238636, stop:1 #1a6b2c);
-                color: white;
-                border: 2px solid #2ea043;
-                border-radius: 6px;
+        follow_redirects_check = QCheckBox('🔄 Follow HTTP redirects')
+        follow_redirects_check.setChecked(True)
+        follow_redirects_check.setStyleSheet(f"""
+            QCheckBox {{
+                color: {styles['text']};
                 font-weight: bold;
                 font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #2ea043, stop:1 #238636);
-            }
+                spacing: 8px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                border: 2px solid {styles['border']};
+                background: {styles['background']};
+            }}
+            QCheckBox::indicator:checked {{
+                background: {styles['primary']};
+                border: 2px solid {styles['primary']};
+            }}
         """)
-        save_layout.addWidget(save_btn)
+        self.follow_redirects_check = follow_redirects_check
+        advanced_layout.addWidget(follow_redirects_check)
+        
+        advanced_group.setLayout(advanced_layout)
+        layout.addWidget(advanced_group)
         
         layout.addStretch()
-        layout.addLayout(save_layout)
-        
         return widget
     
+    def on_theme_changed(self, index: int):
+        """Handle theme change"""
+        theme_key = self.theme_combo.itemData(index)
+        if theme_key:
+            # Update theme manager
+            self.theme_manager.set_theme(theme_key)
+            
+            # Update description
+            theme_name = self.theme_manager.THEMES[theme_key]['name']
+            self.theme_desc_label.setText(f'Theme: {theme_name}')
+            
+            # Emit signal
+            self.theme_changed.emit(theme_key)
+    
     def on_provider_changed(self, provider: str):
+        """Handle provider change"""
         if provider == 'None':
             self.api_key_input.setEnabled(False)
+            self.api_key_input.setText('')
         else:
             self.api_key_input.setEnabled(True)
     
     def test_ai_connection(self):
+        """Test AI connection"""
         provider = self.ai_provider_combo.currentText()
         api_key = self.api_key_input.text().strip()
         
         if provider == 'None':
-            QMessageBox.warning(self, 'No Provider', 'Please select an AI provider')
+            QMessageBox.warning(self, '⚠️ No Provider', 'Please select an AI provider first.')
             return
         
         if not api_key:
-            QMessageBox.warning(self, 'Missing API Key', 'Please enter your API key')
+            QMessageBox.warning(self, '⚠️ Missing API Key', 'Please enter your API key.')
             return
         
-        QMessageBox.information(self, 'Connection Test', f'Testing connection to {provider}...\nThis feature requires active API configuration.')
+        QMessageBox.information(
+            self, 
+            '🧪 Connection Test', 
+            f'Testing connection to {provider}...\n\nThis feature requires active API configuration.'
+        )
     
     def save_settings(self):
+        """Save all settings"""
         settings = {
+            'theme': self.theme_combo.itemData(self.theme_combo.currentIndex()),
             'ai_provider': self.ai_provider_combo.currentText(),
             'api_key': self.api_key_input.text(),
             'verify_vulnerabilities': self.verify_check.isChecked(),
-            'verification_timeout': int(self.timeout_spin.text() or 10),
-            'verification_retries': int(self.retries_spin.text() or 3)
+            'verification_timeout': self.timeout_spin.value(),
+            'verification_retries': self.retries_spin.value(),
+            'worker_threads': self.threads_spin.value(),
+            'verify_ssl': self.verify_ssl_check.isChecked(),
+            'follow_redirects': self.follow_redirects_check.isChecked(),
+            'auto_minimize': self.auto_minimize_check.isChecked(),
+            'show_notifications': self.notifications_check.isChecked(),
+            'auto_update': self.auto_update_check.isChecked(),
         }
         
         self.settings_changed.emit(settings)
-        QMessageBox.information(self, 'Success', 'Settings saved successfully!')
+        QMessageBox.information(self, '✅ Success', 'Settings saved successfully!')
