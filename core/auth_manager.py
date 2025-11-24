@@ -6,8 +6,24 @@ import json
 import time
 import hashlib
 import hmac
+import logging
+import secrets
 from abc import ABC, abstractmethod
-from threading import Lock
+from threading import Lock, RLock
+from pathlib import Path
+
+logger = logging.getLogger("mod_auth")
+if not logger.handlers:
+    log_dir = Path.home() / ".mod" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stream_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler(log_dir / "auth_manager.log")
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    stream_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+    logger.addHandler(file_handler)
+logger.setLevel(logging.DEBUG)
 
 
 class AuthType(Enum):
@@ -57,46 +73,67 @@ class TokenInfo:
 
 
 class JWTHandler:
+    """Utilities for decoding and validating JWT tokens.
+
+    Notes:
+        - This implementation performs non-cryptographic parsing by default.
+        - Callers may request signature verification by providing the secret.
+    """
+
+    @staticmethod
+    def _b64url_decode(input_str: str) -> bytes:
+        padding = -len(input_str) % 4
+        if padding:
+            input_str += '=' * padding
+        return base64.urlsafe_b64decode(input_str)
+
     @staticmethod
     def decode_jwt(token: str, verify: bool = False, secret: Optional[str] = None) -> Optional[Dict]:
         try:
             parts = token.split('.')
             if len(parts) != 3:
+                logger.debug("JWT decode: token does not have 3 parts")
                 return None
-            
-            header = json.loads(base64.urlsafe_b64decode(parts[0] + '=='))
-            payload = json.loads(base64.urlsafe_b64decode(parts[1] + '=='))
+
+            header_b = JWTHandler._b64url_decode(parts[0])
+            payload_b = JWTHandler._b64url_decode(parts[1])
             signature = parts[2]
-            
+
+            header = json.loads(header_b.decode('utf-8'))
+            payload = json.loads(payload_b.decode('utf-8'))
+
             if verify and secret:
                 expected_sig = JWTHandler._create_jwt_signature(parts[0], parts[1], secret)
-                if signature != expected_sig:
+                if not secrets.compare_digest(signature, expected_sig):
+                    logger.info("JWT signature mismatch during verification")
                     return None
-            
+
             return payload
-        except:
+        except Exception as e:
+            logger.exception("Failed to decode JWT: %s", e)
             return None
-    
+
     @staticmethod
     def _create_jwt_signature(header: str, payload: str, secret: str) -> str:
         message = f"{header}.{payload}"
         signature = hmac.new(
-            secret.encode(),
-            message.encode(),
-            hashlib.sha256
+            secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256,
         ).digest()
-        return base64.urlsafe_b64encode(signature).decode().rstrip('=')
-    
+        return base64.urlsafe_b64encode(signature).decode('utf-8').rstrip('=')
+
     @staticmethod
     def is_jwt_expired(token: str) -> bool:
         try:
             payload = JWTHandler.decode_jwt(token)
             if not payload or 'exp' not in payload:
                 return False
-            return time.time() > payload['exp']
-        except:
+            return time.time() > float(payload['exp'])
+        except Exception:
+            logger.exception("Error checking JWT expiration")
             return False
-    
+
     @staticmethod
     def extract_claims(token: str) -> Optional[Dict]:
         return JWTHandler.decode_jwt(token)
@@ -106,24 +143,25 @@ class BasicAuthHandler:
     @staticmethod
     def encode(username: str, password: str) -> str:
         credentials = f"{username}:{password}"
-        encoded = base64.b64encode(credentials.encode()).decode()
+        encoded = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
         return f"Basic {encoded}"
-    
+
     @staticmethod
     def decode(auth_header: str) -> Optional[Tuple[str, str]]:
         try:
-            if not auth_header.startswith('Basic '):
+            if not isinstance(auth_header, str) or not auth_header.startswith('Basic '):
                 return None
-            
-            encoded = auth_header.replace('Basic ', '')
-            decoded = base64.b64decode(encoded).decode()
+
+            encoded = auth_header[len('Basic '):]
+            decoded = base64.b64decode(encoded + '=' * (-len(encoded) % 4)).decode('utf-8')
             parts = decoded.split(':', 1)
-            
+
             if len(parts) != 2:
                 return None
-            
+
             return parts[0], parts[1]
-        except:
+        except Exception as e:
+            logger.debug("Basic auth decode failed: %s", e)
             return None
 
 
@@ -134,12 +172,11 @@ class BearerTokenHandler:
     
     @staticmethod
     def extract_token(auth_header: str) -> Optional[str]:
-        try:
-            if auth_header.startswith('Bearer '):
-                return auth_header.replace('Bearer ', '')
+        if not isinstance(auth_header, str):
             return None
-        except:
-            return None
+        if auth_header.startswith('Bearer '):
+            return auth_header[len('Bearer '):]
+        return None
     
     @staticmethod
     def validate_format(token: str) -> bool:
@@ -163,27 +200,23 @@ class OAuth2TokenHandler:
         with self.lock:
             if key not in self.tokens:
                 return None
-            
             token = self.tokens[key]
-            if token.is_expired() and token.refresh_token:
-                return None
-            
             return token
     
     def is_token_expired(self, key: str = "default") -> bool:
         token = self.get_token(key)
         return token is None or token.is_expired()
     
-    def refresh_token_needed(self, key: str = "default") -> bool:
+    def refresh_token_needed(self, key: str = "default", threshold: int = 300) -> bool:
         token = self.get_token(key)
         if not token or not token.refresh_token:
             return False
-        
+
         if token.expires_in is None:
             return False
-        
+
         time_remaining = token.expires_in - (time.time() - token.issued_at)
-        return time_remaining < 300
+        return time_remaining < threshold
 
 
 class DigestAuthHandler:
@@ -304,8 +337,10 @@ class AuthenticationCache:
             if time.time() - timestamp > self.ttl:
                 del self.cache[key]
                 return None
-            
-            return auth_data
+            try:
+                return dict(auth_data)
+            except Exception:
+                return auth_data
     
     def clear(self):
         with self.lock:
@@ -321,6 +356,17 @@ class AuthenticationCache:
 
 
 class AuthManager:
+    """Central authentication manager.
+
+    Responsibilities:
+        - Manage current authentication state and credentials
+        - Provide helpers to create auth headers
+        - Store short-lived auth cache and history
+
+    Thread-safety:
+        Uses an `RLock` to allow safe nested acquisitions when public
+        methods call other public methods.
+    """
     def __init__(self):
         self.current_auth_type: AuthType = AuthType.NONE
         self.current_credentials: Optional[AuthCredentials] = None
@@ -337,9 +383,24 @@ class AuthManager:
         self.cache = AuthenticationCache()
         
         self.auth_history: List[Dict] = []
-        self.lock = Lock()
+        self.lock = RLock()
+
+    def _mask(self, value: Optional[str], show: int = 4) -> str:
+        """Mask sensitive strings for logging/cache storage.
+
+        Example: secret1234 -> ********1234
+        """
+        if not value:
+            return ''
+        if len(value) <= show:
+            return '*' * len(value)
+        return '*' * (len(value) - show) + value[-show:]
     
     def set_basic_auth(self, username: str, password: str) -> Tuple[bool, Optional[str]]:
+        """Set HTTP Basic authentication using provided username and password.
+
+        Returns a tuple of (success, error_message).
+        """
         is_valid, error = self.validator.validate_credentials(username, password)
         if not is_valid:
             return False, error
@@ -366,6 +427,7 @@ class AuthManager:
                 return False, str(e)
     
     def set_bearer_token(self, token: str) -> Tuple[bool, Optional[str]]:
+        """Set Bearer token authentication. Validates token format before storing."""
         is_valid, error = self.validator.validate_token(token)
         if not is_valid:
             return False, error
@@ -381,11 +443,13 @@ class AuthManager:
                     credentials={'token': token}
                 )
                 
-                self.cache.set('current_auth', {'type': 'bearer', 'token': token})
+                # store masked token in cache/history to avoid leaking secrets
+                self.cache.set('current_auth', {'type': 'bearer', 'token': self._mask(token)})
                 self.auth_history.append({
                     'type': 'bearer',
                     'timestamp': time.time(),
-                    'success': True
+                    'success': True,
+                    'token': self._mask(token)
                 })
                 
                 return True, None
@@ -393,6 +457,7 @@ class AuthManager:
                 return False, str(e)
     
     def set_jwt_auth(self, token: str, secret: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+        """Set JWT authentication. Validates and extracts claims from token."""
         is_valid, error = self.validator.validate_token(token)
         if not is_valid:
             return False, error
@@ -415,10 +480,10 @@ class AuthManager:
                 
                 self.cache.set('current_auth', {
                     'type': 'jwt',
-                    'token': token,
+                    'token': self._mask(token),
                     'claims': claims
                 })
-                
+
                 self.auth_history.append({
                     'type': 'jwt',
                     'timestamp': time.time(),
@@ -432,6 +497,11 @@ class AuthManager:
     
     def set_oauth2(self, access_token: str, refresh_token: Optional[str] = None,
                   expires_in: Optional[int] = None) -> Tuple[bool, Optional[str]]:
+        """Store OAuth2 tokens and metadata.
+
+        `access_token` is required. If provided, token info will be stored
+        in the internal OAuth2 token handler.
+        """
         is_valid, error = self.validator.validate_token(access_token)
         if not is_valid:
             return False, error
@@ -457,15 +527,17 @@ class AuthManager:
                     }
                 )
                 
+                # cache/store only masked access token
                 self.cache.set('current_auth', {
                     'type': 'oauth2',
-                    'access_token': access_token
+                    'access_token': self._mask(access_token)
                 })
-                
+
                 self.auth_history.append({
                     'type': 'oauth2',
                     'timestamp': time.time(),
-                    'success': True
+                    'success': True,
+                    'access_token': self._mask(access_token)
                 })
                 
                 return True, None
@@ -473,6 +545,7 @@ class AuthManager:
                 return False, str(e)
     
     def set_api_key(self, api_key: str, key_name: str = "X-API-Key") -> Tuple[bool, Optional[str]]:
+        """Register an API key for use in requests. Key is stored in the APIKeyHandler."""
         is_valid, error = self.validator.validate_api_key(api_key)
         if not is_valid:
             return False, error
@@ -490,13 +563,14 @@ class AuthManager:
                 self.cache.set('current_auth', {
                     'type': 'api_key',
                     'key_name': key_name,
-                    'api_key': api_key
+                    'api_key': self._mask(api_key)
                 })
-                
+
                 self.auth_history.append({
                     'type': 'api_key',
                     'timestamp': time.time(),
-                    'success': True
+                    'success': True,
+                    'key_name': key_name
                 })
                 
                 return True, None
@@ -504,6 +578,7 @@ class AuthManager:
                 return False, str(e)
     
     def set_hmac_auth(self, secret: str) -> Tuple[bool, Optional[str]]:
+        """Set HMAC secret used for signing requests."""
         if not secret or not isinstance(secret, str):
             return False, "Invalid secret"
         
@@ -526,6 +601,7 @@ class AuthManager:
                 return False, str(e)
     
     def set_digest_auth(self, username: str, password: str, realm: str) -> Tuple[bool, Optional[str]]:
+        """Configure Digest authentication credentials."""
         is_valid, error = self.validator.validate_credentials(username, password)
         if not is_valid:
             return False, error
@@ -553,6 +629,7 @@ class AuthManager:
                 return False, str(e)
     
     def get_auth_header(self) -> Dict[str, str]:
+        """Return a headers dict suitable for HTTP requests based on current auth."""
         with self.lock:
             if self.current_auth_type == AuthType.NONE or not self.current_credentials:
                 return {}
@@ -589,56 +666,74 @@ class AuthManager:
             return {}
     
     def get_current_auth_type(self) -> AuthType:
+        """Return the current authentication type."""
         with self.lock:
             return self.current_auth_type
     
     def is_authenticated(self) -> bool:
+        """Return True if any authentication is currently set."""
         with self.lock:
             return self.current_auth_type != AuthType.NONE and self.current_credentials is not None
     
     def clear_auth(self):
+        """Clear current authentication and cached auth state."""
         with self.lock:
             self.current_auth_type = AuthType.NONE
             self.current_credentials = None
             self.cache.clear()
     
     def validate_oauth2_token(self) -> Tuple[bool, Optional[str]]:
+        """Validate OAuth2 token presence and expiration state."""
         with self.lock:
             if self.current_auth_type != AuthType.OAUTH2:
                 return False, "Not OAuth2 authentication"
-            
+
             if self.oauth2_handler.is_token_expired():
                 return False, "OAuth2 token expired"
-            
+
             return True, None
     
     def get_auth_history(self, limit: int = 10) -> List[Dict]:
+        """Return a slice of authentication history entries (most recent last)."""
         with self.lock:
             return self.auth_history[-limit:]
     
     def create_hmac_signature(self, method: str, path: str, body: str = "") -> Optional[str]:
+        """Create HMAC signature using current HMAC credentials, if configured."""
         with self.lock:
             if self.current_auth_type != AuthType.HMAC:
                 return None
-            
-            secret = self.current_credentials.credentials.get('secret', '')
+            if not self.current_credentials:
+                logger.debug("create_hmac_signature called but no credentials set")
+                return None
+
+            secret = self.current_credentials.credentials.get('secret')
+            if not secret:
+                logger.debug("HMAC secret missing in current credentials")
+                return None
+
             return self.hmac_handler.create_signature(method, path, body, secret)
     
     def get_jwt_claims(self) -> Optional[Dict]:
+        """Return JWT claims for current JWT authentication, if available."""
         with self.lock:
             if self.current_auth_type != AuthType.JWT:
                 return None
-            
+            if not self.current_credentials:
+                return None
+
             return self.current_credentials.metadata.get('claims')
     
     def is_token_expiring_soon(self, seconds: int = 300) -> bool:
+        """Return True if stored OAuth2 token is expiring within `seconds`."""
         with self.lock:
             if self.current_auth_type != AuthType.OAUTH2:
                 return False
-            
+
             return self.oauth2_handler.refresh_token_needed()
     
     def get_authentication_summary(self) -> Dict:
+        """Return a brief summary of current authentication state useful for UI/status."""
         with self.lock:
             return {
                 'current_auth_type': self.current_auth_type.value,
