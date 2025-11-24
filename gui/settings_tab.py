@@ -372,7 +372,27 @@ class SettingsTab(QWidget):
         provider_label.setMinimumHeight(40)
         
         self.ai_provider_combo = QComboBox()
-        self.ai_provider_combo.addItems(['None', 'OpenAI (GPT-4)', 'Anthropic (Claude)', 'Google Gemini'])
+        self.ai_provider_combo.addItems([
+            'None',
+            'OpenAI (GPT-4)',
+            'Anthropic (Claude)',
+            'Google Gemini',
+            'Groq (LLaMA 3.1)',
+            'Meta AI (LLaMA)',
+            'Mistral AI',
+            'Cohere',
+            'DeepSeek',
+            'Hugging Face',
+            'Perplexity AI',
+            'xAI (Grok)',
+            'DeepInfra',
+            'Together AI',
+            'Fireworks AI',
+            'Replicate',
+            'Azure OpenAI',
+            'AWS Bedrock',
+            'IBM Watson'
+        ])
         self.ai_provider_combo.setMinimumHeight(40)
         
         combo_stylesheet = f"""
@@ -431,6 +451,19 @@ class SettingsTab(QWidget):
         api_key_layout.addWidget(api_key_label)
         api_key_layout.addWidget(self.api_key_input, 1)
         ai_layout.addLayout(api_key_layout)
+        
+        model_layout = QHBoxLayout()
+        model_label = QLabel('MODEL:')
+        model_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 150px;')
+        model_label.setMinimumHeight(40)
+        
+        self.model_combo = QComboBox()
+        self.model_combo.setMinimumHeight(40)
+        self.model_combo.setStyleSheet(combo_stylesheet)
+        
+        model_layout.addWidget(model_label)
+        model_layout.addWidget(self.model_combo, 1)
+        ai_layout.addLayout(model_layout)
         
         test_layout = QHBoxLayout()
         test_layout.addStretch()
@@ -499,24 +532,104 @@ class SettingsTab(QWidget):
         
         info_content = """
 🔹 OpenAI (GPT-4)
-   Website: [https://openai.com/api/](https://openai.com/api/)
-   API Key: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-   Model: gpt-4
-
+   Website: https://openai.com/api/
+   API Key: https://platform.openai.com/api-keys
+   Models: gpt-4, gpt-4-turbo, gpt-3.5-turbo
 
 🔹 Anthropic (Claude)
-   Website: [https://www.anthropic.com/](https://www.anthropic.com/)
-   API Key: [https://console.anthropic.com/](https://console.anthropic.com/)
-   Model: claude-3-opus-20240229
-
+   Website: https://www.anthropic.com/
+   API Key: https://console.anthropic.com/
+   Models: claude-3-opus, claude-3-sonnet, claude-3-haiku
 
 🔹 Google Gemini
-   Website: [https://ai.google.dev/](https://ai.google.dev/)
-   API Key: [https://makersuite.google.com/app/apikey](https://makersuite.google.com/app/apikey)
-   Model: gemini-pro
+   Website: https://ai.google.dev/
+   API Key: https://makersuite.google.com/app/apikey
+   Models: gemini-pro, gemini-pro-vision
 
+🔹 Groq (LLaMA 3.1) ⚡ FASTEST & FREE
+   Website: https://groq.com/
+   API Key: https://console.groq.com/keys
+   Models: llama-3.1-405b, llama-3.1-70b, llama-3.1-8b
+   Note: Ultra-fast inference, generous free tier
 
-💡 Without an API key, basic POC templates will be used.
+🔹 Meta AI (LLaMA)
+   Website: https://ai.meta.com/
+   Models: llama-2-70b, llama-2-13b, llama-2-7b
+
+🔹 Mistral AI
+   Website: https://mistral.ai/
+   API Key: https://console.mistral.ai/
+   Models: mistral-large, mistral-medium, mistral-small
+
+🔹 Cohere
+   Website: https://cohere.com/
+   API Key: https://dashboard.cohere.com/api-keys
+   Models: command, command-light, command-nightly
+
+🔹 DeepSeek
+   Website: https://www.deepseek.com/
+   API Key: https://platform.deepseek.com/
+   Models: deepseek-coder, deepseek-chat
+
+🔹 Hugging Face 🆓 FREE
+   Website: https://huggingface.co/
+   API Key: https://huggingface.co/settings/tokens
+   Models: Access to 1000+ open-source models
+   Note: Free inference API available
+
+🔹 Perplexity AI
+   Website: https://www.perplexity.ai/
+   API Key: https://www.perplexity.ai/settings/api
+   Models: pplx-7b-online, pplx-70b-online
+
+🔹 xAI (Grok)
+   Website: https://x.ai/
+   Models: grok-1
+
+🔹 DeepInfra 🆓 FREE TIER
+   Website: https://deepinfra.com/
+   API Key: https://deepinfra.com/dash/api_keys
+   Models: Large-scale model hosting
+   Note: Pay-per-use with free credits
+
+🔹 Together AI
+   Website: https://together.ai/
+   API Key: https://api.together.xyz/
+   Models: Multiple open-source LLMs
+
+🔹 Fireworks AI ⚡ FAST
+   Website: https://fireworks.ai/
+   API Key: https://fireworks.ai/api-keys
+   Models: llama-v3-70b, mixtral-8x7b
+
+🔹 Replicate
+   Website: https://replicate.com/
+   API Key: https://replicate.com/account/api-tokens
+   Models: Run various AI models via API
+
+🔹 Azure OpenAI
+   Website: https://azure.microsoft.com/en-us/products/ai-services/openai-service
+   API Key: Azure Portal
+   Models: GPT-4, GPT-3.5, Embeddings
+
+🔹 AWS Bedrock
+   Website: https://aws.amazon.com/bedrock/
+   API Key: AWS Console
+   Models: Claude, Titan, LLaMA 2
+
+🔹 IBM Watson
+   Website: https://www.ibm.com/watson
+   API Key: https://cloud.ibm.com/
+   Models: Watson NLP, Watson Assistant
+
+💡 RECOMMENDATIONS:
+• For FREE usage: Groq, Hugging Face, DeepInfra
+• For SPEED: Groq, Fireworks AI
+• For QUALITY: OpenAI GPT-4, Claude 3 Opus
+• For CODING: DeepSeek, Claude, GPT-4
+• For OPEN-SOURCE: Hugging Face, Together AI
+
+Without an API key, basic POC templates will be used.
 With a valid API key, advanced POC generation and analysis will be available.
         """
         
@@ -765,15 +878,137 @@ With a valid API key, advanced POC generation and analysis will be available.
             self.theme_changed.emit(theme_key)
     
     def on_provider_changed(self, provider: str):
+        self.model_combo.clear()
+        
+        model_options = {
+            'None': [],
+            'OpenAI (GPT-4)': [
+                'gpt-4',
+                'gpt-4-turbo',
+                'gpt-4-turbo-preview',
+                'gpt-3.5-turbo',
+                'gpt-3.5-turbo-16k'
+            ],
+            'Anthropic (Claude)': [
+                'claude-3-opus-20240229',
+                'claude-3-sonnet-20240229',
+                'claude-3-haiku-20240307',
+                'claude-2.1',
+                'claude-2.0'
+            ],
+            'Google Gemini': [
+                'gemini-pro',
+                'gemini-pro-vision',
+                'gemini-1.5-pro',
+                'gemini-1.5-flash'
+            ],
+            'Groq (LLaMA 3.1)': [
+                'llama-3.1-405b-reasoning',
+                'llama-3.1-70b-versatile',
+                'llama-3.1-8b-instant',
+                'mixtral-8x7b-32768',
+                'gemma-7b-it'
+            ],
+            'Meta AI (LLaMA)': [
+                'llama-2-70b-chat',
+                'llama-2-13b-chat',
+                'llama-2-7b-chat',
+                'codellama-34b',
+                'codellama-13b'
+            ],
+            'Mistral AI': [
+                'mistral-large-latest',
+                'mistral-medium-latest',
+                'mistral-small-latest',
+                'mistral-tiny'
+            ],
+            'Cohere': [
+                'command',
+                'command-light',
+                'command-nightly',
+                'command-r',
+                'command-r-plus'
+            ],
+            'DeepSeek': [
+                'deepseek-coder-33b',
+                'deepseek-coder-6.7b',
+                'deepseek-chat'
+            ],
+            'Hugging Face': [
+                'meta-llama/Llama-2-70b-chat-hf',
+                'mistralai/Mixtral-8x7B-Instruct-v0.1',
+                'google/flan-t5-xxl',
+                'bigscience/bloom',
+                'EleutherAI/gpt-neox-20b'
+            ],
+            'Perplexity AI': [
+                'pplx-70b-online',
+                'pplx-7b-online',
+                'pplx-70b-chat',
+                'pplx-7b-chat'
+            ],
+            'xAI (Grok)': [
+                'grok-1',
+                'grok-beta'
+            ],
+            'DeepInfra': [
+                'meta-llama/Meta-Llama-3-70B-Instruct',
+                'mistralai/Mixtral-8x7B-Instruct-v0.1',
+                'codellama/CodeLlama-34b-Instruct-hf'
+            ],
+            'Together AI': [
+                'togethercomputer/llama-2-70b-chat',
+                'mistralai/Mixtral-8x7B-Instruct-v0.1',
+                'codellama/CodeLlama-34b-Instruct'
+            ],
+            'Fireworks AI': [
+                'accounts/fireworks/models/llama-v3-70b-instruct',
+                'accounts/fireworks/models/mixtral-8x7b-instruct',
+                'accounts/fireworks/models/yi-34b-chat'
+            ],
+            'Replicate': [
+                'meta/llama-2-70b-chat',
+                'mistralai/mixtral-8x7b-instruct-v0.1',
+                'stability-ai/stable-diffusion'
+            ],
+            'Azure OpenAI': [
+                'gpt-4',
+                'gpt-4-32k',
+                'gpt-35-turbo',
+                'gpt-35-turbo-16k'
+            ],
+            'AWS Bedrock': [
+                'anthropic.claude-v2',
+                'anthropic.claude-instant-v1',
+                'amazon.titan-text-express-v1',
+                'meta.llama2-70b-chat-v1'
+            ],
+            'IBM Watson': [
+                'ibm/granite-13b-chat-v2',
+                'ibm/granite-13b-instruct-v2',
+                'google/flan-ul2'
+            ]
+        }
+        
+        if provider in model_options:
+            models = model_options[provider]
+            if models:
+                self.model_combo.addItems(models)
+                self.model_combo.setEnabled(True)
+            else:
+                self.model_combo.setEnabled(False)
+        
         if provider == 'None':
             self.api_key_input.setEnabled(False)
             self.api_key_input.setText('')
+            self.model_combo.setEnabled(False)
         else:
             self.api_key_input.setEnabled(True)
     
     def test_ai_connection(self):
         provider = self.ai_provider_combo.currentText()
         api_key = self.api_key_input.text().strip()
+        model = self.model_combo.currentText()
         
         if provider == 'None':
             QMessageBox.warning(self, '⚠️ No Provider', 'Please select an AI provider first.')
@@ -783,16 +1018,21 @@ With a valid API key, advanced POC generation and analysis will be available.
             QMessageBox.warning(self, '⚠️ Missing API Key', 'Please enter your API key.')
             return
         
+        if not model and self.model_combo.isEnabled():
+            QMessageBox.warning(self, '⚠️ No Model Selected', 'Please select a model.')
+            return
+        
         QMessageBox.information(
             self, 
             '🧪 Connection Test', 
-            f'Testing connection to {provider}...\n\nThis feature requires active API configuration.'
+            f'Testing connection to {provider}...\n\nModel: {model if model else "Default"}\n\nThis feature requires active API configuration.'
         )
     
     def save_settings(self):
         settings = {
             'theme': self.theme_combo.itemData(self.theme_combo.currentIndex()),
             'ai_provider': self.ai_provider_combo.currentText(),
+            'ai_model': self.model_combo.currentText() if self.model_combo.isEnabled() else '',
             'api_key': self.api_key_input.text(),
             'verify_vulnerabilities': self.verify_check.isChecked(),
             'verification_timeout': self.timeout_spin.value(),
