@@ -7,6 +7,8 @@ import threading
 import time
 import hashlib
 import math
+import statistics
+import json
 
 
 class RCEType(Enum):
@@ -437,6 +439,100 @@ class TemplateInjectionDetector:
         return len(detected_templates) > 0, detected_templates
 
 
+class BlindRCEDetector:
+    @staticmethod
+    def detect_blind_rce(response_times: List[float], baseline_time: float) -> Tuple[bool, float]:
+        if len(response_times) < 2:
+            return False, 0.0
+        
+        avg_time = statistics.mean(response_times)
+        
+        if avg_time > baseline_time * 2:
+            time_factor = avg_time / max(baseline_time, 0.1)
+            
+            if time_factor > 5.0:
+                return True, 0.95
+            elif time_factor > 3.0:
+                return True, 0.85
+            elif time_factor > 2.0:
+                return True, 0.70
+        
+        return False, 0.0
+
+
+class AdvancedProcessAnalyzer:
+    PROCESS_PATTERNS = {
+        'apache': r'(?:apache|httpd)',
+        'nginx': r'nginx',
+        'mysql': r'(?:mysql|mariadb)',
+        'postgres': r'postgres',
+        'ssh': r'sshd?',
+        'ftp': r'ftpd?',
+        'java': r'java',
+        'python': r'python\d*',
+        'node': r'(?:node|npm)',
+        'ruby': r'ruby',
+        'php': r'php-fpm|php',
+    }
+    
+    @staticmethod
+    def identify_services(process_list: str) -> List[str]:
+        identified = []
+        
+        for service, pattern in AdvancedProcessAnalyzer.PROCESS_PATTERNS.items():
+            if re.search(pattern, process_list, re.IGNORECASE):
+                identified.append(service)
+        
+        return identified
+
+
+class SystemHardeningAnalyzer:
+    @staticmethod
+    def detect_hardening_measures(response_content: str) -> Tuple[List[str], float]:
+        protections = []
+        score = 0.0
+        
+        if any(keyword in response_content for keyword in ['selinux', 'apparmor', 'seccomp']):
+            protections.append('MAC policy enabled')
+            score += 0.15
+        
+        if any(keyword in response_content for keyword in ['firewall', 'iptables', 'ufw']):
+            protections.append('Firewall configured')
+            score += 0.1
+        
+        if re.search(r'uid=(\d+)\((\w+)\)', response_content):
+            match = re.search(r'uid=(\d+)\((\w+)\)', response_content)
+            if match and match.group(1) != '0':
+                protections.append(f'Non-root user: {match.group(2)}')
+                score += 0.2
+            elif match and match.group(1) == '0':
+                protections.append('Running as root (HIGH RISK)')
+                score -= 0.2
+        
+        return protections, score
+
+
+class DataExfiltrationDetector:
+    SENSITIVE_PATTERNS = {
+        'credentials': r'(?:password|passwd|pwd|secret|key)\s*[=:]\s*["\']?([^\s"\']+)',
+        'api_keys': r'(?:api[_-]?key|token)\s*[=:]\s*["\']?([^\s"\']+)',
+        'database_urls': r'(?:mysql|postgres|mongodb)://([^\s]+)',
+        'private_keys': r'-----BEGIN.*?-----END',
+        'config_files': r'/etc/(?:shadow|passwd|sudoers|mysql)',
+    }
+    
+    @staticmethod
+    def detect_sensitive_data(response_content: str) -> Dict[str, List[str]]:
+        findings = {}
+        
+        for category, pattern in DataExfiltrationDetector.SENSITIVE_PATTERNS.items():
+            matches = re.findall(pattern, response_content, re.IGNORECASE | re.DOTALL)
+            if matches:
+                findings[category] = matches[:10]
+        
+        return findings
+
+
 class RCEScanner:
     _remediation_cache = (
         "Avoid using system command execution functions. "
@@ -464,6 +560,10 @@ class RCEScanner:
         self.timing_analyzer = TimingBasedRCEAnalyzer()
         self.code_injection_detector = CodeInjectionDetector()
         self.template_detector = TemplateInjectionDetector()
+        self.blind_detector = BlindRCEDetector()
+        self.process_identifier = AdvancedProcessAnalyzer()
+        self.hardening_analyzer = SystemHardeningAnalyzer()
+        self.exfiltration_detector = DataExfiltrationDetector()
         
         self.vulnerabilities: List[RCEVulnerability] = []
         self.scan_statistics = defaultdict(int)

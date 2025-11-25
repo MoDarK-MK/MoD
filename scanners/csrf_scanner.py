@@ -404,6 +404,90 @@ class MegaMethodOverrideDetector:
         
         return bool(issues), issues
 
+class DoubleSubmitCookieDetector:
+    @staticmethod
+    def detect_double_submit_pattern(tokens: List[CSRFToken]) -> Tuple[bool, float]:
+        if len(tokens) < 2:
+            return False, 0.0
+        
+        for i, token1 in enumerate(tokens):
+            for token2 in tokens[i+1:]:
+                if token1.value == token2.value and token1.name != token2.name:
+                    return True, 0.92
+                
+                if token1.value and token2.value:
+                    if token1.value[:20] == token2.value[:20]:
+                        return True, 0.75
+        
+        return False, 0.0
+
+
+class TokenFixationDetector:
+    @staticmethod
+    def detect_fixation(token_history: List[str]) -> Tuple[bool, float]:
+        if len(token_history) < 3:
+            return False, 0.0
+        
+        if len(set(token_history[-3:])) == 1:
+            return True, 0.95
+        
+        recent_tokens = token_history[-5:]
+        unique_count = len(set(recent_tokens))
+        
+        if unique_count == 1:
+            return True, 0.95
+        elif unique_count == 2:
+            return True, 0.70
+        
+        return False, 0.0
+
+
+class JSONHijackingDetector:
+    @staticmethod
+    def detect_json_hijacking(response_content: str) -> Tuple[bool, float]:
+        score = 0.0
+        
+        if response_content.strip().startswith('['):
+            score += 0.3
+        
+        if '{"' in response_content or '[ {' in response_content:
+            score += 0.2
+        
+        if re.search(r'for\s*\(\s*;\s*;\s*\)', response_content):
+            score += 0.4
+        
+        if re.search(r'/\*\s*.*?\s*\*/', response_content, re.DOTALL):
+            score += 0.3
+        
+        return score > 0.5, min(score, 1.0)
+
+
+class AdvancedTokenPatternDetector:
+    @staticmethod
+    def detect_advanced_patterns(tokens: List[str]) -> Tuple[bool, str, float]:
+        if len(tokens) < 2:
+            return False, '', 0.0
+        
+        base_token = tokens[0]
+        
+        for i in range(1, len(tokens)):
+            curr = tokens[i]
+            prev = tokens[i-1]
+            
+            if len(base_token) != len(curr):
+                continue
+            
+            xor_result = ''.join(format(ord(a) ^ ord(b), 'x') for a, b in zip(base_token, curr))
+            if len(set(xor_result)) < 5:
+                return True, 'XOR pattern detected', 0.85
+            
+            hamming_distance = sum(c1 != c2 for c1, c2 in zip(base_token, curr))
+            if hamming_distance < len(base_token) * 0.1:
+                return True, f'Low Hamming distance: {hamming_distance}', 0.80
+        
+        return False, '', 0.0
+
+
 class CSRFScanner:
     def __init__(self, max_workers: int = 16):
         self.form_analyzer = MegaFormAnalyzer()
@@ -411,6 +495,10 @@ class CSRFScanner:
         self.token_analyzer = MegaTokenAnalyzer()
         self.origin_analyzer = MegaOriginAnalyzer()
         self.method_detector = MegaMethodOverrideDetector()
+        self.double_submit_detector = DoubleSubmitCookieDetector()
+        self.fixation_detector = TokenFixationDetector()
+        self.json_hijack_detector = JSONHijackingDetector()
+        self.pattern_detector = AdvancedTokenPatternDetector()
         
         self.vulnerabilities = []
         self.collected_tokens = defaultdict(list)
@@ -505,6 +593,25 @@ class CSRFScanner:
                             remediation=self._remediation()
                         ))
                     
+                    is_double_submit, ds_score = self.double_submit_detector.detect_double_submit_pattern(tokens)
+                    if is_double_submit:
+                        vulns.append(CSRFVulnerability(
+                            vulnerability_type='CSRF',
+                            csrf_type=CSRFVulnerabilityType.DOUBLE_SUBMIT_BYPASS,
+                            url=url,
+                            form_name=form.get('name') or form.get('id'),
+                            form_action=form.get('action'),
+                            form_method=form.get('method'),
+                            severity='High',
+                            evidence=f'Double submit pattern detected: {ds_score:.2f}',
+                            tokens_found=tokens,
+                            samesite_status=samesite.value if samesite else 'Missing',
+                            cookie_flags=cookie_flags,
+                            confirmed=True,
+                            confidence_score=ds_score,
+                            remediation=self._remediation()
+                        ))
+                    
                     history = self.token_history.get(url, [])
                     if len(history) >= 2:
                         is_pred, pattern = self.token_analyzer.detect_pattern(history)
@@ -523,6 +630,44 @@ class CSRFScanner:
                                 cookie_flags=cookie_flags,
                                 confirmed=True,
                                 confidence_score=0.98,
+                                remediation=self._remediation()
+                            ))
+                        
+                        is_fixation, fix_score = self.fixation_detector.detect_fixation(history)
+                        if is_fixation:
+                            vulns.append(CSRFVulnerability(
+                                vulnerability_type='CSRF',
+                                csrf_type=CSRFVulnerabilityType.TOKEN_FIXATION,
+                                url=url,
+                                form_name=form.get('name') or form.get('id'),
+                                form_action=form.get('action'),
+                                form_method=form.get('method'),
+                                severity='High',
+                                evidence=f'Token fixation: {fix_score:.2f} | Same tokens in recent history',
+                                tokens_found=tokens,
+                                samesite_status=samesite.value if samesite else 'Missing',
+                                cookie_flags=cookie_flags,
+                                confirmed=True,
+                                confidence_score=fix_score,
+                                remediation=self._remediation()
+                            ))
+                        
+                        is_advanced, adv_pattern, adv_score = self.pattern_detector.detect_advanced_patterns(history)
+                        if is_advanced:
+                            vulns.append(CSRFVulnerability(
+                                vulnerability_type='CSRF',
+                                csrf_type=CSRFVulnerabilityType.PREDICTABLE_TOKEN,
+                                url=url,
+                                form_name=form.get('name') or form.get('id'),
+                                form_action=form.get('action'),
+                                form_method=form.get('method'),
+                                severity='High',
+                                evidence=f'Advanced pattern: {adv_pattern} | Score: {adv_score:.2f}',
+                                tokens_found=tokens,
+                                samesite_status=samesite.value if samesite else 'Missing',
+                                cookie_flags=cookie_flags,
+                                confirmed=True,
+                                confidence_score=adv_score,
                                 remediation=self._remediation()
                             ))
         
@@ -558,6 +703,20 @@ class CSRFScanner:
                 remediation=self._remediation()
             ))
         
+        is_json_hijack, json_score = self.json_hijack_detector.detect_json_hijacking(content)
+        if is_json_hijack:
+            vulns.append(CSRFVulnerability(
+                vulnerability_type='CSRF',
+                csrf_type=CSRFVulnerabilityType.JSON_HIJACKING,
+                url=url,
+                severity='High',
+                evidence=f'JSON hijacking patterns detected: {json_score:.2f}',
+                cookie_flags=cookie_flags,
+                confirmed=True,
+                confidence_score=json_score,
+                remediation=self._remediation()
+            ))
+        
         if method_override:
             vulns.append(CSRFVulnerability(
                 vulnerability_type='CSRF',
@@ -581,16 +740,18 @@ class CSRFScanner:
     
     def _remediation(self):
         return (
-            "1. Strong random CSRF tokens. "
-            "2. SameSite=Strict/Lax cookies. "
-            "3. Origin/Referer validation. "
-            "4. Disable method override. "
-            "5. Short-lived tokens. "
-            "6. Per-request tokens. "
-            "7. Strict CORS policy. "
-            "8. HttpOnly + Secure flags. "
-            "9. CAPTCHA for sensitive ops. "
-            "10. Custom AJAX headers."
+            "1. Generate strong cryptographically random CSRF tokens using secure RNG. "
+            "2. Implement SameSite=Strict (or Lax as minimum) on session cookies. "
+            "3. Validate Origin/Referer headers on all state-changing requests. "
+            "4. Disable HTTP method override (X-HTTP-Method-Override). "
+            "5. Use short-lived tokens (expiring within session). "
+            "6. Generate per-request CSRF tokens instead of per-session. "
+            "7. Implement strict CORS policy - whitelist trusted origins. "
+            "8. Set HttpOnly and Secure flags on all cookies. "
+            "9. Implement CAPTCHA for sensitive operations. "
+            "10. Use custom headers (X-CSRF-Token) for AJAX requests. "
+            "11. Implement CSRF middleware/framework support. "
+            "12. Regular security testing for CSRF vulnerabilities."
         )
     
     def get_vulnerabilities(self):

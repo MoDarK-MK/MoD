@@ -9,6 +9,8 @@ import hashlib
 import math
 import logging
 from pathlib import Path
+import json
+import statistics
 
 logger = logging.getLogger("MoD.sql_scanner")
 if not logger.handlers:
@@ -30,6 +32,9 @@ class SQLInjectionType(Enum):
     SECOND_ORDER = "second_order"
     DIOS = "dios"
     REGRESSION = "regression"
+    NOSQL_INJECTION = "nosql_injection"
+    MULTI_PARAMETER = "multi_parameter"
+    AUTHENTICATION_BYPASS = "authentication_bypass"
 
 
 class DatabaseType(Enum):
@@ -92,6 +97,138 @@ class SQLVulnerability:
     table_structures: List[Dict] = field(default_factory=list)
     remediation: str = ""
     timestamp: float = field(default_factory=time.time)
+
+
+class NoSQLInjectionDetector:
+    MONGODB_SIGNATURES = [
+        r'\$where', r'\$ne', r'\$gt', r'\$lt', r'\$regex', r'\$or', r'\$and',
+        r'\$exists', r'\$type', r'\$in', r'\$nin', r'\$all', r'\$elemMatch'
+    ]
+    COUCHDB_SIGNATURES = [
+        r'MapReduce', r'emit\(', r'_view', r'_design', r'viewkey'
+    ]
+    
+    @staticmethod
+    def detect_nosql_injection(response_content: str, payload: str) -> Tuple[bool, float]:
+        indicators = 0
+        
+        for sig in NoSQLInjectionDetector.MONGODB_SIGNATURES:
+            if re.search(sig, response_content, re.I):
+                indicators += 1
+            if re.search(sig, payload, re.I):
+                indicators += 1
+        
+        for sig in NoSQLInjectionDetector.COUCHDB_SIGNATURES:
+            if re.search(sig, response_content, re.I):
+                indicators += 1
+        
+        try:
+            json.loads(response_content)
+            indicators += 1
+        except:
+            pass
+        
+        confidence = min(indicators * 0.25, 1.0)
+        return indicators > 0, confidence
+
+
+class EncodingBypassDetector:
+    ENCODING_PATTERNS = {
+        'hex_encoding': re.compile(r'\\x[0-9a-fA-F]{2}|0x[0-9a-fA-F]{2,}'),
+        'unicode_encoding': re.compile(r'\\u[0-9a-fA-F]{4}|%u[0-9a-fA-F]{4}'),
+        'html_entity': re.compile(r'&#\d+;|&#x[0-9a-fA-F]+;'),
+        'double_encoding': re.compile(r'%25|%2[bB]|%2[fF]'),
+        'mysql_comment': re.compile(r'/\*!\d{5}.*?\*/', re.DOTALL),
+        'mysql_version': re.compile(r'/\*!50\d{3}.*?\*/', re.DOTALL),
+        'space_bypass': re.compile(r'%20|%09|%0[aA]|%0[dD]|/\*.*?\*/', re.DOTALL),
+    }
+    
+    @staticmethod
+    def detect_encoding_bypass(payload: str, response_content: str) -> Tuple[bool, List[str], float]:
+        detected_techniques = []
+        score = 0.0
+        
+        for technique, pattern in EncodingBypassDetector.ENCODING_PATTERNS.items():
+            if pattern.search(payload):
+                detected_techniques.append(technique)
+                score += 0.15
+            if pattern.search(response_content):
+                detected_techniques.append(f'{technique}_in_response')
+                score += 0.1
+        
+        return len(detected_techniques) > 0, detected_techniques, min(score, 1.0)
+
+
+class WAFBypassAnalyzer:
+    BYPASS_SIGNATURES = {
+        'inline_comment': r'/\*[^*]*\*/',
+        'case_variation': r'[Uu][Nn][Ii][Oo][Nn]',
+        'null_byte': r'%00',
+        'backtick': r'`',
+        'newline_char': r'%0[aA]|%0[dD]|\n|\r',
+        'tab_char': r'%09|\t',
+        'space_variation': r'%20|/\*\*/|%0[cC]',
+        'mysql_version_comment': r'/\*!\d+',
+        'parenthesis_nesting': r'\(\s*select',
+    }
+    
+    @staticmethod
+    def analyze_waf_bypass(payload: str, response_content: str) -> Tuple[List[str], float]:
+        techniques_used = []
+        bypass_score = 0.0
+        
+        for technique, pattern in WAFBypassAnalyzer.BYPASS_SIGNATURES.items():
+            if re.search(pattern, payload, re.I):
+                techniques_used.append(technique)
+                bypass_score += 0.11
+        
+        if len(techniques_used) >= 2:
+            bypass_score += 0.15
+        
+        return techniques_used, min(bypass_score, 1.0)
+
+
+class MultiParameterInjectionDetector:
+    @staticmethod
+    def detect_multi_param_injection(responses: Dict[str, str], payloads: Dict[str, str]) -> Tuple[bool, List[str], float]:
+        modified_responses = []
+        confidence = 0.0
+        
+        for param_name, response_content in responses.items():
+            payload = payloads.get(param_name, '')
+            if payload and response_content:
+                if len(response_content) > 1000:
+                    modified_responses.append(param_name)
+                    confidence += 0.2
+        
+        return len(modified_responses) > 1, modified_responses, min(confidence, 1.0)
+
+
+class AuthenticationBypassDetector:
+    AUTH_KEYWORDS = [
+        'login', 'password', 'user', 'admin', 'authenticate',
+        'session', 'token', 'auth', 'verify', 'access', 'grant'
+    ]
+    
+    @staticmethod
+    def detect_auth_bypass(response_content: str, baseline_response: str) -> Tuple[bool, float]:
+        baseline_has_auth = any(kw in baseline_response.lower() for kw in AuthenticationBypassDetector.AUTH_KEYWORDS)
+        response_has_auth = any(kw in response_content.lower() for kw in AuthenticationBypassDetector.AUTH_KEYWORDS)
+        
+        if baseline_has_auth and not response_has_auth:
+            return True, 0.8
+        
+        if not baseline_has_auth and response_has_auth:
+            return True, 0.7
+        
+        if 'welcome' in response_content.lower() and 'welcome' not in baseline_response.lower():
+            return True, 0.75
+        
+        size_diff = abs(len(response_content) - len(baseline_response))
+        if size_diff > 500 and size_diff < 5000:
+            return True, 0.6
+        
+        return False, 0.0
 
 
 class ErrorMessageAnalyzer:
@@ -158,13 +295,13 @@ class TimingAnalyzer:
             baseline_response_time = 0.1
         
         time_difference = test_response_time - baseline_response_time
-        expected_minimum = delay_seconds * 0.7
-        upper_threshold = delay_seconds * 1.3
+        expected_minimum = delay_seconds * 0.65
+        upper_threshold = delay_seconds * 1.4
         
-        is_delayed = expected_minimum <= time_difference <= (delay_seconds + 5)
+        is_delayed = expected_minimum <= time_difference <= (delay_seconds + 3)
         
         if is_delayed:
-            confidence = min((time_difference / delay_seconds) * 100, 100.0)
+            confidence = min((time_difference / delay_seconds) * 0.95, 0.99)
         else:
             confidence = 0.0
         
@@ -179,9 +316,33 @@ class TimingAnalyzer:
         variance = sum((t - avg_time) ** 2 for t in response_times) / len(response_times)
         std_dev = math.sqrt(variance)
         
-        is_consistent = std_dev < avg_time * 0.2
+        is_consistent = std_dev < avg_time * 0.15
         
         return is_consistent, std_dev
+    
+    @staticmethod
+    def analyze_multiple_timings(delay_timings: List[float], normal_timings: List[float]) -> Tuple[bool, float]:
+        if len(delay_timings) < 2 or len(normal_timings) < 2:
+            return False, 0.0
+        
+        delay_avg = statistics.mean(delay_timings)
+        normal_avg = statistics.mean(normal_timings)
+        
+        if delay_avg <= normal_avg:
+            return False, 0.0
+        
+        time_factor = delay_avg / max(normal_avg, 0.1)
+        
+        if time_factor >= 4.0:
+            return True, 0.95
+        elif time_factor >= 3.0:
+            return True, 0.85
+        elif time_factor >= 2.0:
+            return True, 0.75
+        elif time_factor >= 1.5:
+            return True, 0.65
+        
+        return False, 0.0
 
 
 class UnionBasedDetector:
@@ -189,6 +350,8 @@ class UnionBasedDetector:
         re.compile(r'<table[^>]*>.*?</table>', re.DOTALL | re.I),
         re.compile(r'<tr[^>]*>.*?</tr>', re.DOTALL | re.I),
         re.compile(r'<td[^>]*>.*?</td>', re.DOTALL | re.I),
+        re.compile(r'<thead[^>]*>.*?</thead>', re.DOTALL | re.I),
+        re.compile(r'<tbody[^>]*>.*?</tbody>', re.DOTALL | re.I),
     ]
     
     @staticmethod
@@ -199,24 +362,24 @@ class UnionBasedDetector:
         union_keywords = response_content.upper().count('UNION') - baseline_response.upper().count('UNION')
         if union_keywords > 0:
             indicators.append(f'UNION keyword appears {union_keywords} additional times')
-            confidence_score += 0.15
+            confidence_score += 0.18
         
         select_keywords = response_content.upper().count('SELECT') - baseline_response.upper().count('SELECT')
         if select_keywords > 0:
             indicators.append(f'SELECT keyword appears {select_keywords} additional times')
-            confidence_score += 0.10
+            confidence_score += 0.12
         
         baseline_tables = len(re.findall(r'<table', baseline_response, re.I))
         response_tables = len(re.findall(r'<table', response_content, re.I))
         if response_tables > baseline_tables:
             indicators.append(f'Additional tables: {response_tables - baseline_tables}')
-            confidence_score += 0.15
+            confidence_score += 0.18
         
         baseline_rows = len(re.findall(r'<tr', baseline_response, re.I))
         response_rows = len(re.findall(r'<tr', response_content, re.I))
         if response_rows > baseline_rows + 2:
             indicators.append(f'Additional rows: {response_rows - baseline_rows}')
-            confidence_score += 0.20
+            confidence_score += 0.22
         
         response_lines = response_content.split('\n')
         baseline_lines = baseline_response.split('\n')
@@ -230,11 +393,17 @@ class UnionBasedDetector:
         response_size = len(response_content)
         size_increase = (response_size - baseline_size) / max(baseline_size, 1)
         
-        if 0.3 < size_increase < 5.0:
+        if 0.25 < size_increase < 6.0:
             indicators.append(f'Response size increased by {size_increase * 100:.1f}%')
-            confidence_score += 0.10
+            confidence_score += 0.12
         
-        return len(indicators) > 0, confidence_score * 100, indicators
+        baseline_numbers = len(re.findall(r'\d+', baseline_response))
+        response_numbers = len(re.findall(r'\d+', response_content))
+        if response_numbers > baseline_numbers * 1.5:
+            indicators.append(f'Additional numeric data: {response_numbers - baseline_numbers} entries')
+            confidence_score += 0.1
+        
+        return len(indicators) > 0, min(confidence_score, 0.99), indicators
     
     @staticmethod
     def detect_column_count(response_content: str) -> Optional[int]:
@@ -257,7 +426,7 @@ class BooleanBasedAnalyzer:
         
         size_difference = abs(true_size - false_size)
         
-        if size_difference < 50:
+        if size_difference < 30:
             return False, 0.0
         
         true_keywords = set(re.findall(r'\b\w+\b', true_response.lower()))
@@ -269,18 +438,25 @@ class BooleanBasedAnalyzer:
         
         match_difference = abs(true_match - false_match)
         
-        if match_difference < 0.2:
+        if match_difference < 0.15:
             return False, 0.0
         
         if true_size == test_size:
-            return True, 85.0
+            return True, 0.88
         
         if false_size == test_size:
-            return True, 75.0
+            return True, 0.78
         
-        similarity_score = abs(true_match - false_match) * 100
+        similarity_score = abs(true_match - false_match)
         
-        return similarity_score > 30, min(similarity_score, 95.0)
+        if similarity_score > 0.35:
+            return True, min(similarity_score, 0.95)
+        
+        html_diff = len(re.findall(r'<[^>]+>', true_response)) - len(re.findall(r'<[^>]+>', false_response))
+        if abs(html_diff) > 5 and abs(html_diff) < 100:
+            return True, 0.72
+        
+        return False, 0.0
 
 
 class DataExtractionAnalyzer:
@@ -331,11 +507,15 @@ class PayloadMutationEngine:
         ('%0d', ' ', 'carriage_return'),
         ('%0c', ' ', 'form_feed'),
         ('/*!50000 */', ' ', 'mysql_version'),
+        ('%0b', ' ', 'vertical_tab'),
+        ('\\x20', ' ', 'hex_space'),
     ]
     
     CASE_VARIATIONS = [
-        'UNION', 'Union', 'uNiOn', 'UnIoN',
-        'SELECT', 'Select', 'sElEcT', 'SeLeCt',
+        'UNION', 'Union', 'uNiOn', 'UnIoN', 'uniOn',
+        'SELECT', 'Select', 'sElEcT', 'SeLeCt', 'seLEct',
+        'FROM', 'From', 'fRoM', 'from', 'FroM',
+        'WHERE', 'Where', 'wHeRe', 'WhErE', 'where',
     ]
     
     @staticmethod
@@ -359,17 +539,41 @@ class PayloadMutationEngine:
                 mutation_set.add(mutated_hash)
         
         if injection_type == SQLInjectionType.UNION_BASED:
-            mutations.extend([
-                base_payload.replace('UNION', 'union all'),
-                base_payload.replace('UNION', 'UNION DISTINCT'),
-                base_payload.replace('SELECT', '/*!50000SELECT*/'),
-                base_payload.replace('SELECT', '/*!50001SELECT*/'),
-            ])
+            union_variants = [
+                'union all',
+                'UNION DISTINCT',
+                '/*!50000UNION*/',
+                '/*!50001UNION*/',
+                'union%0aall',
+                'union/**/all',
+                'UNION\nALL',
+                'uNiOn/**/aLl',
+            ]
+            for variant in union_variants:
+                mutated = base_payload.replace('UNION', variant)
+                mutated_hash = hashlib.md5(mutated.encode()).hexdigest()
+                if mutated_hash not in mutation_set:
+                    mutations.append(mutated)
+                    mutation_set.add(mutated_hash)
+            
+            select_variants = [
+                '/*!50000SELECT*/',
+                '/*!50001SELECT*/',
+                'select%0a',
+                '/*!*/select',
+                'SeLeCt',
+            ]
+            for variant in select_variants:
+                mutated = base_payload.replace('SELECT', variant)
+                mutated_hash = hashlib.md5(mutated.encode()).hexdigest()
+                if mutated_hash not in mutation_set:
+                    mutations.append(mutated)
+                    mutation_set.add(mutated_hash)
         
         elif injection_type == SQLInjectionType.TIME_BASED_BLIND:
             replacements = {
-                'SLEEP': ['BENCHMARK', 'WAITFOR', 'PG_SLEEP', 'pg_sleep', 'DBMS_LOCK.SLEEP'],
-                'SLEEP(5)': ['BENCHMARK(10000000,MD5("a"))', 'WAITFOR DELAY \'00:00:05\''],
+                'SLEEP': ['BENCHMARK', 'WAITFOR', 'PG_SLEEP', 'pg_sleep', 'DBMS_LOCK.SLEEP', 'INFORMATION_SCHEMA.TABLES'],
+                'SLEEP(5)': ['BENCHMARK(50000000,MD5("a"))', 'WAITFOR DELAY \'00:00:05\'', 'PG_SLEEP(5)', 'pg_sleep(5)', 'DBMS_LOCK.SLEEP(5)'],
             }
             
             for original, variants in replacements.items():
@@ -381,13 +585,29 @@ class PayloadMutationEngine:
                         mutation_set.add(mutated_hash)
         
         elif injection_type == SQLInjectionType.BOOLEAN_BASED_BLIND:
-            mutations.extend([
-                base_payload.replace('1=1', '\'\'=\'\''),
-                base_payload.replace('1=1', 'true'),
-                base_payload.replace('1=2', 'false'),
-            ])
+            bool_variants = [
+                ('1=1', ['\'\'=\'\'', 'true', '1==1', '"a"="a"', '1 like 1']),
+                ('1=2', ['\'a\'=\'b\'', 'false', '1 like 2', '0=1']),
+            ]
+            for original, variants in bool_variants:
+                for variant in variants:
+                    mutated = base_payload.replace(original, variant)
+                    mutated_hash = hashlib.md5(mutated.encode()).hexdigest()
+                    if mutated_hash not in mutation_set:
+                        mutations.append(mutated)
+                        mutation_set.add(mutated_hash)
         
-        return mutations[:30]
+        elif injection_type == SQLInjectionType.NOSQL_INJECTION:
+            nosql_variants = [
+                'db.collection.find({"$ne":""})',
+                "db.collection.find({$where:'1==1'})",
+                'db.collection.find({"$gt":""})',
+            ]
+            for variant in nosql_variants:
+                if variant not in mutations:
+                    mutations.append(variant)
+        
+        return mutations[:60]
 
 
 class DatabaseFingerprinting:
@@ -458,6 +678,10 @@ class SQLScanner:
         self.data_extractor = DataExtractionAnalyzer()
         self.mutation_engine = PayloadMutationEngine()
         self.fingerprinting = DatabaseFingerprinting()
+        self.nosql_detector = NoSQLInjectionDetector()
+        self.encoding_detector = EncodingBypassDetector()
+        self.waf_analyzer = WAFBypassAnalyzer()
+        self.auth_detector = AuthenticationBypassDetector()
         
         self.vulnerabilities: List[SQLVulnerability] = []
         self.scan_statistics = defaultdict(int)
@@ -585,38 +809,49 @@ class SQLScanner:
                      response_time: float, baseline_time: float, status_code: int) -> Tuple[bool, Optional[SQLInjectionType], Optional[DatabaseType], str, float]:
         
         is_error, detected_db, errors, error_confidence = self.error_analyzer.analyze_error_message(response_content)
-        if is_error and error_confidence > 0.5:
-            confidence = min(error_confidence + 0.2, 1.0)
-            return True, SQLInjectionType.ERROR_BASED, detected_db, str(errors[0]), confidence
+        if is_error and error_confidence > 0.45:
+            confidence = min(error_confidence + 0.25, 1.0)
+            waf_techniques, _ = self.waf_analyzer.analyze_waf_bypass(payload, response_content)
+            if waf_techniques:
+                confidence = min(confidence + 0.1, 1.0)
+            return True, SQLInjectionType.ERROR_BASED, detected_db, str(errors[0] if errors else 'Error detected'), confidence
         
         is_union, union_confidence, indicators = self.union_detector.analyze_union_response(
             response_content,
             baseline_response
         )
-        if is_union and union_confidence > 40:
-            return True, SQLInjectionType.UNION_BASED, detected_db, str(indicators[0] if indicators else 'Union detected'), union_confidence / 100
+        if is_union and union_confidence > 35:
+            return True, SQLInjectionType.UNION_BASED, detected_db, str(indicators[0] if indicators else 'Union detected'), min(union_confidence / 100, 0.99)
         
         is_delayed, time_diff, timing_confidence = self.timing_analyzer.analyze_timing(baseline_time, response_time, 5)
-        if is_delayed and timing_confidence > 70:
-            return True, SQLInjectionType.TIME_BASED_BLIND, detected_db, f"Delay: {time_diff:.2f}s", timing_confidence / 100
+        if is_delayed and timing_confidence > 0.65:
+            return True, SQLInjectionType.TIME_BASED_BLIND, detected_db, f"Delay: {time_diff:.2f}s", min(timing_confidence, 0.99)
         
         is_boolean, boolean_confidence = self.boolean_analyzer.analyze_boolean_responses(
             baseline_response,
             response_content,
             response_content
         )
-        if is_boolean and boolean_confidence > 60:
-            return True, SQLInjectionType.BOOLEAN_BASED_BLIND, detected_db, f"Boolean: {boolean_confidence:.1f}%", boolean_confidence / 100
+        if is_boolean and boolean_confidence > 0.55:
+            return True, SQLInjectionType.BOOLEAN_BASED_BLIND, detected_db, f"Boolean pattern detected", min(boolean_confidence, 0.99)
         
-        if 'STACK' in payload.upper() or ';DROP' in payload.upper():
-            if status_code in [200, 500]:
-                return True, SQLInjectionType.STACKED_QUERIES, detected_db, "Stacked query", 0.75
+        is_nosql, nosql_confidence = self.nosql_detector.detect_nosql_injection(response_content, payload)
+        if is_nosql and nosql_confidence > 0.5:
+            return True, SQLInjectionType.NOSQL_INJECTION, detected_db, "NoSQL injection detected", min(nosql_confidence + 0.2, 0.99)
         
-        if response_content != baseline_response and len(response_content) > len(baseline_response) * 2:
+        is_auth_bypass, auth_confidence = self.auth_detector.detect_auth_bypass(response_content, baseline_response)
+        if is_auth_bypass and auth_confidence > 0.6:
+            return True, SQLInjectionType.AUTHENTICATION_BYPASS, detected_db, "Authentication bypass detected", auth_confidence
+        
+        if 'STACK' in payload.upper() or ';DROP' in payload.upper() or '; DELETE' in payload.upper():
+            if status_code in [200, 500, 502, 503]:
+                return True, SQLInjectionType.STACKED_QUERIES, detected_db, "Stacked query detected", 0.8
+        
+        if response_content != baseline_response and len(response_content) > len(baseline_response) * 2.5:
             size_factor = len(response_content) / max(len(baseline_response), 1)
-            confidence = min(size_factor * 0.3, 0.8)
-            if confidence > 0.6:
-                return True, SQLInjectionType.DIOS, detected_db, f"Large response detected", confidence
+            confidence = min(size_factor * 0.25, 0.85)
+            if confidence > 0.65:
+                return True, SQLInjectionType.DIOS, detected_db, f"Large response anomaly detected", confidence
         
         return False, None, detected_db, "", 0.0
     
