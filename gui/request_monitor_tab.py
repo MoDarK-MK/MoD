@@ -1,4 +1,4 @@
-# gui/request_monitor_tab.py
+ 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QTableWidgetItem, QPushButton, QHeaderView, QLabel,
                              QLineEdit, QComboBox, QTextEdit, QSplitter, QGroupBox,

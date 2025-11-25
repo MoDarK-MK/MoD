@@ -510,14 +510,14 @@ class ResponseAnalyzer:
         Uses defusedxml if available, otherwise restricts ElementTree with XXE protections.
         """
         try:
-            # Try using defusedxml for XXE protection
+            
             try:
                 from defusedxml.ElementTree import fromstring as safe_fromstring
                 root = safe_fromstring(content)
             except ImportError:
-                # Fallback: disable DTD and external entity expansion
+                
                 import xml.etree.ElementTree as ET
-                # Disable XXE vulnerabilities
+                
                 parser = ET.XMLParser()
                 parser.entity = {}  # Disable entity expansion
                 root = ET.fromstring(content, parser=parser)

@@ -208,8 +208,7 @@ class MegaFormAnalyzer:
         """
         if length < 16:
             length = 32
-        
-        # Use secrets for cryptographically secure random bytes
+
         random_bytes = secrets.token_bytes(length)
         token = secrets.token_hex(length // 2)
         

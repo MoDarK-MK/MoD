@@ -155,7 +155,7 @@ class CookieManager:
         self.persistent_cookies[name] = value
         self.cookie_jar.set(name, value, domain=domain, path=path)
         
-        # Log security settings
+        
         import logging
         logger = logging.getLogger("MoD.request_handler")
         logger.debug(f"Cookie {name} set with: secure={secure}, httponly={httponly}, samesite={samesite}")
@@ -572,7 +572,7 @@ class RequestHandler:
                     'error': str(e),
                 }
         
-        # All retries exhausted
+        
         return {
             'url': url,
             'method': method.upper(),

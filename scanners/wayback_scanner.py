@@ -1,4 +1,3 @@
-# scanners/wayback_scanner.py
 from typing import List, Dict
 import requests
 from urllib.parse import urlparse

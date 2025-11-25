@@ -1,6 +1,3 @@
-# scanners/waf_bypass_engine.py
-# -*- coding: utf-8 -*-
-
 import base64
 import urllib.parse
 import random
@@ -95,7 +92,6 @@ class IntelligentPayloadGenerator:
         """Generate SQL injection bypass payloads"""
         payloads = []
         
-        # Basic encoding
         payloads.extend([
             WAFBypassPayload(
                 original_payload=base_payload,
@@ -123,7 +119,6 @@ class IntelligentPayloadGenerator:
             ),
         ])
         
-        # Case manipulation
         payloads.extend([
             WAFBypassPayload(
                 original_payload=base_payload,
@@ -141,7 +136,6 @@ class IntelligentPayloadGenerator:
             ),
         ])
         
-        # Comment injection
         payloads.extend([
             WAFBypassPayload(
                 original_payload=base_payload,
@@ -159,7 +153,6 @@ class IntelligentPayloadGenerator:
             ),
         ])
         
-        # Whitespace manipulation
         payloads.extend([
             WAFBypassPayload(
                 original_payload=base_payload,
@@ -177,7 +170,6 @@ class IntelligentPayloadGenerator:
             ),
         ])
         
-        # Null byte injection
         payloads.append(WAFBypassPayload(
             original_payload=base_payload,
             bypassed_payload=self._insert_null_byte(base_payload),
@@ -186,7 +178,6 @@ class IntelligentPayloadGenerator:
             description="Null byte injection"
         ))
         
-        # Polymorphic
         payloads.extend([
             WAFBypassPayload(
                 original_payload=base_payload,
@@ -203,7 +194,6 @@ class IntelligentPayloadGenerator:
         """Generate XSS bypass payloads"""
         payloads = []
         
-        # HTML entity encoding
         payloads.extend([
             WAFBypassPayload(
                 original_payload=base_payload,
@@ -222,7 +212,6 @@ class IntelligentPayloadGenerator:
             ),
         ])
         
-        # Case manipulation
         payloads.append(WAFBypassPayload(
             original_payload=base_payload,
             bypassed_payload=self._random_case(base_payload),
@@ -231,7 +220,6 @@ class IntelligentPayloadGenerator:
             description="Random case"
         ))
         
-        # Unicode homoglyphs
         payloads.append(WAFBypassPayload(
             original_payload=base_payload,
             bypassed_payload=self._unicode_homoglyph_replace(base_payload),
@@ -240,7 +228,6 @@ class IntelligentPayloadGenerator:
             description="Unicode homoglyphs"
         ))
         
-        # Fragmentation
         payloads.extend([
             WAFBypassPayload(
                 original_payload=base_payload,
@@ -253,7 +240,6 @@ class IntelligentPayloadGenerator:
         
         return payloads
     
-    # Encoding methods
     def _url_encode(self, text: str) -> str:
         return urllib.parse.quote(text)
     
@@ -269,14 +255,12 @@ class IntelligentPayloadGenerator:
     def _unicode_encode(self, text: str) -> str:
         return ''.join(f'\\u{ord(c):04x}' for c in text)
     
-    # Case manipulation
     def _random_case(self, text: str) -> str:
         return ''.join(c.upper() if random.random() > 0.5 else c.lower() for c in text)
     
     def _alternating_case(self, text: str) -> str:
         return ''.join(c.upper() if i % 2 == 0 else c.lower() for i, c in enumerate(text))
     
-    # Comment injection
     def _inline_comments(self, text: str) -> str:
         return text.replace(' ', '/**/').replace('=', '/**/=/**/')
     
@@ -284,7 +268,6 @@ class IntelligentPayloadGenerator:
         parts = text.split(' ')
         return '/**/'.join(parts)
     
-    # Whitespace manipulation
     def _whitespace_replace(self, text: str) -> str:
         return text.replace(' ', '%09').replace(' ', '%0a')
     
@@ -292,14 +275,12 @@ class IntelligentPayloadGenerator:
         replacements = ['\t', '\n', '\r', '%09', '%0a', '%0d']
         return ''.join(random.choice(replacements) if c == ' ' else c for c in text)
     
-    # Null byte
     def _insert_null_byte(self, text: str) -> str:
         if len(text) > 1:
             idx = random.randint(1, len(text) - 1)
             return text[:idx] + '%00' + text[idx:]
         return text + '%00'
     
-    # Unicode homoglyphs
     def _unicode_homoglyph_replace(self, text: str) -> str:
         result = []
         for c in text.lower():
@@ -309,13 +290,11 @@ class IntelligentPayloadGenerator:
                 result.append(c)
         return ''.join(result)
     
-    # Fragmentation
     def _fragment_payload(self, text: str) -> str:
         mid = len(text) // 2
         sep = random.choice(['%0a', '%09', '/**/', ';'])
         return text[:mid] + sep + text[mid:]
     
-    # Polymorphic
     def _polymorphic(self, text: str) -> str:
         return ''.join(
             random.choice([
@@ -395,7 +374,6 @@ class WAFBypassEngine:
         elif attack_type_lower in ['xss', 'cross_site_scripting']:
             return self.payload_generator.generate_xss_bypass_payloads(base_payload)
         else:
-            # Generic bypass payloads
             return self._generate_generic_bypass_payloads(base_payload)
     
     def _generate_generic_bypass_payloads(self, base_payload: str) -> List[WAFBypassPayload]:

@@ -498,7 +498,7 @@ class CVEScannerTab(QWidget):
         self.results_table.setRowCount(0)
         self.vulnerabilities.clear()
         self.progress_bar.setValue(0)
-        # If needed, use values from setting tab for self.veri_timeout/self.veri_retries
+        
         self.scan_thread = CVEScanThread(
             target, timeout, severity, verify=self.smart_verify,
             veri_timeout=self.veri_timeout, veri_retries=self.veri_retries

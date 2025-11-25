@@ -15,7 +15,6 @@ class Logger:
         """
         self.logger = logging.getLogger(name)
         
-        # Prevent duplicate handlers for same logger (memory leak fix)
         if name not in Logger._initialized_loggers:
             self.logger.setLevel(logging.DEBUG)
             self.logger.propagate = False

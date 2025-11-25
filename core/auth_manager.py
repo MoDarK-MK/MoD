@@ -443,7 +443,7 @@ class AuthManager:
                     credentials={'token': token}
                 )
                 
-                # store masked token in cache/history to avoid leaking secrets
+                
                 self.cache.set('current_auth', {'type': 'bearer', 'token': self._mask(token)})
                 self.auth_history.append({
                     'type': 'bearer',
@@ -527,7 +527,7 @@ class AuthManager:
                     }
                 )
                 
-                # cache/store only masked access token
+                
                 self.cache.set('current_auth', {
                     'type': 'oauth2',
                     'access_token': self._mask(access_token)

@@ -1,4 +1,4 @@
-# gui/settings_tab.py
+ 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QGroupBox, QComboBox, QCheckBox, QTextEdit,
                              QMessageBox, QTabWidget, QSpinBox, QFrame)

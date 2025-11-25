@@ -1,4 +1,4 @@
-# core/poc_generator.py
+ 
 from typing import Dict, Optional, List
 import requests
 import json

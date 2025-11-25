@@ -1,4 +1,4 @@
-# core/theme_manager.py
+ 
 from typing import Dict, Optional, List
 from dataclasses import dataclass
 import json

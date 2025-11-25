@@ -1,4 +1,4 @@
-# gui/waf_bypass_tab.py
+ 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QTableWidgetItem, QPushButton, QHeaderView, QLabel,
                              QLineEdit, QComboBox, QGroupBox, QMessageBox, QTabWidget)

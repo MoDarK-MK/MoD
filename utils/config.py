@@ -91,21 +91,18 @@ class Config:
             ValueError: If critical validation fails.
         """
         try:
-            # Validate thread counts
             if 'max_threads' in config:
                 max_threads = config.get('max_threads', 10)
                 if not isinstance(max_threads, int) or max_threads < 1 or max_threads > 1000:
                     logger.warning(f"Invalid max_threads {max_threads}, using default 10")
                     config['max_threads'] = 10
             
-            # Validate timeout values
             if 'timeout' in config:
                 timeout = config.get('timeout', 10)
                 if not isinstance(timeout, (int, float)) or timeout < 1 or timeout > 300:
                     logger.warning(f"Invalid timeout {timeout}, using default 10")
                     config['timeout'] = 10
             
-            # Validate scan settings
             if 'scan' in config:
                 scan_cfg = config['scan']
                 concurrent = scan_cfg.get('concurrent_scans', 10)
@@ -120,7 +117,6 @@ class Config:
                 if not isinstance(delay, (int, float)) or delay < 0 or delay > 10:
                     scan_cfg['request_delay'] = 0.5
             
-            # Validate performance settings
             if 'performance' in config:
                 perf_cfg = config['performance']
                 pool_size = perf_cfg.get('connection_pool_size', 50)
@@ -131,7 +127,6 @@ class Config:
                 if not isinstance(batch, int) or batch < 1 or batch > 10000:
                     perf_cfg['batch_size'] = 100
             
-            # Validate cache settings
             if 'cache' in config:
                 cache_cfg = config['cache']
                 ttl = cache_cfg.get('ttl', 3600)

@@ -1,4 +1,4 @@
-# gui/main_window.py
+ 
 from PyQt6.QtWidgets import (QMainWindow, QTabWidget, QVBoxLayout, 
                              QWidget, QStatusBar, QMenuBar, QMenu, QToolBar, 
                              QMessageBox, QSizePolicy, QLabel, QHBoxLayout,

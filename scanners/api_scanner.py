@@ -221,7 +221,6 @@ class SuperAuthAnalyzer:
             
             alg = header.get('alg', '').lower()
             
-            # Algorithm validation
             if alg == 'none':
                 issues.append('JWT uses "none" algorithm (CRITICAL)')
             elif alg not in ['hs256', 'hs384', 'hs512', 'rs256', 'rs384', 'rs512', 'es256', 'es384', 'es512']:
@@ -229,7 +228,6 @@ class SuperAuthAnalyzer:
             elif alg in ['hs256', 'hs384', 'hs512'] and len(parts[2]) < 10:
                 issues.append('Weak JWT signature')
             
-            # Expiration validation
             if 'exp' not in payload:
                 issues.append('JWT missing expiration (exp claim)')
             else:
@@ -243,19 +241,15 @@ class SuperAuthAnalyzer:
                 except Exception:
                     issues.append('JWT expiration claim invalid')
             
-            # Issued-at validation
             if 'iat' not in payload:
                 issues.append('JWT missing issued-at (iat claim)')
             
-            # Key ID validation for symmetric/asymmetric confusion
             if alg and alg.startswith('hs') and 'kid' in header:
                 issues.append('JWT vulnerable to key confusion attack (HMAC with kid)')
             
-            # Privileged claims
             if 'role' in payload or 'admin' in str(payload).lower():
                 issues.append('JWT contains privileged claims (mass assignment risk)')
             
-            # Missing audience
             if 'aud' not in payload:
                 issues.append('JWT missing audience claim (aud)')
             

@@ -82,31 +82,31 @@ class ScanConfig:
         Raises:
             ValueError: If any value is invalid.
         """
-        # Validate worker count
+        
         if self.max_workers < 1 or self.max_workers > 500:
             raise ValueError(f"max_workers must be 1-500, got {self.max_workers}")
         
-        # Validate timeout
+        
         if self.timeout < 1 or self.timeout > 300:
             raise ValueError(f"timeout must be 1-300, got {self.timeout}")
         
-        # Validate request delay
+        
         if self.request_delay < 0 or self.request_delay > 10:
             raise ValueError(f"request_delay must be 0-10, got {self.request_delay}")
         
-        # Validate retry attempts
+        
         if self.retry_attempts < 0 or self.retry_attempts > 10:
             raise ValueError(f"retry_attempts must be 0-10, got {self.retry_attempts}")
         
-        # Validate cache TTL
+        
         if self.cache_ttl < 60 or self.cache_ttl > 86400:
             raise ValueError(f"cache_ttl must be 60-86400, got {self.cache_ttl}")
         
-        # Validate rate limit
+        
         if self.rate_limit_per_second < 1 or self.rate_limit_per_second > 1000:
             raise ValueError(f"rate_limit_per_second must be 1-1000, got {self.rate_limit_per_second}")
         
-        # Validate batch size
+        
         if self.batch_size < 1 or self.batch_size > 10000:
             raise ValueError(f"batch_size must be 1-10000, got {self.batch_size}")
 
@@ -131,11 +131,11 @@ class RateLimiter:
         """Block until a request can be made while respecting rate limit."""
         with self.lock:
             now = time.time()
-            # Remove timestamps older than 1 second
+            
             self.request_times = [t for t in self.request_times if now - t < 1.0]
             
             if len(self.request_times) >= self.requests_per_second:
-                # Calculate sleep time based on oldest request in current window
+                
                 sleep_time = 1.0 - (now - self.request_times[0])
                 if sleep_time > 0:
                     time.sleep(sleep_time)
@@ -297,7 +297,7 @@ class ScannerEngine:
             self.result_aggregator = ScanResultAggregator()
         
         try:
-            # Validate URL format
+            
             if not target_url or not isinstance(target_url, str):
                 raise ValueError("Invalid target URL")
             
