@@ -292,6 +292,21 @@ class SessionManager:
         self.session.mount('http://', adapter)
         self.session.mount('https://', adapter)
     
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - close session.
+        
+        Args:
+            exc_type: Exception type if an error occurred.
+            exc_val: Exception value if an error occurred.
+            exc_tb: Exception traceback if an error occurred.
+        """
+        self.close()
+        return False
+    
     def get_session(self) -> requests.Session:
         return self.session
     
@@ -362,7 +377,19 @@ class RequestHandler:
     def send_request(self, url: str, method: str = "GET", data: Optional[Dict] = None,
                     headers: Optional[Dict] = None, timeout: Optional[int] = None,
                     allow_cache: bool = False) -> Dict:
+        """Send HTTP request with retry logic.
         
+        Args:
+            url: Target URL.
+            method: HTTP method.
+            data: Request data for POST/PUT.
+            headers: Additional headers.
+            timeout: Request timeout in seconds.
+            allow_cache: Whether to cache GET responses.
+            
+        Returns:
+            Response dictionary with status, content, headers.
+        """
         if method.upper() == "GET" and allow_cache:
             cache_key = self._get_cache_key(url, method, data)
             cached = self._get_cached_response(cache_key)
@@ -372,11 +399,10 @@ class RequestHandler:
         
         retry_strategy = RetryStrategy(self.config.retry_attempts, self.config.backoff_factor)
         request_timeout = timeout or self.config.timeout
+        start_time = time.time()
         
         while retry_strategy.should_retry():
             try:
-                start_time = time.time()
-                
                 request_headers = self.session_manager.header_manager.get_headers()
                 if headers:
                     request_headers.update(headers)
@@ -528,6 +554,18 @@ class RequestHandler:
                     'success': False,
                     'error': str(e),
                 }
+        
+        # All retries exhausted
+        return {
+            'url': url,
+            'method': method.upper(),
+            'status_code': 0,
+            'headers': {},
+            'content': '',
+            'response_time': 0,
+            'success': False,
+            'error': 'All retries exhausted',
+        }
     
     def send_batch_requests(self, urls: List[str], method: str = "GET") -> List[Dict]:
         results = []

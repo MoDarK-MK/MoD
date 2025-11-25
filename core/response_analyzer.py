@@ -30,27 +30,6 @@ class ResponseQuality(Enum):
 
 @dataclass
 class ContentAnalysis:
-    """Analyze HTML content structure and complexity.
-    
-    Attributes:
-        content_type: Detected content type.
-        size: Content size in bytes.
-        encoding: Character encoding.
-        is_compressed: Whether content is compressed.
-        has_javascript: Whether content contains scripts.
-        has_forms: Whether content contains forms.
-        has_comments: Whether content contains comments.
-    """
-    # Complexity scoring constants
-    SIZE_FACTOR = 20
-    SIZE_DIVISOR = 1000000
-    FORM_MULTIPLIER = 10
-    INPUT_MULTIPLIER = 2
-    SCRIPT_MULTIPLIER = 15
-    STYLE_MULTIPLIER = 5
-    LINK_MULTIPLIER = 2
-    MAX_SCORE = 100.0
-    
     content_type: ContentType
     size: int
     encoding: Optional[str]
@@ -67,45 +46,18 @@ class ContentAnalysis:
     image_count: int = 0
     
     def get_complexity_score(self) -> float:
-        """Calculate content complexity score (0-100).
-        
-        Returns:
-            Complexity score based on content structure.
-        """
         score = 0.0
-        score += min(self.size / self.SIZE_DIVISOR, 1.0) * self.SIZE_FACTOR
-        score += self.form_count * self.FORM_MULTIPLIER
-        score += self.input_count * self.INPUT_MULTIPLIER
-        score += self.script_count * self.SCRIPT_MULTIPLIER
-        score += self.style_count * self.STYLE_MULTIPLIER
-        score += self.link_count * self.LINK_MULTIPLIER
-        return min(score, self.MAX_SCORE)
+        score += min(self.size / 1000000, 1.0) * 20
+        score += self.form_count * 10
+        score += self.input_count * 2
+        score += self.script_count * 15
+        score += self.style_count * 5
+        score += self.link_count * 2
+        return min(score, 100.0)
 
 
 @dataclass
 class HeaderAnalysis:
-    """Analyze HTTP response headers for security and caching.
-    
-    Attributes:
-        security_headers: Present security headers.
-        missing_security_headers: Missing security headers.
-        caching_info: Caching directives.
-        compression: Compression method.
-        server_info: Server identification.
-        set_cookies: Cookie directives.
-        cors_headers: CORS configuration.
-        custom_headers: Custom headers.
-    """
-    # Security scoring constants
-    INITIAL_SCORE = 100.0
-    MIN_SCORE = 0.0
-    HSTS_PENALTY = 10
-    CSP_PENALTY = 15
-    X_CONTENT_TYPE_PENALTY = 10
-    X_FRAME_PENALTY = 10
-    X_XSS_PENALTY = 10
-    HTTPONLY_PENALTY = 5
-    
     security_headers: Dict[str, str] = field(default_factory=dict)
     missing_security_headers: List[str] = field(default_factory=list)
     caching_info: Dict[str, str] = field(default_factory=dict)
@@ -116,19 +68,14 @@ class HeaderAnalysis:
     custom_headers: Dict[str, str] = field(default_factory=dict)
     
     def get_security_score(self) -> float:
-        """Calculate security score based on headers (0-100).
-        
-        Returns:
-            Security score.
-        """
-        score = self.INITIAL_SCORE
+        score = 100.0
         
         critical_headers = {
-            'strict-transport-security': self.HSTS_PENALTY,
-            'content-security-policy': self.CSP_PENALTY,
-            'x-content-type-options': self.X_CONTENT_TYPE_PENALTY,
-            'x-frame-options': self.X_FRAME_PENALTY,
-            'x-xss-protection': self.X_XSS_PENALTY,
+            'strict-transport-security': 10,
+            'content-security-policy': 15,
+            'x-content-type-options': 10,
+            'x-frame-options': 10,
+            'x-xss-protection': 10,
         }
         
         for header, penalty in critical_headers.items():
@@ -137,9 +84,9 @@ class HeaderAnalysis:
         
         if 'set-cookie' in [h.lower() for h in self.set_cookies]:
             if not any('httponly' in str(c).lower() for c in self.set_cookies):
-                score -= self.HTTPONLY_PENALTY
+                score -= 5
         
-        return max(score, self.MIN_SCORE)
+        return max(score, 0.0)
 
 
 @dataclass
@@ -360,41 +307,12 @@ class ResponseStatistics:
 
 
 class ResponseAnalyzer:
-    """Comprehensive HTTP response analysis with security and quality scoring."""
-    
-    # Anomaly detection thresholds
-    RESPONSE_TIME_THRESHOLD = 10  # seconds
-    MAX_RESPONSE_SIZE = 10000000  # bytes (10MB)
-    QUALITY_SCORE_INITIAL = 100.0
-    QUALITY_SCORE_FAILED_REQUEST = 20
-    QUALITY_SCORE_SLOW_RESPONSE = 10
-    QUALITY_SCORE_LARGE_RESPONSE = 15
-    QUALITY_MIN = 0.0
-    
-    # HTTP status code ranges
-    HTTP_SUCCESS_MIN = 200
-    HTTP_SUCCESS_MAX = 300
-    HTTP_REDIRECT_MIN = 300
-    HTTP_REDIRECT_MAX = 400
-    HTTP_CLIENT_ERROR_MIN = 400
-    HTTP_CLIENT_ERROR_MAX = 500
-    HTTP_SERVER_ERROR_MIN = 500
-    
     def __init__(self):
-        """Initialize response analyzer with pattern detector and comparator."""
         self.pattern_detector = PatternDetector()
         self.response_comparator = ResponseComparator()
         self.statistics = ResponseStatistics()
     
     def analyze(self, response: Dict) -> Dict:
-        """Perform comprehensive analysis on response.
-        
-        Args:
-            response: Response dictionary with status_code, content, headers, response_time.
-            
-        Returns:
-            Analysis result with basic_info, headers, content, security, anomalies, quality_score.
-        """
         return {
             'basic_info': self._analyze_basic_info(response),
             'headers': self._analyze_headers(response.get('headers', {})),
@@ -405,23 +323,14 @@ class ResponseAnalyzer:
         }
     
     def _analyze_basic_info(self, response: Dict) -> Dict:
-        """Analyze basic response information.
-        
-        Args:
-            response: Response dictionary.
-            
-        Returns:
-            Basic info with status codes, timing, and classification.
-        """
-        status_code = response.get('status_code', 0)
         return {
-            'status_code': status_code,
+            'status_code': response.get('status_code', 0),
             'response_time': response.get('response_time', 0),
             'content_length': len(response.get('content', '')),
-            'is_successful': self.HTTP_SUCCESS_MIN <= status_code < self.HTTP_SUCCESS_MAX,
-            'is_redirect': self.HTTP_REDIRECT_MIN <= status_code < self.HTTP_REDIRECT_MAX,
-            'is_client_error': self.HTTP_CLIENT_ERROR_MIN <= status_code < self.HTTP_CLIENT_ERROR_MAX,
-            'is_server_error': status_code >= self.HTTP_SERVER_ERROR_MIN,
+            'is_successful': 200 <= response.get('status_code', 0) < 300,
+            'is_redirect': 300 <= response.get('status_code', 0) < 400,
+            'is_client_error': 400 <= response.get('status_code', 0) < 500,
+            'is_server_error': 500 <= response.get('status_code', 0) < 600,
         }
     
     def _analyze_headers(self, headers: Dict) -> Dict:
@@ -653,25 +562,15 @@ class ResponseAnalyzer:
         return security_findings
     
     def _detect_anomalies(self, response: Dict) -> List[Dict]:
-        """Detect anomalies in response.
-        
-        Args:
-            response: Response dictionary.
-            
-        Returns:
-            List of detected anomalies with type, severity, description.
-        """
         anomalies = []
         
-        # Check response time
-        if response.get('response_time', 0) > self.RESPONSE_TIME_THRESHOLD:
+        if response.get('response_time', 0) > 10:
             anomalies.append({
                 'type': 'slow_response',
                 'severity': 'medium',
-                'description': f'Response time {response.get("response_time")}s exceeds threshold of {self.RESPONSE_TIME_THRESHOLD}s',
+                'description': f'Response time {response.get("response_time")}s is unusually long',
             })
         
-        # Check for no response
         if response.get('status_code', 0) == 0:
             anomalies.append({
                 'type': 'no_response',
@@ -679,7 +578,6 @@ class ResponseAnalyzer:
                 'description': 'No response received from server',
             })
         
-        # Check for not found
         if response.get('status_code', 0) == 404:
             anomalies.append({
                 'type': 'not_found',
@@ -687,21 +585,19 @@ class ResponseAnalyzer:
                 'description': 'Resource not found',
             })
         
-        # Check for server errors
-        if response.get('status_code', 0) >= self.HTTP_SERVER_ERROR_MIN:
+        if response.get('status_code', 0) >= 500:
             anomalies.append({
                 'type': 'server_error',
                 'severity': 'high',
                 'description': f'Server error: {response.get("status_code")}',
             })
         
-        # Check for large response
         content_size = len(response.get('content', ''))
-        if content_size > self.MAX_RESPONSE_SIZE:
+        if content_size > 10000000:
             anomalies.append({
                 'type': 'large_response',
                 'severity': 'medium',
-                'description': f'Response size {content_size} bytes exceeds threshold of {self.MAX_RESPONSE_SIZE} bytes',
+                'description': f'Response size {content_size} bytes is very large',
             })
         
         return anomalies

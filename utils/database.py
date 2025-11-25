@@ -15,15 +15,26 @@ class Database:
         db_dir.mkdir(parents=True, exist_ok=True)
         
         self.db_path = db_dir / 'scans.db'
+        self.conn = None
         self.init_database()
     
     def __enter__(self):
-        """Context manager entry - returns self."""
+        """Context manager entry - open database connection."""
+        self.conn = sqlite3.connect(self.db_path)
+        logger.debug("Database connection opened")
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit - cleanup resources."""
-        logger.debug("Database context manager closed")
+        """Context manager exit - close database connection.
+        
+        Args:
+            exc_type: Exception type if an error occurred.
+            exc_val: Exception value if an error occurred.
+            exc_tb: Exception traceback if an error occurred.
+        """
+        if self.conn:
+            self.conn.close()
+            logger.debug("Database connection closed")
         return False
     
     def init_database(self) -> None:
@@ -68,7 +79,7 @@ class Database:
             logger.exception(f"Database initialization error: {e}")
             raise
     
-    def save_scan(self, target_url: str, vulnerabilities: List[Dict]) -> int:
+    def save_scan(self, target_url: str, vulnerabilities: List[Dict]) -> Optional[int]:
         """Save scan results to database.
         
         Args:
