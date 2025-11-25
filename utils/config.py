@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Any
 
 logger = logging.getLogger('MoD.config')
 
@@ -14,7 +14,7 @@ class Config:
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.config_file = self.config_dir / 'config.json'
         
-        self.default_config = {
+        self.default_config: Dict[str, Any] = {
             'theme': 'dark',
             'max_threads': 10,
             'timeout': 10,
@@ -78,7 +78,7 @@ class Config:
             }
         }
     
-    def _validate_config(self, config: Dict) -> Dict:
+    def _validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and sanitize configuration values.
         
         Args:
@@ -91,6 +91,9 @@ class Config:
             ValueError: If critical validation fails.
         """
         try:
+            if not isinstance(config, dict):
+                logger.warning("Config is not a dict, using defaults")
+                return self.default_config.copy()
             if 'max_threads' in config:
                 max_threads = config.get('max_threads', 10)
                 if not isinstance(max_threads, int) or max_threads < 1 or max_threads > 1000:
@@ -144,7 +147,7 @@ class Config:
             logger.exception(f"Error validating config: {e}")
             return self.default_config.copy()
     
-    def load(self) -> Dict:
+    def load(self) -> Dict[str, Any]:
         """Load configuration from file or return defaults.
         
         Returns:
@@ -154,6 +157,9 @@ class Config:
             try:
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     config = json.load(f)
+                    if not isinstance(config, dict):
+                        logger.error("Config file did not contain a JSON object; using defaults")
+                        return self.default_config.copy()
                     return self._validate_config(config)
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON in config file: {e}")
@@ -163,7 +169,7 @@ class Config:
                 return self.default_config.copy()
         return self.default_config.copy()
     
-    def save(self, config: Dict) -> None:
+    def save(self, config: Dict[str, Any]) -> None:
         """Save configuration to file.
         
         Args:

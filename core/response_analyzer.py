@@ -82,8 +82,16 @@ class HeaderAnalysis:
             if header not in self.security_headers:
                 score -= penalty
         
-        if 'set-cookie' in [h.lower() for h in self.set_cookies]:
-            if not any('httponly' in str(c).lower() for c in self.set_cookies):
+        # `self.set_cookies` is a list of cookie dicts; check cookie strings for HttpOnly
+        if self.set_cookies:
+            cookie_values: List[str] = []
+            for c in self.set_cookies:
+                if isinstance(c, dict):
+                    cookie_values.append(str(c.get('cookie', '')))
+                else:
+                    cookie_values.append(str(c))
+
+            if not any('httponly' in cv.lower() for cv in cookie_values):
                 score -= 5
         
         return max(score, 0.0)
@@ -103,22 +111,25 @@ class HTMLContentParser(HTMLParser):
         super().__init__()
         self.forms: List[Dict[str, Any]] = []
         self.inputs: List[Dict[str, Any]] = []
-        self.scripts: List[Dict[str, str]] = []
-        self.styles: List[Dict[str, str]] = []
-        self.links: List[Dict[str, str]] = []
-        self.images: List[Dict[str, str]] = []
+        self.scripts: List[Dict[str, Any]] = []
+        self.styles: List[Dict[str, Any]] = []
+        self.links: List[Dict[str, Any]] = []
+        self.images: List[Dict[str, Any]] = []
         self.comments: List[str] = []
         self.current_form: Optional[Dict[str, Any]] = None
         self.raw_text: List[str] = []
     
-    def handle_starttag(self, tag: str, attrs: List[Tuple[str, str]]) -> None:
+    def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
         attrs_dict = dict(attrs)
-        
+
         if tag == 'form':
-            form_data = {
-                'method': attrs_dict.get('method', 'GET').upper(),
-                'action': attrs_dict.get('action', ''),
-                'enctype': attrs_dict.get('enctype', ''),
+            method_val = (attrs_dict.get('method') or 'GET').upper()
+            action_val = attrs_dict.get('action') or ''
+            enctype_val = attrs_dict.get('enctype') or ''
+            form_data: Dict[str, Any] = {
+                'method': method_val,
+                'action': action_val,
+                'enctype': enctype_val,
                 'inputs': []
             }
             self.current_form = form_data
@@ -126,10 +137,10 @@ class HTMLContentParser(HTMLParser):
         
         elif tag == 'input':
             input_data = {
-                'name': attrs_dict.get('name', ''),
-                'type': attrs_dict.get('type', 'text'),
-                'value': attrs_dict.get('value', ''),
-                'required': 'required' in attrs,
+                'name': attrs_dict.get('name') or '',
+                'type': attrs_dict.get('type') or 'text',
+                'value': attrs_dict.get('value') or '',
+                'required': any(a[0].lower() == 'required' for a in attrs),
             }
             self.inputs.append(input_data)
             if self.current_form:
@@ -137,9 +148,9 @@ class HTMLContentParser(HTMLParser):
         
         elif tag == 'textarea':
             textarea_data = {
-                'name': attrs_dict.get('name', ''),
+                'name': attrs_dict.get('name') or '',
                 'type': 'textarea',
-                'required': 'required' in attrs,
+                'required': any(a[0].lower() == 'required' for a in attrs),
             }
             self.inputs.append(textarea_data)
             if self.current_form:
@@ -147,32 +158,32 @@ class HTMLContentParser(HTMLParser):
         
         elif tag == 'select':
             select_data = {
-                'name': attrs_dict.get('name', ''),
+                'name': attrs_dict.get('name') or '',
                 'type': 'select',
-                'required': 'required' in attrs,
+                'required': any(a[0].lower() == 'required' for a in attrs),
             }
             self.inputs.append(select_data)
             if self.current_form:
                 self.current_form['inputs'].append(select_data)
         
         elif tag == 'script':
-            self.scripts.append({'src': attrs_dict.get('src', ''), 'inline': False})
+            self.scripts.append({'src': attrs_dict.get('src') or '', 'inline': False})
         
         elif tag == 'style':
-            self.styles.append({'src': attrs_dict.get('src', ''), 'inline': False})
+            self.styles.append({'src': attrs_dict.get('src') or '', 'inline': False})
         
         elif tag == 'link':
             self.links.append({
-                'rel': attrs_dict.get('rel', ''),
-                'href': attrs_dict.get('href', ''),
-                'type': attrs_dict.get('type', '')
+                'rel': attrs_dict.get('rel') or '',
+                'href': attrs_dict.get('href') or '',
+                'type': attrs_dict.get('type') or ''
             })
         
         elif tag == 'img':
             self.images.append({
-                'src': attrs_dict.get('src', ''),
-                'alt': attrs_dict.get('alt', ''),
-                'title': attrs_dict.get('title', '')
+                'src': attrs_dict.get('src') or '',
+                'alt': attrs_dict.get('alt') or '',
+                'title': attrs_dict.get('title') or ''
             })
     
     def handle_endtag(self, tag: str) -> None:
@@ -277,13 +288,13 @@ class PatternDetector:
 
 
 class ResponseStatistics:
-    def __init__(self):
+    def __init__(self) -> None:
         self.status_codes: Counter = Counter()
         self.content_types: Counter = Counter()
         self.response_times: List[float] = []
         self.content_sizes: List[int] = []
     
-    def add_response(self, status_code: int, content_type: str, response_time: float, content_size: int):
+    def add_response(self, status_code: int, content_type: str, response_time: float, content_size: int) -> None:
         self.status_codes[status_code] += 1
         self.content_types[content_type] += 1
         self.response_times.append(response_time)

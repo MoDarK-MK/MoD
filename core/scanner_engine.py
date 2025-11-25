@@ -53,7 +53,7 @@ class ScanMetrics:
             return 0.0
         return (self.successful_requests / self.total_requests) * 100
     
-    def update_average_response_time(self):
+    def update_average_response_time(self) -> None:
         if self.request_times:
             self.average_response_time = sum(self.request_times) / len(self.request_times)
 
@@ -76,7 +76,7 @@ class ScanConfig:
     rate_limit_per_second: int = 10
     batch_size: int = 50
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate all configuration values after initialization.
         
         Raises:
@@ -114,7 +114,7 @@ class ScanConfig:
 class RateLimiter:
     """Rate limiter for controlling request frequency with thread safety."""
     
-    def __init__(self, requests_per_second: int):
+    def __init__(self, requests_per_second: int) -> None:
         """Initialize rate limiter.
         
         Args:
@@ -159,12 +159,23 @@ class ParameterExtractor:
             for input_tag in form.find_all(['input', 'textarea', 'select']):
                 name = input_tag.get('name')
                 value = input_tag.get('value', '')
+                # BeautifulSoup may return AttributeValueList or other types; coerce to str
+                if not isinstance(value, str):
+                    try:
+                        value = str(value)
+                    except Exception:
+                        value = ''
                 if name:
-                    params[name] = value
+                    try:
+                        key = str(name)
+                    except Exception:
+                        # Skip keys that cannot be coerced
+                        continue
+                    params[key] = value
         return params
     
     @staticmethod
-    def extract_from_headers(response_headers: Dict) -> Dict[str, str]:
+    def extract_from_headers(response_headers: Dict[str, object]) -> Dict[str, str]:
         injectable_headers = {
             'User-Agent': response_headers.get('User-Agent', ''),
             'Referer': response_headers.get('Referer', ''),
@@ -172,11 +183,19 @@ class ParameterExtractor:
             'X-Forwarded-For': response_headers.get('X-Forwarded-For', ''),
             'X-Original-URL': response_headers.get('X-Original-URL', '')
         }
-        return {k: v for k, v in injectable_headers.items() if v}
+        # Ensure values are strings to match annotated return type
+        result: Dict[str, str] = {}
+        for k, v in injectable_headers.items():
+            if not v:
+                continue
+            key = k if isinstance(k, str) else str(k)
+            val = v if isinstance(v, str) else str(v)
+            result[key] = val
+        return result
 
 
 class ScanResultAggregator:
-    def __init__(self):
+    def __init__(self) -> None:
         self.vulnerabilities: List[Dict] = []
         self.vulnerability_lock = threading.Lock()
         self.deduplication_cache: Set[str] = set()
@@ -201,7 +220,7 @@ class ScanResultAggregator:
             return self.vulnerabilities.copy()
     
     def get_vulnerability_summary(self) -> Dict[str, int]:
-        summary = defaultdict(int)
+        summary: Dict[str, int] = defaultdict(int)
         for vuln in self.get_vulnerabilities():
             severity = vuln.get('severity', 'Unknown')
             summary[severity] += 1
@@ -211,7 +230,7 @@ class ScanResultAggregator:
 class ScannerEngine:
     """Orchestrate vulnerability scanning with rate limiting, caching, and retry logic."""
     
-    def __init__(self, config: Optional[ScanConfig] = None):
+    def __init__(self, config: Optional[ScanConfig] = None) -> None:
         """Initialize scanner engine with configuration and dependencies.
         
         Args:
@@ -460,7 +479,17 @@ class ScannerEngine:
                                     self.logger.warning(f"[{scan_type}] Vulnerability found in {param_name}")
                             
                             if self.cache_manager:
-                                self.cache_manager.set(cache_key, [vuln_data] if is_vulnerable else [])
+                                setter = getattr(self.cache_manager, 'set', None)
+                                if callable(setter):
+                                    setter(cache_key, [vuln_data] if is_vulnerable else [])
+                                else:
+                                    # Fallback for cache implementations with different APIs
+                                    try:
+                                        putter = getattr(self.cache_manager, 'put', None)
+                                        if callable(putter):
+                                            putter(cache_key, [vuln_data] if is_vulnerable else [])
+                                    except Exception:
+                                        pass
                         else:
                             self.metrics.failed_requests += 1
         
@@ -512,17 +541,17 @@ class ScannerEngine:
             'confirmed': True
         }
     
-    def pause_scan(self):
+    def pause_scan(self) -> None:
         self.pause_event.clear()
         self.status = ScanStatus.PAUSED
         self.logger.info("Scan paused")
     
-    def resume_scan(self):
+    def resume_scan(self) -> None:
         self.pause_event.set()
         self.status = ScanStatus.RUNNING
         self.logger.info("Scan resumed")
     
-    def stop_scan(self):
+    def stop_scan(self) -> None:
         with self.scan_lock:
             self.is_scanning = False
             self.status = ScanStatus.CANCELLED
@@ -534,7 +563,7 @@ class ScannerEngine:
         return self.metrics
     
     def get_scan_summary(self) -> Dict:
-        return {
+        summary: Dict[str, object] = {
             'status': self.status.value,
             'total_requests': self.metrics.total_requests,
             'successful_requests': self.metrics.successful_requests,
@@ -545,6 +574,7 @@ class ScannerEngine:
             'scan_duration': f"{self.metrics.get_duration():.2f}s",
             'vulnerability_summary': self.result_aggregator.get_vulnerability_summary()
         }
+        return summary
     
     def export_results(self, format: str = 'json') -> str:
         import json
