@@ -135,12 +135,12 @@ class ProxyManager:
 
 
 class CookieManager:
-    def __init__(self):
-        self.cookie_jar = requests.cookies.RequestsCookieJar()
+    def __init__(self) -> None:
+        self.cookie_jar: requests.cookies.RequestsCookieJar = requests.cookies.RequestsCookieJar()
         self.persistent_cookies: Dict[str, str] = {}
     
     def add_cookie(self, name: str, value: str, domain: str = "", path: str = "/", 
-                  secure: bool = True, httponly: bool = True, samesite: str = "Strict"):
+                  secure: bool = True, httponly: bool = True, samesite: str = "Strict") -> None:
         """Add cookie with security flags.
         
         Args:
@@ -163,7 +163,7 @@ class CookieManager:
     def get_cookies(self) -> Dict[str, str]:
         return dict(self.cookie_jar)
     
-    def clear(self):
+    def clear(self) -> None:
         self.cookie_jar.clear()
         self.persistent_cookies.clear()
     
@@ -172,7 +172,7 @@ class CookieManager:
 
 
 class HeaderManager:
-    DEFAULT_HEADERS = {
+    DEFAULT_HEADERS: Dict[str, str] = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
@@ -181,21 +181,21 @@ class HeaderManager:
         'Upgrade-Insecure-Requests': '1',
     }
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.headers = self.DEFAULT_HEADERS.copy()
         self.auth_headers: Dict[str, str] = {}
         self.custom_headers: Dict[str, str] = {}
     
-    def set_user_agent(self, user_agent: str):
+    def set_user_agent(self, user_agent: str) -> None:
         self.headers['User-Agent'] = user_agent
     
-    def add_header(self, key: str, value: str):
+    def add_header(self, key: str, value: str) -> None:
         self.custom_headers[key] = value
     
-    def add_headers(self, headers: Dict[str, str]):
+    def add_headers(self, headers: Dict[str, str]) -> None:
         self.custom_headers.update(headers)
     
-    def set_auth_header(self, header: Dict[str, str]):
+    def set_auth_header(self, header: Dict[str, str]) -> None:
         self.auth_headers = header.copy()
     
     def get_headers(self) -> Dict[str, str]:
@@ -204,13 +204,13 @@ class HeaderManager:
         combined.update(self.custom_headers)
         return combined
     
-    def remove_header(self, key: str):
+    def remove_header(self, key: str) -> None:
         self.custom_headers.pop(key, None)
     
-    def clear_custom_headers(self):
+    def clear_custom_headers(self) -> None:
         self.custom_headers.clear()
     
-    def randomize_headers(self):
+    def randomize_headers(self) -> None:
         import random
         user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -222,10 +222,10 @@ class HeaderManager:
 
 
 class RetryStrategy:
-    def __init__(self, max_retries: int = 3, backoff_factor: float = 0.5):
-        self.max_retries = max_retries
-        self.backoff_factor = backoff_factor
-        self.retry_count = 0
+    def __init__(self, max_retries: int = 3, backoff_factor: float = 0.5) -> None:
+        self.max_retries: int = max_retries
+        self.backoff_factor: float = backoff_factor
+        self.retry_count: int = 0
     
     def get_retry_delay(self) -> float:
         return self.backoff_factor ** self.retry_count
@@ -233,23 +233,23 @@ class RetryStrategy:
     def should_retry(self) -> bool:
         return self.retry_count < self.max_retries
     
-    def increment(self):
+    def increment(self) -> None:
         self.retry_count += 1
     
-    def reset(self):
+    def reset(self) -> None:
         self.retry_count = 0
 
 
 class RequestMetricsCollector:
-    def __init__(self):
+    def __init__(self) -> None:
         self.metrics: List[RequestMetrics] = []
-        self.lock = threading.Lock()
+        self.lock: threading.Lock = threading.Lock()
     
-    def add_metric(self, metric: RequestMetrics):
+    def add_metric(self, metric: RequestMetrics) -> None:
         with self.lock:
             self.metrics.append(metric)
     
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> Dict[str, Any]:
         with self.lock:
             if not self.metrics:
                 return {}
@@ -270,27 +270,27 @@ class RequestMetricsCollector:
     
     def get_by_status_code(self) -> Dict[int, int]:
         with self.lock:
-            status_dist = defaultdict(int)
+            status_dist: Dict[int, int] = defaultdict(int)
             for metric in self.metrics:
                 status_dist[metric.status_code] += 1
             return dict(status_dist)
     
-    def clear(self):
+    def clear(self) -> None:
         with self.lock:
             self.metrics.clear()
 
 
 class SessionManager:
-    def __init__(self, config: RequestConfig):
-        self.session = requests.Session()
-        self.config = config
-        self.header_manager = HeaderManager()
-        self.cookie_manager = CookieManager()
-        self.proxy_manager = ProxyManager()
+    def __init__(self, config: RequestConfig) -> None:
+        self.session: requests.Session = requests.Session()
+        self.config: RequestConfig = config
+        self.header_manager: HeaderManager = HeaderManager()
+        self.cookie_manager: CookieManager = CookieManager()
+        self.proxy_manager: ProxyManager = ProxyManager()
         
         self._configure_session()
     
-    def _configure_session(self):
+    def _configure_session(self) -> None:
         self.session.headers.update(self.header_manager.get_headers())
         self.session.cookies = self.cookie_manager.get_cookie_jar()
         
@@ -327,12 +327,12 @@ class SessionManager:
     def get_session(self) -> requests.Session:
         return self.session
     
-    def close(self):
+    def close(self) -> None:
         self.session.close()
 
 
 class RequestHandler:
-    def __init__(self, timeout: int = 10, verify_ssl: bool = False):
+    def __init__(self, timeout: int = 10, verify_ssl: bool = False) -> None:
         self.config = RequestConfig(timeout=timeout, verify_ssl=verify_ssl)
         self.session_manager = SessionManager(self.config)
         self.metrics_collector = RequestMetricsCollector()

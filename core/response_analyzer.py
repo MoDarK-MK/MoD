@@ -46,7 +46,7 @@ class ContentAnalysis:
     image_count: int = 0
     
     def get_complexity_score(self) -> float:
-        score = 0.0
+        score: float = 0.0
         score += min(self.size / 1000000, 1.0) * 20
         score += self.form_count * 10
         score += self.input_count * 2
@@ -68,9 +68,9 @@ class HeaderAnalysis:
     custom_headers: Dict[str, str] = field(default_factory=dict)
     
     def get_security_score(self) -> float:
-        score = 100.0
+        score: float = 100.0
         
-        critical_headers = {
+        critical_headers: Dict[str, float] = {
             'strict-transport-security': 10,
             'content-security-policy': 15,
             'x-content-type-options': 10,
@@ -99,19 +99,19 @@ class ResponseAnomaly:
 
 
 class HTMLContentParser(HTMLParser):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.forms = []
-        self.inputs = []
-        self.scripts = []
-        self.styles = []
-        self.links = []
-        self.images = []
-        self.comments = []
-        self.current_form = None
-        self.raw_text = []
+        self.forms: List[Dict[str, Any]] = []
+        self.inputs: List[Dict[str, Any]] = []
+        self.scripts: List[Dict[str, str]] = []
+        self.styles: List[Dict[str, str]] = []
+        self.links: List[Dict[str, str]] = []
+        self.images: List[Dict[str, str]] = []
+        self.comments: List[str] = []
+        self.current_form: Optional[Dict[str, Any]] = None
+        self.raw_text: List[str] = []
     
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: List[Tuple[str, str]]) -> None:
         attrs_dict = dict(attrs)
         
         if tag == 'form':
@@ -175,14 +175,14 @@ class HTMLContentParser(HTMLParser):
                 'title': attrs_dict.get('title', '')
             })
     
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag: str) -> None:
         if tag == 'form':
             self.current_form = None
     
-    def handle_comment(self, data):
+    def handle_comment(self, data: str) -> None:
         self.comments.append(data.strip())
     
-    def handle_data(self, data):
+    def handle_data(self, data: str) -> None:
         if data.strip():
             self.raw_text.append(data.strip())
     
@@ -191,11 +191,11 @@ class HTMLContentParser(HTMLParser):
 
 
 class ResponseComparator:
-    def __init__(self):
-        self.baseline: Optional[Dict] = None
-        self.comparison_history: List[Dict] = []
+    def __init__(self) -> None:
+        self.baseline: Optional[Dict[str, Any]] = None
+        self.comparison_history: List[Dict[str, Any]] = []
     
-    def set_baseline(self, response: Dict):
+    def set_baseline(self, response: Dict[str, Any]) -> None:
         self.baseline = {
             'content_hash': hashlib.md5(response.get('content', '').encode()).hexdigest(),
             'content_length': len(response.get('content', '')),
