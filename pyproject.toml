@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "MoD"
+version = "0.1.0"
+description = "Advanced multi-vulnerability scanner with WAF bypass and distributed scanning capabilities"
+readme = "docs/README.md"
+license = { text = "AGPL-3.0-or-later" }
+authors = [
+    { name = "MoDarK-MK", email = "" }
+]
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "PyQt6>=6.6.0",
+    "lxml>=4.9.0",
+    "pyjwt>=2.8.0",
+    "defusedxml>=0.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.12.0",
+    "isort>=5.13.0",
+    "flake8>=6.1.0",
+    "mypy>=1.7.0",
+    "pre-commit>=3.5.0",
+    "bandit>=1.7.5",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_mode = 3
+include_trailing_comma = true
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=core --cov=scanners --cov=utils --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["core", "scanners", "utils"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
