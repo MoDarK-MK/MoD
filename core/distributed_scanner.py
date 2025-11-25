@@ -8,6 +8,17 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 import json
+import logging
+from pathlib import Path
+
+logger = logging.getLogger("MoD.distributed_scanner")
+if not logger.handlers:
+    log_dir = Path.home() / ".mod" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_dir / "distributed_scanner.log")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
 
 
 class ScanNodeStatus(Enum):

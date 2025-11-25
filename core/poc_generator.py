@@ -2,6 +2,17 @@
 from typing import Dict, Optional, List
 import requests
 import json
+import logging
+from pathlib import Path
+
+logger = logging.getLogger("MoD.poc_generator")
+if not logger.handlers:
+    log_dir = Path.home() / ".mod" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_dir / "poc_generator.log")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
 
 
 class POCGenerator:

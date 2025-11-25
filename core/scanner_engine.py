@@ -60,6 +60,7 @@ class ScanMetrics:
 
 @dataclass
 class ScanConfig:
+    """Configuration for scanning operations with validation."""
     max_workers: int = 10
     timeout: int = 30
     request_delay: float = 0.5
@@ -74,20 +75,67 @@ class ScanConfig:
     enable_rate_limiting: bool = True
     rate_limit_per_second: int = 10
     batch_size: int = 50
+    
+    def __post_init__(self):
+        """Validate all configuration values after initialization.
+        
+        Raises:
+            ValueError: If any value is invalid.
+        """
+        # Validate worker count
+        if self.max_workers < 1 or self.max_workers > 500:
+            raise ValueError(f"max_workers must be 1-500, got {self.max_workers}")
+        
+        # Validate timeout
+        if self.timeout < 1 or self.timeout > 300:
+            raise ValueError(f"timeout must be 1-300, got {self.timeout}")
+        
+        # Validate request delay
+        if self.request_delay < 0 or self.request_delay > 10:
+            raise ValueError(f"request_delay must be 0-10, got {self.request_delay}")
+        
+        # Validate retry attempts
+        if self.retry_attempts < 0 or self.retry_attempts > 10:
+            raise ValueError(f"retry_attempts must be 0-10, got {self.retry_attempts}")
+        
+        # Validate cache TTL
+        if self.cache_ttl < 60 or self.cache_ttl > 86400:
+            raise ValueError(f"cache_ttl must be 60-86400, got {self.cache_ttl}")
+        
+        # Validate rate limit
+        if self.rate_limit_per_second < 1 or self.rate_limit_per_second > 1000:
+            raise ValueError(f"rate_limit_per_second must be 1-1000, got {self.rate_limit_per_second}")
+        
+        # Validate batch size
+        if self.batch_size < 1 or self.batch_size > 10000:
+            raise ValueError(f"batch_size must be 1-10000, got {self.batch_size}")
 
 
 class RateLimiter:
-    def __init__(self, requests_per_second: int):
-        self.requests_per_second = requests_per_second
-        self.request_times: List[float] = []
-        self.lock = threading.Lock()
+    """Rate limiter for controlling request frequency with thread safety."""
     
-    def acquire(self):
+    def __init__(self, requests_per_second: int):
+        """Initialize rate limiter.
+        
+        Args:
+            requests_per_second: Maximum requests per second.
+        """
+        if requests_per_second < 1:
+            raise ValueError("requests_per_second must be >= 1")
+        
+        self.requests_per_second = min(requests_per_second, 1000)  # Cap at 1000
+        self.request_times: List[float] = []
+        self.lock = threading.RLock()  # Use RLock for reentrant access
+    
+    def acquire(self) -> None:
+        """Block until a request can be made while respecting rate limit."""
         with self.lock:
             now = time.time()
+            # Remove timestamps older than 1 second
             self.request_times = [t for t in self.request_times if now - t < 1.0]
             
             if len(self.request_times) >= self.requests_per_second:
+                # Calculate sleep time based on oldest request in current window
                 sleep_time = 1.0 - (now - self.request_times[0])
                 if sleep_time > 0:
                     time.sleep(sleep_time)
@@ -161,8 +209,23 @@ class ScanResultAggregator:
 
 
 class ScannerEngine:
+    """Orchestrate vulnerability scanning with rate limiting, caching, and retry logic."""
+    
     def __init__(self, config: Optional[ScanConfig] = None):
-        self.config = config or ScanConfig()
+        """Initialize scanner engine with configuration and dependencies.
+        
+        Args:
+            config: ScanConfig object (validates on initialization).
+            
+        Raises:
+            ValueError: If config validation fails.
+        """
+        try:
+            self.config = config or ScanConfig()
+        except ValueError as e:
+            Logger().critical(f"Invalid scan configuration: {e}")
+            raise
+        
         self.payload_generator = PayloadGenerator()
         self.vulnerability_detector = VulnerabilityDetector()
         self.request_handler = RequestHandler(timeout=self.config.timeout, verify_ssl=self.config.verify_ssl)
@@ -182,19 +245,47 @@ class ScannerEngine:
         self.pause_event = threading.Event()
         self.pause_event.set()
     
-    def set_authentication(self, auth_manager: AuthManager):
+    def set_authentication(self, auth_manager: AuthManager) -> None:
+        """Set authentication manager for requests.
+        
+        Args:
+            auth_manager: AuthManager instance.
+        """
         self.auth_manager = auth_manager
         self.request_handler.set_auth_headers(auth_manager.get_auth_header())
+        self.logger.debug("Authentication configured")
     
-    def set_proxy(self, proxy_url: str, username: Optional[str] = None, password: Optional[str] = None):
-        if proxy_url:
-            if username and password:
-                proxy_url = proxy_url.replace('://', f'://{username}:{password}@')
-            self.request_handler.set_proxy(proxy_url)
-        else:
-            self.request_handler.set_proxy(None)
+    def set_proxy(self, proxy_url: Optional[str], username: Optional[str] = None, password: Optional[str] = None) -> None:
+        """Configure proxy for all requests.
+        
+        Args:
+            proxy_url: Proxy URL (None to disable).
+            username: Optional proxy username.
+            password: Optional proxy password.
+        """
+        try:
+            if proxy_url:
+                if username and password:
+                    proxy_url = proxy_url.replace('://', f'://{username}:{password}@')
+                self.request_handler.set_proxy(proxy_url)
+                self.logger.info("Proxy configured")
+            else:
+                self.request_handler.set_proxy(None)
+                self.logger.info("Proxy disabled")
+        except Exception as e:
+            self.logger.error(f"Error setting proxy: {e}")
     
     def start_scan(self, target_url: str, scan_types: List[str], callback: Optional[Callable] = None) -> List[Dict]:
+        """Start comprehensive vulnerability scan on target URL.
+        
+        Args:
+            target_url: Target URL to scan.
+            scan_types: List of scan types (XSS, SQL, RCE, etc.).
+            callback: Optional callback function for vulnerability findings.
+            
+        Returns:
+            List of discovered vulnerabilities.
+        """
         with self.scan_lock:
             if self.is_scanning:
                 self.logger.warning("Scan already in progress")
@@ -206,9 +297,16 @@ class ScannerEngine:
             self.result_aggregator = ScanResultAggregator()
         
         try:
+            # Validate URL format
+            if not target_url or not isinstance(target_url, str):
+                raise ValueError("Invalid target URL")
+            
             self.logger.info(f"Starting comprehensive scan on {target_url}")
             
             parsed_url = urlparse(target_url)
+            if not parsed_url.scheme or not parsed_url.netloc:
+                raise ValueError(f"Invalid URL format: {target_url}")
+            
             base_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
             params = self.parameter_extractor.extract_from_url(target_url)
             
@@ -217,10 +315,17 @@ class ScannerEngine:
             
             initial_response = self._fetch_initial_response(base_url)
             if initial_response and initial_response.get('success'):
-                form_params = self.parameter_extractor.extract_from_form(initial_response.get('content', ''))
-                params.update({k: [v] for k, v in form_params.items()})
+                try:
+                    form_params = self.parameter_extractor.extract_from_form(initial_response.get('content', ''))
+                    params.update({k: [v] for k, v in form_params.items()})
+                except Exception as e:
+                    self.logger.debug(f"Error extracting form params: {e}")
             
             scan_types = self._validate_scan_types(scan_types)
+            if not scan_types:
+                self.logger.warning("No valid scan types specified")
+                return []
+            
             
             with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
                 futures: Dict[Future, str] = {}

@@ -6,6 +6,16 @@ import hashlib
 from enum import Enum
 import random
 from abc import ABC, abstractmethod
+import logging
+
+logger = logging.getLogger("MoD.payload_generator")
+if not logger.handlers:
+    log_dir = Path.home() / ".mod" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_dir / "payload_generator.log")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
 
 
 class PayloadSeverity(Enum):

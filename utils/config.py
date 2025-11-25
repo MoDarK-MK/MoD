@@ -1,9 +1,15 @@
 import json
+import logging
 from pathlib import Path
 from typing import Dict
 
+logger = logging.getLogger('MoD.config')
+
 class Config:
+    """Application configuration with validation and defaults."""
+    
     def __init__(self):
+        """Initialize configuration with defaults."""
         self.config_dir = Path.home() / '.mod'
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.config_file = self.config_dir / 'config.json'
@@ -72,18 +78,114 @@ class Config:
             }
         }
     
+    def _validate_config(self, config: Dict) -> Dict:
+        """Validate and sanitize configuration values.
+        
+        Args:
+            config: Configuration dictionary to validate.
+            
+        Returns:
+            Validated configuration.
+            
+        Raises:
+            ValueError: If critical validation fails.
+        """
+        try:
+            # Validate thread counts
+            if 'max_threads' in config:
+                max_threads = config.get('max_threads', 10)
+                if not isinstance(max_threads, int) or max_threads < 1 or max_threads > 1000:
+                    logger.warning(f"Invalid max_threads {max_threads}, using default 10")
+                    config['max_threads'] = 10
+            
+            # Validate timeout values
+            if 'timeout' in config:
+                timeout = config.get('timeout', 10)
+                if not isinstance(timeout, (int, float)) or timeout < 1 or timeout > 300:
+                    logger.warning(f"Invalid timeout {timeout}, using default 10")
+                    config['timeout'] = 10
+            
+            # Validate scan settings
+            if 'scan' in config:
+                scan_cfg = config['scan']
+                concurrent = scan_cfg.get('concurrent_scans', 10)
+                if not isinstance(concurrent, int) or concurrent < 1 or concurrent > 500:
+                    scan_cfg['concurrent_scans'] = 10
+                    
+                scan_timeout = scan_cfg.get('timeout', 30)
+                if not isinstance(scan_timeout, (int, float)) or scan_timeout < 1 or scan_timeout > 300:
+                    scan_cfg['timeout'] = 30
+                    
+                delay = scan_cfg.get('request_delay', 0.5)
+                if not isinstance(delay, (int, float)) or delay < 0 or delay > 10:
+                    scan_cfg['request_delay'] = 0.5
+            
+            # Validate performance settings
+            if 'performance' in config:
+                perf_cfg = config['performance']
+                pool_size = perf_cfg.get('connection_pool_size', 50)
+                if not isinstance(pool_size, int) or pool_size < 1 or pool_size > 500:
+                    perf_cfg['connection_pool_size'] = 50
+                    
+                batch = perf_cfg.get('batch_size', 100)
+                if not isinstance(batch, int) or batch < 1 or batch > 10000:
+                    perf_cfg['batch_size'] = 100
+            
+            # Validate cache settings
+            if 'cache' in config:
+                cache_cfg = config['cache']
+                ttl = cache_cfg.get('ttl', 3600)
+                if not isinstance(ttl, int) or ttl < 60 or ttl > 86400:
+                    cache_cfg['ttl'] = 3600
+                    
+                max_size = cache_cfg.get('max_size', 1000)
+                if not isinstance(max_size, int) or max_size < 10 or max_size > 100000:
+                    cache_cfg['max_size'] = 1000
+            
+            logger.debug("Configuration validation passed")
+            return config
+        
+        except Exception as e:
+            logger.exception(f"Error validating config: {e}")
+            return self.default_config.copy()
+    
     def load(self) -> Dict:
+        """Load configuration from file or return defaults.
+        
+        Returns:
+            Configuration dictionary.
+        """
         if self.config_file.exists():
             try:
-                with open(self.config_file, 'r') as f:
-                    return json.load(f)
-            except Exception:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    return self._validate_config(config)
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in config file: {e}")
+                return self.default_config.copy()
+            except Exception as e:
+                logger.exception(f"Error loading config: {e}")
                 return self.default_config.copy()
         return self.default_config.copy()
     
-    def save(self, config: Dict):
-        with open(self.config_file, 'w') as f:
-            json.dump(config, f, indent=4)
+    def save(self, config: Dict) -> None:
+        """Save configuration to file.
+        
+        Args:
+            config: Configuration dictionary to save.
+        """
+        try:
+            validated = self._validate_config(config)
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(validated, f, indent=4)
+            logger.debug("Configuration saved successfully")
+        except Exception as e:
+            logger.exception(f"Error saving config: {e}")
     
-    def reset(self):
-        self.save(self.default_config)
+    def reset(self) -> None:
+        """Reset configuration to defaults."""
+        try:
+            self.save(self.default_config.copy())
+            logger.info("Configuration reset to defaults")
+        except Exception as e:
+            logger.exception(f"Error resetting config: {e}")

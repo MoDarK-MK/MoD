@@ -7,6 +7,17 @@ import threading
 import time
 import hashlib
 import math
+import logging
+from pathlib import Path
+
+logger = logging.getLogger("MoD.sql_scanner")
+if not logger.handlers:
+    log_dir = Path.home() / ".mod" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_dir / "sql_scanner.log")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
 
 
 class SQLInjectionType(Enum):
