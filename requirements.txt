@@ -10,3 +10,4 @@ pyjwt>=2.8.0
 websocket-client>=1.6.0
 reportlab>=4.0.0
 Jinja2>=3.1.0
+defusedxml>=0.0.1

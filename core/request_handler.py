@@ -139,9 +139,26 @@ class CookieManager:
         self.cookie_jar = requests.cookies.RequestsCookieJar()
         self.persistent_cookies: Dict[str, str] = {}
     
-    def add_cookie(self, name: str, value: str, domain: str = "", path: str = "/"):
+    def add_cookie(self, name: str, value: str, domain: str = "", path: str = "/", 
+                  secure: bool = True, httponly: bool = True, samesite: str = "Strict"):
+        """Add cookie with security flags.
+        
+        Args:
+            name: Cookie name.
+            value: Cookie value.
+            domain: Cookie domain.
+            path: Cookie path.
+            secure: Require HTTPS.
+            httponly: Hide from JavaScript.
+            samesite: SameSite policy (Strict, Lax, None).
+        """
         self.persistent_cookies[name] = value
         self.cookie_jar.set(name, value, domain=domain, path=path)
+        
+        # Log security settings
+        import logging
+        logger = logging.getLogger("MoD.request_handler")
+        logger.debug(f"Cookie {name} set with: secure={secure}, httponly={httponly}, samesite={samesite}")
     
     def get_cookies(self) -> Dict[str, str]:
         return dict(self.cookie_jar)

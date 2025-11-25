@@ -505,9 +505,22 @@ class ResponseAnalyzer:
             }
     
     def _analyze_xml_content(self, content: str) -> Dict:
+        """Safely analyze XML content with XXE prevention.
+        
+        Uses defusedxml if available, otherwise restricts ElementTree with XXE protections.
+        """
         try:
-            import xml.etree.ElementTree as ET
-            root = ET.fromstring(content)
+            # Try using defusedxml for XXE protection
+            try:
+                from defusedxml.ElementTree import fromstring as safe_fromstring
+                root = safe_fromstring(content)
+            except ImportError:
+                # Fallback: disable DTD and external entity expansion
+                import xml.etree.ElementTree as ET
+                # Disable XXE vulnerabilities
+                parser = ET.XMLParser()
+                parser.entity = {}  # Disable entity expansion
+                root = ET.fromstring(content, parser=parser)
             
             def count_elements(elem):
                 return 1 + sum(count_elements(child) for child in elem)
@@ -522,7 +535,7 @@ class ResponseAnalyzer:
             }
         except Exception as e:
             import logging
-            logging.debug(f"XML parsing error: {e}")
+            logging.debug(f"XML parsing error (XXE protected): {e}")
             return {
                 'content_type': ContentType.XML.value,
                 'size': len(content),

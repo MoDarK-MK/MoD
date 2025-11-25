@@ -9,6 +9,9 @@ import threading
 import time
 import hashlib
 import math
+import secrets
+import string
+import logging
 import base64
 
 class CSRFVulnerabilityType(Enum):
@@ -190,6 +193,29 @@ class MegaFormAnalyzer:
         for p in patterns:
             detected.extend(re.findall(p, html, re.I))
         return list(set(detected))
+    
+    @staticmethod
+    def generate_secure_token(length: int = 32) -> str:
+        """Generate cryptographically secure CSRF token.
+        
+        Uses secrets module instead of random for production-grade randomness.
+        
+        Args:
+            length: Token length (minimum 16 bytes).
+            
+        Returns:
+            Hex-encoded secure random token.
+        """
+        if length < 16:
+            length = 32
+        
+        # Use secrets for cryptographically secure random bytes
+        random_bytes = secrets.token_bytes(length)
+        token = secrets.token_hex(length // 2)
+        
+        logger = logging.getLogger("MoD.csrf_scanner")
+        logger.debug(f"Generated secure CSRF token of length {len(token)}")
+        return token
 
 class MegaCookieAnalyzer:
     @staticmethod

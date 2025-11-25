@@ -215,29 +215,52 @@ class SuperAuthAnalyzer:
             return False, []
         
         try:
+            import time
             header = json.loads(base64.urlsafe_b64decode(parts[0] + '=='))
             payload = json.loads(base64.urlsafe_b64decode(parts[1] + '=='))
             
-            if header.get('alg', '').lower() in ['none', 'hs256'] and len(parts[2]) < 10:
-                issues.append('Weak or missing JWT signature')
+            alg = header.get('alg', '').lower()
             
+            # Algorithm validation
+            if alg == 'none':
+                issues.append('JWT uses "none" algorithm (CRITICAL)')
+            elif alg not in ['hs256', 'hs384', 'hs512', 'rs256', 'rs384', 'rs512', 'es256', 'es384', 'es512']:
+                issues.append(f'JWT uses non-standard algorithm: {alg}')
+            elif alg in ['hs256', 'hs384', 'hs512'] and len(parts[2]) < 10:
+                issues.append('Weak JWT signature')
+            
+            # Expiration validation
             if 'exp' not in payload:
-                issues.append('JWT missing expiration')
+                issues.append('JWT missing expiration (exp claim)')
             else:
-                exp = payload['exp']
-                if exp - time.time() > 86400 * 365:
-                    issues.append('JWT expiration too long (>1 year)')
+                try:
+                    exp = payload['exp']
+                    current = time.time()
+                    if current > exp:
+                        issues.append('JWT token is already expired')
+                    elif exp - current > 86400 * 365:
+                        issues.append('JWT expiration too long (>1 year)')
+                except Exception:
+                    issues.append('JWT expiration claim invalid')
             
+            # Issued-at validation
             if 'iat' not in payload:
-                issues.append('JWT missing issued-at')
+                issues.append('JWT missing issued-at (iat claim)')
             
-            if header.get('alg') == 'HS256' and 'kid' in header:
-                issues.append('JWT vulnerable to key confusion attack')
+            # Key ID validation for symmetric/asymmetric confusion
+            if alg and alg.startswith('hs') and 'kid' in header:
+                issues.append('JWT vulnerable to key confusion attack (HMAC with kid)')
             
+            # Privileged claims
             if 'role' in payload or 'admin' in str(payload).lower():
                 issues.append('JWT contains privileged claims (mass assignment risk)')
-        except:
-            pass
+            
+            # Missing audience
+            if 'aud' not in payload:
+                issues.append('JWT missing audience claim (aud)')
+            
+        except Exception as e:
+            issues.append(f'JWT parsing error: {str(e)[:50]}')
         
         return bool(issues), issues
 
