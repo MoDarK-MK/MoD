@@ -9,6 +9,8 @@ import base64
 import urllib.parse
 import xml.etree.ElementTree as ET
 import random
+import statistics
+import hashlib
 
 class XXEType(Enum):
     CLASSIC_XXE = "classic_xxe"
@@ -23,6 +25,9 @@ class XXEType(Enum):
     XSLT = "xslt"
     OOB_XXE = "oob_xxe"
     SCHEMA_XXE = "schema_xxe"
+    XXE_CHAIN = "xxe_chain"
+    ENTITY_EXPANSION_ATTACK = "entity_expansion_attack"
+    ENCODED_XXE = "encoded_xxe"
 
 class PayloadType(Enum):
     FILE_INCLUSION = "file_inclusion"
@@ -147,6 +152,65 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 <xsl:template match="/"> <xsl:value-of select="system-property('os.name')"/></xsl:template></xsl:stylesheet>'''
         ]
 
+class EncodedXXEDetector:
+    @staticmethod
+    def detect_encoded_patterns(payload: str) -> Tuple[bool, float]:
+        encoding_patterns = [
+            r'%[0-9a-fA-F]{2}',
+            r'&#[0-9]+;',
+            r'&#x[0-9a-fA-F]+;',
+            r'[Ee][Nn][Cc][Oo][Dd][Ee][Dd]',
+        ]
+        
+        matches = sum(1 for pattern in encoding_patterns if re.search(pattern, payload))
+        confidence = min(matches * 0.25, 1.0)
+        return matches > 1, confidence
+
+
+class XXEChainDetector:
+    @staticmethod
+    def detect_chaining_patterns(payload: str) -> Tuple[bool, float]:
+        chain_patterns = [
+            r'%\w+;\s*%\w+;',
+            r'<!ENTITY.*?>.*?<!ENTITY',
+            r'%\w+\s*%\w+',
+            r'SYSTEM.*?SYSTEM',
+        ]
+        
+        matches = sum(1 for pattern in chain_patterns if re.search(pattern, payload, re.IGNORECASE | re.DOTALL))
+        confidence = min(matches * 0.35, 1.0)
+        return matches > 0, confidence
+    
+    @staticmethod
+    def analyze_attack_depth(payload: str) -> int:
+        entity_count = len(re.findall(r'<!ENTITY', payload, re.IGNORECASE))
+        return min(entity_count, 10)
+
+
+class EntityExpansionAnalyzer:
+    @staticmethod
+    def detect_expansion_patterns(payload: str) -> Tuple[bool, float]:
+        expansion_patterns = [
+            r'&\w+;&\w+;&\w+;',
+            r'&lol\d+;',
+            r'&.*?&.*?&',
+        ]
+        
+        matches = sum(1 for pattern in expansion_patterns if re.search(pattern, payload))
+        confidence = min(matches * 0.33, 1.0)
+        return matches > 0, confidence
+    
+    @staticmethod
+    def estimate_expansion_ratio(payload: str) -> float:
+        base_entities = len(re.findall(r'<!ENTITY\s+\w+\s+"[^"]*"', payload))
+        recursive_entities = len(re.findall(r'<!ENTITY\s+\w+\s+".*?&\w+;.*?"', payload))
+        
+        if base_entities == 0:
+            return 1.0
+        
+        return 1.0 + (recursive_entities / base_entities)
+
+
 class XMLStructureAnalyzer:
     @staticmethod
     def is_valid_xml(content: str) -> Tuple[bool, Optional[str]]:
@@ -175,6 +239,9 @@ class XXEScanner:
         self.vulnerabilities = []
         self.scan_statistics = {}
         self.max_workers = max_workers
+        self.encoded_detector = EncodedXXEDetector()
+        self.chain_detector = XXEChainDetector()
+        self.expansion_analyzer = EntityExpansionAnalyzer()
     def scan(self, url: str, response: Dict, custom_payloads: List[str]=None) -> List[XXEVulnerability]:
         findings = []
         content = response.get('content','')
@@ -192,6 +259,32 @@ class XXEScanner:
                 self.scan_statistics[v.xxe_type.value] = self.scan_statistics.get(v.xxe_type.value,0)+1
         return findings
     def _test_payload(self, url, param, payload, content, resp_time):
+        encoded_detected, encoded_confidence = self.encoded_detector.detect_encoded_patterns(payload)
+        if encoded_detected:
+            return XXEVulnerability(
+                vulnerability_type='XXE', xxe_type=XXEType.ENCODED_XXE, url=url, parameter=param,
+                payload=payload, severity="High", evidence="Encoded XXE pattern detected", response_time=resp_time,
+                file_retrieved=False, confirmed=True, confidence_score=encoded_confidence, remediation=self._remediation(), attack_chain=['encoding_bypass']
+            )
+        
+        chain_detected, chain_confidence = self.chain_detector.detect_chaining_patterns(payload)
+        if chain_detected:
+            attack_depth = self.chain_detector.analyze_attack_depth(payload)
+            return XXEVulnerability(
+                vulnerability_type='XXE', xxe_type=XXEType.XXE_CHAIN, url=url, parameter=param,
+                payload=payload, severity="Critical", evidence=f"XXE chaining detected (depth: {attack_depth})", response_time=resp_time,
+                file_retrieved=False, confirmed=True, confidence_score=min(chain_confidence + (attack_depth * 0.05), 1.0), remediation=self._remediation(), attack_chain=[f'chain_depth_{attack_depth}']
+            )
+        
+        expansion_detected, expansion_confidence = self.expansion_analyzer.detect_expansion_patterns(payload)
+        if expansion_detected:
+            expansion_ratio = self.expansion_analyzer.estimate_expansion_ratio(payload)
+            return XXEVulnerability(
+                vulnerability_type='XXE', xxe_type=XXEType.ENTITY_EXPANSION_ATTACK, url=url, parameter=param,
+                payload=payload, severity="High" if expansion_ratio < 100 else "Critical", evidence=f"Entity expansion detected (ratio: {expansion_ratio:.1f}x)", response_time=resp_time,
+                file_retrieved=False, confirmed=True, confidence_score=min(expansion_confidence, 1.0), remediation=self._remediation(), attack_chain=['expansion']
+            )
+        
         file_patterns = [
             (r'root:.*:/bin/.*', '/etc/passwd'), (r'nobody:.*:/usr/sbin', '/etc/passwd'),
             (r'localhost\s+127\.0\.0\.1', '/etc/hosts'), (r'\[boot\]|\[fonts\]', 'C:\\windows\\win.ini')

@@ -8,6 +8,7 @@ import time
 import socket
 import dns.resolver
 import dns.exception
+import statistics
 
 
 class SubdomainDiscoveryMethod(Enum):

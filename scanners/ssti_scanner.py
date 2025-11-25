@@ -10,6 +10,7 @@ import base64
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import itertools
+import statistics
 
 class SSTIType(Enum):
     JINJA2 = "jinja2"
@@ -26,6 +27,9 @@ class SSTIType(Enum):
     TORNADO = "tornado"
     DJANGO = "django"
     BLADE = "blade"
+    SSTI_WAF_BYPASS = "ssti_waf_bypass"
+    SSTI_ENCODING_BYPASS = "ssti_encoding_bypass"
+    SSTI_BLIND = "ssti_blind"
 
 class TemplateEngine(Enum):
     PYTHON_JINJA2 = "python_jinja2"
@@ -527,6 +531,64 @@ class ContextAnalyzer:
         
         return payloads
 
+
+class WAFBypassDetector:
+    @staticmethod
+    def detect_bypass_patterns(payload: str) -> Tuple[bool, float]:
+        bypass_patterns = [
+            r'\$\{.*\}',
+            r'#{.*}',
+            r'\[%.*%\]',
+            r'\[\[.*\]\]',
+            r'\$\(\(.*\)\)',
+            r'${IFS}',
+            r'${PATH}',
+            r'${VERSION}',
+            r'`.*`',
+        ]
+        
+        matches = sum(1 for pattern in bypass_patterns if re.search(pattern, payload))
+        confidence = min(matches * 0.2, 1.0)
+        return matches > 0, confidence
+
+
+class EncodingBypassDetector:
+    @staticmethod
+    def detect_encoding_bypass(payload: str) -> Tuple[bool, float]:
+        encoding_patterns = [
+            r'%[0-9a-fA-F]{2}',
+            r'&#[0-9]+;',
+            r'&#x[0-9a-fA-F]+;',
+            r'\\x[0-9a-fA-F]{2}',
+            r'\\u[0-9a-fA-F]{4}',
+        ]
+        
+        matches = sum(1 for pattern in encoding_patterns if re.search(pattern, payload))
+        confidence = min(matches * 0.25, 1.0)
+        return matches > 0, confidence
+
+
+class BlindSSTIDetector:
+    @staticmethod
+    def analyze_timing_differences(timings: List[float]) -> Tuple[bool, float]:
+        if len(timings) < 3:
+            return False, 0.0
+        
+        baseline = statistics.mean(timings[:2]) if len(timings) >= 2 else timings[0]
+        test_times = timings[2:]
+        
+        anomalies = sum(1 for t in test_times if t > baseline * 1.5)
+        
+        if len(test_times) > 0 and anomalies / len(test_times) > 0.4:
+            ratio = statistics.mean(test_times) / baseline if baseline > 0 else 1
+            if ratio >= 3:
+                return True, 0.80
+            elif ratio >= 2:
+                return True, 0.70
+        
+        return False, 0.0
+
+
 class SSTIScanner:
     def __init__(self):
         self.engine_detector = TemplateEngineDetector()
@@ -534,10 +596,14 @@ class SSTIScanner:
         self.response_analyzer = ResponseAnalyzer()
         self.error_analyzer = ErrorMessageAnalyzer()
         self.context_analyzer = ContextAnalyzer()
+        self.waf_bypass_detector = WAFBypassDetector()
+        self.encoding_bypass_detector = EncodingBypassDetector()
+        self.blind_ssti_detector = BlindSSTIDetector()
         
         self.vulnerabilities: List[SSTIVulnerability] = []
         self.scan_statistics = defaultdict(int)
         self.baseline_responses: Dict[str, str] = {}
+        self.timing_samples: Dict[str, List[float]] = defaultdict(list)
         self.lock = threading.Lock()
         self.max_workers = 10
     
@@ -636,6 +702,52 @@ class SSTIScanner:
                             expected_output: str, ssti_type: SSTIType,
                             template_engine: TemplateEngine, response_content: str,
                             baseline_response: str, response_time: float) -> Optional[SSTIVulnerability]:
+        
+        waf_bypass_detected, waf_confidence = self.waf_bypass_detector.detect_bypass_patterns(payload)
+        if waf_bypass_detected:
+            vuln = SSTIVulnerability(
+                vulnerability_type='Server-Side Template Injection',
+                ssti_type=SSTIType.SSTI_WAF_BYPASS,
+                template_engine=template_engine or TemplateEngine.UNKNOWN,
+                url=target_url,
+                parameter=parameter,
+                payload=payload,
+                severity='High',
+                evidence='WAF bypass pattern detected in SSTI payload',
+                response_time=response_time,
+                expected_output=expected_output,
+                actual_output=response_content[:300],
+                confirmed=waf_confidence > 0.7,
+                confidence_score=waf_confidence,
+                remediation=self._get_remediation()
+            )
+            if self._is_valid_vulnerability(vuln):
+                with self.lock:
+                    self.scan_statistics['ssti_waf_bypass'] += 1
+                return vuln
+        
+        encoding_bypass_detected, encoding_confidence = self.encoding_bypass_detector.detect_encoding_bypass(payload)
+        if encoding_bypass_detected:
+            vuln = SSTIVulnerability(
+                vulnerability_type='Server-Side Template Injection',
+                ssti_type=SSTIType.SSTI_ENCODING_BYPASS,
+                template_engine=template_engine or TemplateEngine.UNKNOWN,
+                url=target_url,
+                parameter=parameter,
+                payload=payload,
+                severity='High',
+                evidence='Encoding bypass pattern detected in SSTI payload',
+                response_time=response_time,
+                expected_output=expected_output,
+                actual_output=response_content[:300],
+                confirmed=encoding_confidence > 0.7,
+                confidence_score=encoding_confidence,
+                remediation=self._get_remediation()
+            )
+            if self._is_valid_vulnerability(vuln):
+                with self.lock:
+                    self.scan_statistics['ssti_encoding_bypass'] += 1
+                return vuln
         
         is_vulnerable, confidence, evidence = self.response_analyzer.analyze_response(
             response_content, payload, expected_output

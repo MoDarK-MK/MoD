@@ -9,6 +9,7 @@ import json
 import base64
 import hashlib
 import hmac
+import statistics
 
 class APIVulnerabilityType(Enum):
     BROKEN_AUTHENTICATION = "broken_authentication"

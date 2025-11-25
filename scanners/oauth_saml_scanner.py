@@ -10,6 +10,7 @@ import json
 import xml.etree.ElementTree as ET
 import hashlib
 import math
+import statistics
 
 
 class OAuthVulnerabilityType(Enum):

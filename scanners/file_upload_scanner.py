@@ -9,6 +9,7 @@ import hashlib
 import mimetypes
 import base64
 from pathlib import Path
+import statistics
 
 class UploadVulnerabilityType(Enum):
     UNRESTRICTED_UPLOAD = "unrestricted_upload"

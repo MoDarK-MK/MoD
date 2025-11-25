@@ -7,6 +7,7 @@ import threading
 import time
 import json
 import hashlib
+import statistics
 
 class GraphQLVulnerabilityType(Enum):
     INTROSPECTION_ENABLED = "introspection_enabled"

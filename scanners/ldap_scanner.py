@@ -7,6 +7,7 @@ import threading
 import time
 import hashlib
 import base64
+import statistics
 
 class LDAPVulnerabilityType(Enum):
     LDAP_INJECTION = "ldap_injection"

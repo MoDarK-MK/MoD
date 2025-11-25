@@ -8,6 +8,7 @@ import time
 from urllib.parse import urlparse, parse_qs
 import base64
 import hashlib
+import statistics
 
 class CommandInjectionType(Enum):
     IN_BAND = "in_band"
@@ -20,6 +21,9 @@ class CommandInjectionType(Enum):
     STACKED_QUERIES = "stacked_queries"
     POLYGLOT = "polyglot"
     EXPRESSION_INJECTION = "expression_injection"
+    COMMAND_CHAINING = "command_chaining"
+    ENCODING_BYPASS = "encoding_bypass"
+    VARIABLE_EXPANSION = "variable_expansion"
 
 class OSSeparator(Enum):
     SEMICOLON = ";"
@@ -360,6 +364,84 @@ class MegaErrorAnalyzer:
         
         return bool(errors), errors, messages
 
+
+class CommandChainingDetector:
+    @staticmethod
+    def detect_chaining_patterns(payload: str) -> Tuple[bool, float]:
+        chaining_patterns = [
+            r';\s*\w+',
+            r'\|\s*\w+',
+            r'\|\|\s*\w+',
+            r'&&\s*\w+',
+            r'&\s*\w+',
+            r'`\w+`',
+            r'\$\(\w+\)',
+            r'>\s*/dev/',
+            r'2>&1',
+        ]
+        
+        matches = sum(1 for pattern in chaining_patterns if re.search(pattern, payload))
+        confidence = min(matches * 0.15, 1.0)
+        return matches > 1, confidence
+
+
+class EncodingBypassDetector:
+    @staticmethod
+    def detect_encoding_patterns(payload: str) -> Tuple[bool, float]:
+        encoding_patterns = [
+            r'%[0-9a-fA-F]{2}',
+            r'\\x[0-9a-fA-F]{2}',
+            r'\\[0-7]{1,3}',
+            r'base64',
+            r'hex',
+        ]
+        
+        matches = sum(1 for pattern in encoding_patterns if re.search(pattern, payload, re.IGNORECASE))
+        confidence = min(matches * 0.25, 1.0)
+        return matches > 0, confidence
+
+
+class VariableExpansionDetector:
+    @staticmethod
+    def detect_expansion_patterns(payload: str) -> Tuple[bool, float]:
+        expansion_patterns = [
+            r'\$\w+',
+            r'${.*?}',
+            r'%\w+%',
+            r'`.*?`',
+        ]
+        
+        matches = sum(1 for pattern in expansion_patterns if re.search(pattern, payload))
+        confidence = min(matches * 0.2, 1.0)
+        return matches > 1, confidence
+
+
+class BlindCommandInjectionDetector:
+    @staticmethod
+    def analyze_timing_patterns(timings: List[float]) -> Tuple[bool, float]:
+        if len(timings) < 3:
+            return False, 0.0
+        
+        baseline = statistics.mean(timings[:2]) if len(timings) >= 2 else timings[0]
+        test_times = timings[2:]
+        
+        if len(test_times) == 0:
+            return False, 0.0
+        
+        anomalies = sum(1 for t in test_times if t > baseline * 2)
+        
+        if anomalies / len(test_times) > 0.5:
+            ratio = statistics.mean(test_times) / baseline if baseline > 0 else 1
+            if ratio >= 5:
+                return True, 0.90
+            elif ratio >= 3:
+                return True, 0.75
+            elif ratio >= 2:
+                return True, 0.60
+        
+        return False, 0.0
+
+
 class CommandInjectionScanner:
     def __init__(self, max_workers: int = 18):
         self.cmd_detector = MegaCommandDetector()
@@ -368,6 +450,10 @@ class CommandInjectionScanner:
         self.bypass_detector = MegaBypassDetector()
         self.shell_detector = MegaShellDetector()
         self.error_analyzer = MegaErrorAnalyzer()
+        self.chaining_detector = CommandChainingDetector()
+        self.encoding_detector = EncodingBypassDetector()
+        self.expansion_detector = VariableExpansionDetector()
+        self.blind_detector = BlindCommandInjectionDetector()
         
         self.vulnerabilities = []
         self.lock = threading.Lock()

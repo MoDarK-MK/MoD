@@ -11,6 +11,7 @@ import socket
 from urllib.parse import urljoin, urlparse, parse_qs
 from collections import defaultdict
 import threading
+import statistics
 
 class CVESeverity(Enum):
     CRITICAL = "CRITICAL"

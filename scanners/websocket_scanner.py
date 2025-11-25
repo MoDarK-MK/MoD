@@ -8,6 +8,7 @@ import time
 import json
 import base64
 import hashlib
+import statistics
 
 
 class WebSocketVulnerabilityType(Enum):

@@ -12,6 +12,9 @@ import struct
 import base64
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import statistics
+import random
+import string
 
 
 class SSRFType(Enum):
@@ -22,6 +25,9 @@ class SSRFType(Enum):
     HTTP_REDIRECT = "http_redirect"
     PROTOCOL_CONFUSION = "protocol_confusion"
     PARTIAL_URL = "partial_url"
+    HTTP_HEADER_INJECTION = "http_header_injection"
+    CACHE_POISONING = "cache_poisoning"
+    REVERSE_DNS_POISONING = "reverse_dns_poisoning"
 
 
 class TargetType(Enum):
@@ -470,6 +476,112 @@ class PortScanningDetector:
         return confidence > 0.5, min(confidence, 1.0)
 
 
+class BlindSSRFDetector:
+    @staticmethod
+    def analyze_timings(timings: List[float]) -> Tuple[bool, float]:
+        if len(timings) < 3:
+            return False, 0.0
+        
+        baseline = statistics.mean(timings[:2]) if len(timings) >= 2 else timings[0]
+        test_times = timings[2:]
+        
+        anomalies = sum(1 for t in test_times if t > baseline * 2)
+        
+        if len(test_times) > 0 and anomalies / len(test_times) > 0.5:
+            ratio = statistics.mean(test_times) / baseline if baseline > 0 else 1
+            if ratio >= 5:
+                return True, 0.95
+            elif ratio >= 3:
+                return True, 0.85
+            elif ratio >= 2:
+                return True, 0.70
+        
+        return False, 0.0
+    
+    @staticmethod
+    def generate_marker(length: int = 16) -> str:
+        return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
+class HTTPHeaderInjectionDetector:
+    @staticmethod
+    def detect_header_injection_patterns(payload: str) -> Tuple[bool, float]:
+        header_patterns = [
+            r'[\r\n](X-|Cookie:|Authorization:|Host:)',
+            r'%0d%0a',
+            r'%0a',
+            r'\r\n',
+            r'\n\r',
+        ]
+        
+        matches = 0
+        for pattern in header_patterns:
+            if re.search(pattern, payload, re.IGNORECASE):
+                matches += 1
+        
+        confidence = min(matches * 0.35, 1.0)
+        return matches > 0, confidence
+    
+    @staticmethod
+    def analyze_header_response(response_content: str, response_headers: Dict = None) -> Tuple[bool, float]:
+        if response_headers is None:
+            response_headers = {}
+        
+        indicators = 0
+        custom_headers = [h for h in response_headers.keys() if h.lower().startswith('x-')]
+        if custom_headers:
+            indicators += 1
+        
+        if 'set-cookie' in response_headers:
+            indicators += 1
+        
+        if 'cache-control' in response_headers:
+            indicators += 1
+        
+        confidence = min(indicators * 0.33, 1.0)
+        return indicators > 0, confidence
+
+
+class CachePoisoningDetector:
+    @staticmethod
+    def detect_cache_poisoning_indicators(response_content: str, response_headers: Dict = None) -> Tuple[bool, float]:
+        if response_headers is None:
+            response_headers = {}
+        
+        cache_indicators = 0
+        
+        if response_headers.get('cache-control', '').lower() not in ['no-cache', 'no-store', 'private']:
+            cache_indicators += 1
+        
+        if 'set-cookie' in response_headers:
+            cache_indicators += 1
+        
+        if 'vary' not in response_headers:
+            cache_indicators += 1
+        
+        if 'etag' in response_headers:
+            cache_indicators += 1
+        
+        confidence = min(cache_indicators * 0.25, 1.0)
+        return cache_indicators >= 2, confidence
+
+
+class ReverseDNSPoisoningDetector:
+    @staticmethod
+    def detect_dns_patterns(response_content: str) -> Tuple[bool, float]:
+        dns_patterns = [
+            r'PTR\s+record',
+            r'reverse\s+dns',
+            r'(?:in-addr\.arpa|ip6\.arpa)',
+            r'nslookup|dig\s+-x|host\s+-l',
+            r'dns.*resolv',
+        ]
+        
+        matches = sum(1 for pattern in dns_patterns if re.search(pattern, response_content, re.IGNORECASE))
+        confidence = min(matches * 0.25, 1.0)
+        return matches > 0, confidence
+
+
 class SSRFScanner:
     def __init__(self):
         self.ip_validator = IPAddressValidator()
@@ -478,10 +590,15 @@ class SSRFScanner:
         self.url_bypass = URLObfuscationBypass()
         self.response_analyzer = ResponseAnalyzer()
         self.port_detector = PortScanningDetector()
+        self.blind_ssrf_detector = BlindSSRFDetector()
+        self.header_injection_detector = HTTPHeaderInjectionDetector()
+        self.cache_poisoning_detector = CachePoisoningDetector()
+        self.reverse_dns_detector = ReverseDNSPoisoningDetector()
         
         self.vulnerabilities: List[SSRFVulnerability] = []
         self.scan_statistics = defaultdict(int)
         self.baseline_responses: Dict[str, str] = {}
+        self.timing_samples: Dict[str, List[float]] = defaultdict(list)
         self.lock = threading.Lock()
         self.max_workers = 10
     
@@ -598,6 +715,14 @@ class SSRFScanner:
                      payload: str, response_time: float,
                      status_code: int) -> Tuple[bool, Optional[SSRFType], TargetType, str, float]:
         
+        header_injection_detected, header_confidence = self.header_injection_detector.detect_header_injection_patterns(payload)
+        if header_injection_detected:
+            return True, SSRFType.HTTP_HEADER_INJECTION, TargetType.CUSTOM_PROTOCOL, "HTTP header injection pattern detected", header_confidence
+        
+        reverse_dns_detected, dns_confidence = self.reverse_dns_detector.detect_dns_patterns(response_content)
+        if reverse_dns_detected:
+            return True, SSRFType.REVERSE_DNS_POISONING, TargetType.CUSTOM_PROTOCOL, "Reverse DNS poisoning indicators detected", dns_confidence
+        
         if self.ip_validator.is_localhost(payload):
             return True, SSRFType.BASIC_SSRF, TargetType.LOCALHOST, "Localhost access detected", 0.95
         
@@ -621,6 +746,10 @@ class SSRFScanner:
         if internal_service:
             confidence = min(0.80 + (len(services) * 0.05), 0.95)
             return True, SSRFType.BASIC_SSRF, TargetType.NETWORK_SERVICE, f"Internal service detected: {service_name}", confidence
+        
+        cache_poisoned, cache_confidence = self.cache_poisoning_detector.detect_cache_poisoning_indicators(response_content)
+        if cache_poisoned and cache_confidence > 0.5:
+            return True, SSRFType.CACHE_POISONING, TargetType.CUSTOM_PROTOCOL, "Cache poisoning indicators detected", cache_confidence
         
         protocol_patterns = {
             'file://': (TargetType.FILE_PROTOCOL, 0.96),
@@ -665,6 +794,12 @@ class SSRFScanner:
         elif ssrf_type == SSRFType.DNS_EXFILTRATION:
             return 'High'
         elif ssrf_type == SSRFType.BLIND_SSRF:
+            return 'Medium'
+        elif ssrf_type == SSRFType.HTTP_HEADER_INJECTION:
+            return 'High'
+        elif ssrf_type == SSRFType.CACHE_POISONING:
+            return 'High'
+        elif ssrf_type == SSRFType.REVERSE_DNS_POISONING:
             return 'Medium'
         
         return 'High'
