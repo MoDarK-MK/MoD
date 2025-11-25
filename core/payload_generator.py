@@ -453,7 +453,7 @@ class PayloadGenerator:
         
         return filtered if filtered else payloads
     
-    def estimate_payload_coverage(self, scan_type: str) -> Dict[str, any]:
+    def estimate_payload_coverage(self, scan_type: str) -> Dict[str, Any]:
         payloads = self._get_base_payloads(scan_type)
         metadata = self.payload_metadata.get(scan_type, {})
         

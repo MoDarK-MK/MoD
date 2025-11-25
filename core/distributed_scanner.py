@@ -334,7 +334,10 @@ class DistributedScanner:
         
         self.lock = threading.RLock()
         self.scanning = False
-        self.worker_threads = []
+        self.worker_threads: List[threading.Thread] = []
+        self.monitor_thread: Optional[threading.Thread] = None
+        self.monitoring = False
+        self.check_interval = 5
     
     def add_node(self, hostname: str, port: int, capacity: int = 10) -> str:
         node_id = str(uuid.uuid4())

@@ -9,7 +9,7 @@ from collections import defaultdict
 import hashlib
 from abc import ABC, abstractmethod
 
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)  # type: ignore[attr-defined]
 
 
 class HTTPMethod(Enum):

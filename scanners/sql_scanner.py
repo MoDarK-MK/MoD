@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple, Set, Pattern
+from typing import Dict, List, Optional, Tuple, Set, Pattern, Any
 from dataclasses import dataclass, field
 from enum import Enum
 import re
@@ -405,7 +405,7 @@ class DatabaseFingerprinting:
     }
     
     @staticmethod
-    def fingerprint_database(response_content: str, detected_db: Optional[DatabaseType]) -> Dict[str, any]:
+    def fingerprint_database(response_content: str, detected_db: Optional[DatabaseType]) -> Dict[str, Any]:
         fingerprint = {
             'database_type': detected_db.value if detected_db else None,
             'version': None,

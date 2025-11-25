@@ -1,11 +1,12 @@
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Set
 
 class Logger:
     """Centralized logging with file and console handlers. Prevents duplicate handlers."""
     
-    _initialized_loggers = set()
+    _initialized_loggers: Set[str] = set()
     
     def __init__(self, name: str = 'MoD'):
         """Initialize logger with idempotency check to prevent duplicate handlers.

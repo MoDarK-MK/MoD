@@ -318,7 +318,7 @@ class ResponseStatistics:
 
 
 class ResponseAnalyzer:
-    def __init__(self):
+    def __init__(self) -> None:
         self.pattern_detector = PatternDetector()
         self.response_comparator = ResponseComparator()
         self.statistics = ResponseStatistics()
@@ -488,7 +488,7 @@ class ResponseAnalyzer:
         try:
             data = json.loads(content)
             
-            def count_keys(obj, depth=0):
+            def count_keys(obj: Any, depth: int = 0) -> int:
                 if depth > 10:
                     return 0
                 if isinstance(obj, dict):
@@ -533,7 +533,7 @@ class ResponseAnalyzer:
                 parser.entity = {}  # Disable entity expansion
                 root = ET.fromstring(content, parser=parser)
             
-            def count_elements(elem):
+            def count_elements(elem: Any) -> int:
                 return 1 + sum(count_elements(child) for child in elem)
             
             return {
