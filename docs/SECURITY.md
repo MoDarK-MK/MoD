@@ -6,11 +6,10 @@ If you discover a security vulnerability in this project, please **report it res
 
 ### Do NOT:
 - ❌ Open a public GitHub issue
-- ❌ Post on social media
 - ❌ Share details in forums or discussions
 
 ### DO:
-- ✅ Email: **security@example.com**
+- ✅ Email: **hfg1533@gmail.com**
 - ✅ Include vulnerability details and proof-of-concept
 - ✅ Allow 7-14 days for initial response
 - ✅ Avoid accessing other users' data
