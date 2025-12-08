@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from gui.main_window import MainWindow
 from utils.config import Config
+from utils.update_checker import run_update_checker_sync
 
 
 def main():
@@ -21,6 +22,8 @@ def main():
     app.setFont(font)
     
     try:
+        run_update_checker_sync()
+        
         config = Config()
         window = MainWindow()
         window.show()
