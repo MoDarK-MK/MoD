@@ -317,6 +317,24 @@ class SettingsTab(QWidget):
         self.auto_update_check = auto_update_check
         display_layout.addWidget(auto_update_check)
         
+        # Update frequency setting
+        update_freq_layout = QHBoxLayout()
+        update_freq_label = QLabel('Check Frequency:')
+        update_freq_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 140px; margin-left: 30px;')
+        update_freq_label.setMinimumHeight(32)
+        
+        self.update_freq_combo = QComboBox()
+        self.update_freq_combo.addItems(['Daily', 'Weekly', 'Monthly', 'Never'])
+        self.update_freq_combo.setCurrentText('Weekly')
+        self.update_freq_combo.setMinimumHeight(36)
+        self.update_freq_combo.setMaximumWidth(150)
+        self.update_freq_combo.setStyleSheet(combo_stylesheet)
+        
+        update_freq_layout.addWidget(update_freq_label)
+        update_freq_layout.addWidget(self.update_freq_combo)
+        update_freq_layout.addStretch()
+        display_layout.addLayout(update_freq_layout)
+        
         display_group.setLayout(display_layout)
         layout.addWidget(display_group)
         
@@ -1068,7 +1086,13 @@ With a valid API key, advanced POC generation and analysis will be available.
             'auto_minimize': self.auto_minimize_check.isChecked(),
             'show_notifications': self.notifications_check.isChecked(),
             'auto_update': self.auto_update_check.isChecked(),
+            'update_frequency': self._get_frequency_days(self.update_freq_combo.currentText()),
         }
         
         self.settings_changed.emit(settings)
         QMessageBox.information(self, '✅ Success', 'Settings saved successfully!')
+    
+    def _get_frequency_days(self, frequency_text: str) -> int:
+        """Convert frequency text to days"""
+        freq_map = {'Daily': 1, 'Weekly': 7, 'Monthly': 30, 'Never': 365}
+        return freq_map.get(frequency_text, 7)

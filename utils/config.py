@@ -75,8 +75,14 @@ class Config:
                 'remediation': True,
                 'severity_threshold': 'Medium',
                 'data_retention': 365
+            },
+            'updates': {
+                'check_on_startup': True,
+                'check_frequency_days': 7,
+                'last_check_date': None,
+                'auto_download': False,
+                'notify_on_update': True
             }
-        }
     
     def _validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and sanitize configuration values.

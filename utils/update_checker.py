@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 from datetime import datetime
+from utils.config import Config
 
 
 class UpdateChecker:
@@ -15,6 +16,7 @@ class UpdateChecker:
     
     def __init__(self, callback: Optional[Callable] = None):
         self.callback = callback
+        self.config = Config()
         self.update_available = False
         self.current_version = self._read_current_version()
         self.latest_version = None
@@ -82,6 +84,39 @@ class UpdateChecker:
             'info': self.update_info,
             'error': self.error_message,
         }
+    
+    def save_check_settings(self, check_on_startup: bool, check_frequency_days: int = 7):
+        """Save user's update check preferences"""
+        try:
+            config_data = self.config.load()
+            config_data['updates']['check_on_startup'] = check_on_startup
+            config_data['updates']['check_frequency_days'] = check_frequency_days
+            config_data['updates']['last_check_date'] = datetime.now().isoformat()
+            self.config.save(config_data)
+            return True
+        except Exception as e:
+            print(f"Error saving update settings: {e}")
+            return False
+    
+    def should_check_for_updates(self) -> bool:
+        """Check if we should check for updates based on frequency and settings"""
+        try:
+            config_data = self.config.load()
+            if not config_data.get('updates', {}).get('check_on_startup', True):
+                return False
+            
+            last_check = config_data.get('updates', {}).get('last_check_date')
+            check_frequency = config_data.get('updates', {}).get('check_frequency_days', 7)
+            
+            if not last_check:
+                return True
+            
+            last_check_dt = datetime.fromisoformat(last_check)
+            days_since_check = (datetime.now() - last_check_dt).days
+            
+            return days_since_check >= check_frequency
+        except:
+            return True
     
     def check_async(self):
         thread = threading.Thread(target=self._check_and_callback, daemon=True)
