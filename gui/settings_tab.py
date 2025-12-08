@@ -19,37 +19,13 @@ class SettingsTab(DesignMainWidget):
     
     def __init__(self, theme_manager: ThemeManager):
         super().__init__()
+        self.header.set_title("⚙️ Application Settings")
+        self.header.set_subtitle("Configure scanner preferences and integration settings")
+        
         self.theme_manager = theme_manager
         self.init_ui()
     
     def init_ui(self):
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        
-        # Header
-        header = DesignHeader(
-            title="⚙️ Application Settings",
-            subtitle="Configure scanner preferences and integration settings"
-        )
-        main_layout.addWidget(header)
-        
-        # Scroll area for content
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet(f"""
-            QScrollArea {{
-                background-color: {DesignColors.DARK_BG};
-                border: none;
-            }}
-        """)
-        
-        content_widget = QWidget()
-        content_widget.setStyleSheet(f"background-color: {DesignColors.DARK_BG};")
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(DesignSpacing.LG, DesignSpacing.LG, DesignSpacing.LG, DesignSpacing.LG)
-        content_layout.setSpacing(DesignSpacing.LG)
-        
         # Tab widget
         tabs = QTabWidget()
         tabs.setStyleSheet(f"""
@@ -83,13 +59,8 @@ class SettingsTab(DesignMainWidget):
         tabs.addTab(self.create_ai_settings_tab(), '🤖 AI INTEGRATION')
         tabs.addTab(self.create_scanner_settings_tab(), '🔍 SCANNER CONFIG')
         
-        content_layout.addWidget(tabs)
-        content_layout.addStretch()
-        
-        scroll_area.setWidget(content_widget)
-        main_layout.addWidget(scroll_area)
-        
-        self.setLayout(main_layout)
+        self.scroll_content.layout().addWidget(tabs)
+        self.scroll_content.layout().addStretch()
     
     def get_stylesheet_for_theme(self):
         current_theme = self.theme_manager.current_theme

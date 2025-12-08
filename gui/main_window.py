@@ -104,10 +104,11 @@ class MainWindow(QMainWindow):
         self.showMaximized()  # Fullscreen
         
         # Create central widget
-        central_widget = DesignMainWidget()
+        central_widget = QWidget()
         central_layout = QVBoxLayout(central_widget)
         central_layout.setContentsMargins(0, 0, 0, 0)
         central_layout.setSpacing(0)
+        central_widget.setStyleSheet(f"background-color: {DesignColors.DARK_BG};")
         
         # Header
         header = DesignHeader(

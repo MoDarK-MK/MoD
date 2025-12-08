@@ -21,23 +21,23 @@ class AuthTab(DesignMainWidget):
         self.init_ui()
     
     def init_ui(self):
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
-        
+        # Auth Type Selection
         auth_type_layout = QHBoxLayout()
         auth_type_label = QLabel('Authentication Type:')
+        auth_type_label.setStyleSheet(f"color: {DesignColors.TEXT_PRIMARY};")
         self.auth_type_combo = QComboBox()
         self.auth_type_combo.addItems(['None', 'Basic Auth', 'Bearer Token', 'JWT', 'OAuth2'])
         self.auth_type_combo.currentTextChanged.connect(self.on_auth_type_changed)
         auth_type_layout.addWidget(auth_type_label)
         auth_type_layout.addWidget(self.auth_type_combo)
         auth_type_layout.addStretch()
-        main_layout.addLayout(auth_type_layout)
+        self.scroll_content.layout().addLayout(auth_type_layout)
         
+        # Auth Config
         self.auth_config_widget = QWidget()
-        main_layout.addWidget(self.auth_config_widget)
+        self.scroll_content.layout().addWidget(self.auth_config_widget)
         
+        # Buttons
         button_layout = QHBoxLayout()
         
         test_button = QPushButton('✓ Test Authentication')
@@ -52,10 +52,9 @@ class AuthTab(DesignMainWidget):
         clear_button.clicked.connect(self.clear_auth)
         button_layout.addWidget(clear_button)
         
-        main_layout.addLayout(button_layout)
-        main_layout.addStretch()
+        self.scroll_content.layout().addLayout(button_layout)
+        self.scroll_content.layout().addStretch()
         
-        self.setLayout(main_layout)
         self.on_auth_type_changed('None')
     
     def on_auth_type_changed(self, auth_type: str):
