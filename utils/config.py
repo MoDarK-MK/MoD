@@ -83,6 +83,7 @@ class Config:
                 'auto_download': False,
                 'notify_on_update': True
             }
+        }
     
     def _validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and sanitize configuration values.
