@@ -9,6 +9,7 @@
 ## 🎯 Overview
 
 The Enhanced WAF Bypass Scanner now includes:
+
 - ✅ **Advanced Packet Inspection** - Read and analyze all packets
 - ✅ **Request/Response Tracing** - Complete trace reports for every request
 - ✅ **Proxy Support** - Use any HTTP proxy for packet inspection
@@ -20,6 +21,7 @@ The Enhanced WAF Bypass Scanner now includes:
 ## 📦 New Components
 
 ### 1. **PacketFrame** - Individual Packet Representation
+
 ```python
 @dataclass
 class PacketFrame:
@@ -38,6 +40,7 @@ class PacketFrame:
 ```
 
 ### 2. **TraceReport** - Complete Request Trace
+
 ```python
 @dataclass
 class TraceReport:
@@ -54,6 +57,7 @@ class TraceReport:
 ```
 
 ### 3. **PacketInspector** - Advanced Packet Analysis
+
 ```python
 inspector = PacketInspector()
 
@@ -74,6 +78,7 @@ pcap_data = inspector.export_trace_pcap(request_id)
 ```
 
 ### 4. **ProxyConfig** - Proxy Management
+
 ```python
 proxy = ProxyConfig(
     proxy_type='http',
@@ -97,6 +102,7 @@ proxy.clear_logs()
 ```
 
 ### 5. **ProxySession** - Enhanced HTTP Session with Tracing
+
 ```python
 proxy_config = ProxyConfig(proxy_host='127.0.0.1', proxy_port=8080)
 session = ProxySession(proxy_config)
@@ -116,6 +122,7 @@ session.export_traces('output.json')
 ## 🚀 Usage Examples
 
 ### Basic WAF Bypass with Packet Inspection
+
 ```python
 from scanners.waf_bypass_engine import WAFBypassEngine
 
@@ -134,6 +141,7 @@ print(f"Success Rate: {stats['success_rate']}%")
 ```
 
 ### WAF Bypass with Proxy Support
+
 ```python
 engine = WAFBypassEngine()
 
@@ -165,6 +173,7 @@ engine.export_trace_logs('traces.json')
 ```
 
 ### Complete Packet Analysis Workflow
+
 ```python
 from scanners.waf_bypass_engine_v2 import PacketInspector, ProxySession, ProxyConfig
 
@@ -181,7 +190,7 @@ session = ProxySession(proxy)
 
 # Make requests
 response = session.get('http://vulnerable-site.com/api/users', trace_enabled=True)
-response2 = session.post('http://vulnerable-site.com/api/login', trace_enabled=True, 
+response2 = session.post('http://vulnerable-site.com/api/login', trace_enabled=True,
                         data={'user': 'admin', 'pass': 'test'})
 
 # Get all traces
@@ -194,18 +203,19 @@ for request_id, trace in traces.items():
     print(f"Frames: {trace.total_frames}")
     print(f"Total Bytes: {trace.total_bytes}")
     print(f"Duration: {trace.total_time:.3f}s")
-    
+
     if trace.waf_indicators:
         print(f"WAF Detected:")
         for indicator in trace.waf_indicators:
             print(f"  - {indicator}")
-    
+
     # Analyze individual frames
     for frame in trace.frames:
         print(f"  Frame: {frame.layer} ({frame.direction}) - {frame.size} bytes")
 ```
 
 ### Proxy Interception with Request Modification
+
 ```python
 from scanners.waf_bypass_engine_v2 import ProxyConfig, ProxySession
 
@@ -239,6 +249,7 @@ for req in intercepted:
 ## 🔧 Advanced Features
 
 ### Packet Frame Analysis
+
 ```python
 # Access packet details
 frame = trace.frames[0]
@@ -257,6 +268,7 @@ if frame.payload:
 ```
 
 ### WAF Detection from Packet Analysis
+
 ```python
 traces = session.get_trace_reports()
 
@@ -279,6 +291,7 @@ for req_id, detection in waf_detections.items():
 ```
 
 ### Export Packet Analysis
+
 ```python
 # Export to JSON
 engine.export_trace_logs('waf_analysis.json')
@@ -300,6 +313,7 @@ for request_id, trace in engine.proxy_session.get_trace_reports().items():
 ## 🎮 Integration with Existing Scanner
 
 ### Using Enhanced Features in WAFBypassEngine
+
 ```python
 engine = WAFBypassEngine(enable_proxy=True)
 
@@ -318,7 +332,7 @@ for result in results:
     print(f"Payload: {result.payload.description}")
     print(f"Status: {result.status_code}")
     print(f"Bypassed: {result.bypassed}")
-    
+
     if result.trace_report:
         print(f"Frames: {result.trace_report.total_frames}")
         print(f"WAF Indicators: {result.waf_indicators}")
@@ -341,6 +355,7 @@ engine.export_trace_logs('waf_bypass_analysis.json')
 ### Proxy Configuration Examples
 
 **HTTP Proxy**:
+
 ```python
 proxy = ProxyConfig(
     proxy_type='http',
@@ -350,6 +365,7 @@ proxy = ProxyConfig(
 ```
 
 **SOCKS5 Proxy**:
+
 ```python
 proxy = ProxyConfig(
     proxy_type='socks5',
@@ -359,6 +375,7 @@ proxy = ProxyConfig(
 ```
 
 **With Authentication**:
+
 ```python
 proxy = ProxyConfig(
     proxy_type='http',
@@ -370,6 +387,7 @@ proxy = ProxyConfig(
 ```
 
 **Burp Suite**:
+
 ```python
 proxy = ProxyConfig(
     proxy_type='http',
@@ -415,6 +433,7 @@ proxy = ProxyConfig(
 ## 🚀 Advanced Bypass Techniques
 
 The enhanced engine includes:
+
 - URL encoding (single and double)
 - Case manipulation
 - Comment injection
@@ -432,6 +451,7 @@ Each technique is tested individually and results are traced for analysis.
 ## 📝 Troubleshooting
 
 ### Issue: Proxy Connection Failed
+
 ```python
 # Verify proxy is running
 engine.enable_proxy('127.0.0.1', 8080)
@@ -441,6 +461,7 @@ engine.enable_proxy('127.0.0.1', 8080)
 ```
 
 ### Issue: No WAF Indicators Detected
+
 ```python
 # Enable packet inspection explicitly
 engine.enable_packet_inspection()
@@ -451,6 +472,7 @@ print(f"Traces captured: {len(traces)}")
 ```
 
 ### Issue: Out of Memory with Large Traces
+
 ```python
 # Clear old traces periodically
 engine.clear_proxy_logs()
