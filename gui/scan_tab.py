@@ -1,14 +1,18 @@
  
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QLineEdit, QPushButton, QCheckBox, QGroupBox,
-                             QFormLayout, QSpinBox, QDoubleSpinBox, QProgressBar,
-                             QComboBox, QTextEdit, QMessageBox, QGridLayout)
+from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, 
+                             QLineEdit, QPushButton, QCheckBox,
+                             QSpinBox, QDoubleSpinBox, QProgressBar,
+                             QComboBox, QTextEdit, QMessageBox, QGridLayout, QScrollArea)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 import requests
 import time
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.intelligent_scanner import IntelligentScanner
+from .design_system import (
+    DesignMainWidget, DesignColors, DesignSpacing, DesignTypography,
+    DesignButton, DesignSection, get_input_stylesheet, get_table_stylesheet
+)
 
 
 class ScanWorker(QThread):
@@ -405,7 +409,7 @@ class ScanWorker(QThread):
         self.should_stop = True
 
 
-class ScanTab(QWidget):
+class ScanTab(DesignMainWidget):
     request_sent = pyqtSignal(dict)
     scan_started = pyqtSignal(str)
     scan_completed = pyqtSignal(list)
@@ -413,42 +417,39 @@ class ScanTab(QWidget):
     
     def __init__(self):
         super().__init__()
+        self.header.set_title("Vulnerability Scanner")
+        self.header.set_subtitle("Comprehensive web application security testing")
+        
         self.is_scanning = False
         self.scan_worker = None
         self.init_ui()
     
     def init_ui(self):
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
-        
-        target_group = QGroupBox('Target Configuration')
-        target_layout = QFormLayout()
+        # Target Configuration
+        target_section = self.add_section("Target Configuration")
         
         self.target_url_input = QLineEdit()
         self.target_url_input.setPlaceholderText('Enter target URL (e.g., https://example.com/page?id=1)')
-        target_layout.addRow('Target URL:', self.target_url_input)
+        self.target_url_input.setStyleSheet(get_input_stylesheet())
+        self.target_url_input.setMinimumHeight(DesignSpacing.INPUT_HEIGHT)
+        target_section.add_widget("Target URL:", self.target_url_input)
         
-        target_group.setLayout(target_layout)
-        main_layout.addWidget(target_group)
-        
-        scanner_group = QGroupBox('Scanner Selection')
-        scanner_layout = QGridLayout()
-        scanner_layout.setSpacing(12)
+        # Scanner Selection
+        scanner_section = self.add_section("Scanner Selection")
         
         self.xss_checkbox = QCheckBox('🔴 XSS Injection')
         self.sql_checkbox = QCheckBox('💉 SQL Injection')
         self.rce_checkbox = QCheckBox('💣 Remote Code Execution')
         self.cmd_checkbox = QCheckBox('⚡ Command Injection')
-        self.ssrf_checkbox = QCheckBox('🌐 Server-Side Request Forgery')
-        self.csrf_checkbox = QCheckBox('🔗 CSRF (Cross-Site Request Forgery)')
-        self.xxe_checkbox = QCheckBox('📄 XXE (XML External Entity)')
-        self.upload_checkbox = QCheckBox('📁 File Upload Vulnerabilities')
-        self.api_checkbox = QCheckBox('🔌 API Security Testing')
-        self.websocket_checkbox = QCheckBox('🔌 WebSocket Security')
-        self.graphql_checkbox = QCheckBox('📊 GraphQL Testing')
-        self.ssti_checkbox = QCheckBox('🎭 Server-Side Template Injection')
-        self.ldap_checkbox = QCheckBox('🔐 LDAP Injection')
+        self.ssrf_checkbox = QCheckBox('🌐 SSRF')
+        self.csrf_checkbox = QCheckBox('🔗 CSRF')
+        self.xxe_checkbox = QCheckBox('📄 XXE')
+        self.upload_checkbox = QCheckBox('📁 File Upload')
+        self.api_checkbox = QCheckBox('🔌 API Security')
+        self.websocket_checkbox = QCheckBox('🔌 WebSocket')
+        self.graphql_checkbox = QCheckBox('📊 GraphQL')
+        self.ssti_checkbox = QCheckBox('🎭 SSTI')
+        self.ldap_checkbox = QCheckBox('🔐 LDAP')
         self.oauth_checkbox = QCheckBox('🔑 OAuth2/SAML')
         
         checkboxes = [
@@ -459,76 +460,74 @@ class ScanTab(QWidget):
             self.ldap_checkbox, self.oauth_checkbox
         ]
         
+        scanner_grid = QGridLayout()
+        scanner_grid.setSpacing(DesignSpacing.ITEM_SPACING)
+        scanner_grid.setContentsMargins(0, 0, 0, 0)
+        
         for i, checkbox in enumerate(checkboxes):
             row = i // 2
             col = i % 2
-            scanner_layout.addWidget(checkbox, row, col)
             checkbox.setChecked(True)
+            scanner_grid.addWidget(checkbox, row, col)
         
-        button_row = (len(checkboxes) + 1) // 2
-        select_all_btn = QPushButton('Select All / Deselect All')
+        scanner_section.layout().addLayout(scanner_grid)
+        
+        select_all_btn = DesignButton("Select All / Deselect All", "toggle")
         select_all_btn.clicked.connect(self.select_all_scanners)
-        scanner_layout.addWidget(select_all_btn, button_row, 0, 1, 2)
+        scanner_section.layout().addWidget(select_all_btn)
         
-        scanner_group.setLayout(scanner_layout)
-        main_layout.addWidget(scanner_group)
-        
-        settings_group = QGroupBox('Scan Settings')
-        settings_layout = QFormLayout()
+        # Scan Settings
+        settings_section = self.add_section("Scan Settings")
         
         self.threads_spinbox = QSpinBox()
         self.threads_spinbox.setRange(2, 50)
         self.threads_spinbox.setValue(10)
-        settings_layout.addRow('Concurrent Threads:', self.threads_spinbox)
+        self.threads_spinbox.setMinimumHeight(DesignSpacing.INPUT_HEIGHT)
+        settings_section.add_widget("Concurrent Threads:", self.threads_spinbox)
         
         self.timeout_spinbox = QSpinBox()
         self.timeout_spinbox.setRange(5, 60)
         self.timeout_spinbox.setValue(15)
-        self.timeout_spinbox.setSuffix(' seconds')
-        settings_layout.addRow('Request Timeout:', self.timeout_spinbox)
+        self.timeout_spinbox.setSuffix(" seconds")
+        self.timeout_spinbox.setMinimumHeight(DesignSpacing.INPUT_HEIGHT)
+        settings_section.add_widget("Request Timeout:", self.timeout_spinbox)
         
-        self.delay_spinbox = QDoubleSpinBox()
-        self.delay_spinbox.setRange(0, 5)
-        self.delay_spinbox.setValue(0.1)
-        self.delay_spinbox.setSuffix(' seconds')
-        settings_layout.addRow('Request Delay:', self.delay_spinbox)
-        
-        self.verify_ssl_checkbox = QCheckBox('Verify SSL Certificate')
+        self.verify_ssl_checkbox = QCheckBox("Verify SSL Certificate")
         self.verify_ssl_checkbox.setChecked(False)
-        settings_layout.addRow('SSL/TLS:', self.verify_ssl_checkbox)
+        settings_section.layout().addWidget(self.verify_ssl_checkbox)
         
-        settings_group.setLayout(settings_layout)
-        main_layout.addWidget(settings_group)
-        
-        self.status_label = QLabel('Ready')
-        main_layout.addWidget(self.status_label)
+        # Status
+        self.status_label = QLabel("Ready to scan")
+        self.status_label.setFont(DesignTypography.get_body_font())
+        self.status_label.setStyleSheet(f"color: {DesignColors.TEXT_SECONDARY};")
         
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
-        main_layout.addWidget(self.progress_bar)
+        self.progress_bar.setMinimumHeight(6)
+        self.progress_bar.setMaximumHeight(6)
         
+        # Buttons
         button_layout = QHBoxLayout()
+        button_layout.setSpacing(DesignSpacing.ITEM_SPACING)
+        button_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.start_button = QPushButton('▶️ Start Scan')
-        self.start_button.setMinimumHeight(40)
+        self.start_button = DesignButton("▶️ Start Scan", "primary")
         self.start_button.clicked.connect(self.start_scan)
         button_layout.addWidget(self.start_button)
         
-        self.stop_button = QPushButton('⏹️ Stop Scan')
-        self.stop_button.setMinimumHeight(40)
+        self.stop_button = DesignButton("⏹️ Stop Scan", "secondary")
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_scan)
         button_layout.addWidget(self.stop_button)
         
-        self.clear_button = QPushButton('🗑️ Clear')
-        self.clear_button.setMinimumHeight(40)
+        self.clear_button = DesignButton("🗑️ Clear", "secondary")
         self.clear_button.clicked.connect(self.clear_inputs)
         button_layout.addWidget(self.clear_button)
         
-        main_layout.addLayout(button_layout)
-        main_layout.addStretch()
-        
-        self.setLayout(main_layout)
+        self.scroll_content.layout().addWidget(self.status_label)
+        self.scroll_content.layout().addWidget(self.progress_bar)
+        self.scroll_content.layout().addLayout(button_layout)
+        self.scroll_content.layout().addStretch()
     
     def start_scan(self):
         target_url = self.target_url_input.text().strip()

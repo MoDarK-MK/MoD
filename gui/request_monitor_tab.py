@@ -1,982 +1,115 @@
- 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
-                             QTableWidgetItem, QPushButton, QHeaderView, QLabel,
-                             QLineEdit, QComboBox, QTextEdit, QSplitter, QGroupBox,
-                             QCheckBox, QTabWidget, QScrollArea, QFileDialog, QMessageBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QDateTime, QSize
-from PyQt6.QtGui import QColor, QFont
+"""Request Monitor Tab - Professional Design."""
+
+from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel,
+                             QTableWidget, QTableWidgetItem, QHeaderView,
+                             QMessageBox, QFileDialog, QPushButton)
+from PyQt6.QtCore import QThread, pyqtSignal
+from core.request_handler import RequestHandler
+from .design_system import (
+    DesignMainWidget, DesignSection, DesignButton,
+    DesignSpacing, DesignColors, get_table_stylesheet
+)
+from typing import List, Dict, Any
 import json
 
 
-class RequestDetailsWidget(QWidget):
-
+class RequestMonitorTab(DesignMainWidget):
+    
     def __init__(self):
         super().__init__()
-        self.current_request = None
+        self.header.set_title("Request Monitor")
+        self.header.set_subtitle("Monitor all HTTP/HTTPS requests during scanning")
+        
+        self.request_handler = RequestHandler()
+        self.requests: List[Dict[str, Any]] = []
         self.init_ui()
-
+    
     def init_ui(self):
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
-
-        tabs = QTabWidget()
-        tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #30363d;
-                background: #0d1117;
-            }
-            QTabBar::tab {
-                background: #161b22;
-                color: #8b949e;
-                padding: 12px 20px;
-                border: 1px solid #30363d;
-                margin-right: 2px;
-                border-bottom: 2px solid transparent;
-                font-weight: bold;
-            }
-            QTabBar::tab:hover {
-                background: #21262d;
-                color: #c9d1d9;
-            }
-            QTabBar::tab:selected {
-                background: #0d1117;
-                color: #58a6ff;
-                border-bottom: 2px solid #1f6feb;
-            }
-        """)
-
-        tabs.addTab(self.create_request_tab(), 'REQUEST')
-        tabs.addTab(self.create_response_tab(), 'RESPONSE')
-        tabs.addTab(self.create_headers_tab(), 'HEADERS')
-        tabs.addTab(self.create_analysis_tab(), 'SECURITY')
-
-        main_layout.addWidget(tabs, 1)
-        self.setLayout(main_layout)
-
-    def create_request_tab(self):
-        widget = QWidget()
-        widget.setStyleSheet("background: #0d1117;")
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(12)
-
-        url_group = QGroupBox('REQUEST URL')
-        url_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-                margin-top: 0px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-
-        url_layout = QVBoxLayout()
-        self.url_text = QTextEdit()
-        self.url_text.setReadOnly(True)
-        self.url_text.setMinimumHeight(60)
-        self.url_text.setMaximumHeight(80)
-        self.url_text.setStyleSheet("""
-            QTextEdit {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 1px solid #30363d;
-                border-radius: 4px;
-                padding: 8px;
-                font-family: 'Courier New';
-                font-size: 9pt;
-                selection-background-color: #1f6feb;
-            }
-        """)
-        url_layout.addWidget(self.url_text)
-        url_group.setLayout(url_layout)
-        layout.addWidget(url_group)
-
-        detail_group = QGroupBox('REQUEST DETAILS')
-        detail_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-                margin-top: 0px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-
-        detail_layout = QVBoxLayout()
-        detail_info = QHBoxLayout()
-
-        method_label = QLabel("METHOD:")
-        method_label.setStyleSheet("color: #8b949e; font-weight: bold; font-size: 10pt;")
-        detail_info.addWidget(method_label)
-
-        method_info = QLabel()
-        method_info.setStyleSheet("font-weight: bold; color: #2ea043; font-size: 10pt;")
-        detail_info.addWidget(method_info)
-        self.req_method_label = method_info
-
-        detail_info.addSpacing(40)
-
-        param_label = QLabel("PARAMETERS:")
-        param_label.setStyleSheet("color: #8b949e; font-weight: bold; font-size: 10pt;")
-        detail_info.addWidget(param_label)
-
-        param_info = QLabel()
-        param_info.setStyleSheet("color: #58a6ff; font-weight: bold; font-size: 10pt;")
-        detail_info.addWidget(param_info)
-        self.req_param_label = param_info
-
-        detail_info.addStretch()
-        detail_layout.addLayout(detail_info)
-        detail_group.setLayout(detail_layout)
-        layout.addWidget(detail_group)
-
-        body_group = QGroupBox('REQUEST BODY')
-        body_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-                margin-top: 0px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-
-        body_layout = QVBoxLayout()
-        self.request_body = QTextEdit()
-        self.request_body.setReadOnly(True)
-        self.request_body.setStyleSheet("""
-            QTextEdit {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 1px solid #30363d;
-                border-radius: 4px;
-                padding: 8px;
-                font-family: 'Courier New';
-                font-size: 8pt;
-                selection-background-color: #1f6feb;
-            }
-        """)
-        body_layout.addWidget(self.request_body)
-        body_group.setLayout(body_layout)
-        layout.addWidget(body_group, 1)
-
-        layout.addStretch()
-        return widget
-
-    def create_response_tab(self):
-        widget = QWidget()
-        widget.setStyleSheet("background: #0d1117;")
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(12)
-
-        status_group = QGroupBox('RESPONSE STATUS')
-        status_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-                margin-top: 0px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-
-        status_layout = QHBoxLayout()
-
-        status_label = QLabel("STATUS:")
-        status_label.setStyleSheet("color: #8b949e; font-weight: bold; font-size: 10pt;")
-        status_layout.addWidget(status_label)
-
-        status_info = QLabel()
-        status_info.setStyleSheet("font-weight: bold; font-size: 11pt; color: #2ea043;")
-        status_layout.addWidget(status_info)
-        self.resp_status_label = status_info
-
-        status_layout.addSpacing(40)
-
-        size_label = QLabel("SIZE:")
-        size_label.setStyleSheet("color: #8b949e; font-weight: bold; font-size: 10pt;")
-        status_layout.addWidget(size_label)
-
-        size_info = QLabel()
-        size_info.setStyleSheet("color: #58a6ff; font-size: 10pt;")
-        status_layout.addWidget(size_info)
-        self.resp_size_label = size_info
-
-        status_layout.addSpacing(40)
-
-        time_label = QLabel("TIME:")
-        time_label.setStyleSheet("color: #8b949e; font-weight: bold; font-size: 10pt;")
-        status_layout.addWidget(time_label)
-
-        time_info = QLabel()
-        time_info.setStyleSheet("color: #58a6ff; font-size: 10pt;")
-        status_layout.addWidget(time_info)
-        self.resp_time_label = time_info
-
-        status_layout.addStretch()
-        status_group.setLayout(status_layout)
-        layout.addWidget(status_group)
-
-        content_group = QGroupBox('RESPONSE BODY')
-        content_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-                margin-top: 0px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-
-        content_layout = QVBoxLayout()
-        self.response_body = QTextEdit()
-        self.response_body.setReadOnly(True)
-        self.response_body.setStyleSheet("""
-            QTextEdit {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 1px solid #30363d;
-                border-radius: 4px;
-                padding: 8px;
-                font-family: 'Courier New';
-                font-size: 8pt;
-                selection-background-color: #1f6feb;
-            }
-        """)
-        content_layout.addWidget(self.response_body)
-        content_group.setLayout(content_layout)
-        layout.addWidget(content_group, 1)
-
-        return widget
-
-    def create_headers_tab(self):
-        widget = QWidget()
-        widget.setStyleSheet("background: #0d1117;")
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(12)
-
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setHandleWidth(1)
-        splitter.setStyleSheet("""
-            QSplitter::handle {
-                background-color: #30363d;
-                width: 1px;
-            }
-        """)
-
-        req_group = QGroupBox('REQUEST HEADERS')
-        req_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-
-        req_layout = QVBoxLayout()
-        self.request_headers = QTextEdit()
-        self.request_headers.setReadOnly(True)
-        self.request_headers.setStyleSheet("""
-            QTextEdit {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 1px solid #30363d;
-                border-radius: 4px;
-                padding: 8px;
-                font-family: 'Courier New';
-                font-size: 8pt;
-                selection-background-color: #1f6feb;
-            }
-        """)
-        req_layout.addWidget(self.request_headers)
-        req_group.setLayout(req_layout)
-        splitter.addWidget(req_group)
-
-        resp_group = QGroupBox('RESPONSE HEADERS')
-        resp_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-
-        resp_layout = QVBoxLayout()
-        self.response_headers = QTextEdit()
-        self.response_headers.setReadOnly(True)
-        self.response_headers.setStyleSheet("""
-            QTextEdit {
-                background: #161b22;
-                color: #c9d1d9;
-                border: 1px solid #30363d;
-                border-radius: 4px;
-                padding: 8px;
-                font-family: 'Courier New';
-                font-size: 8pt;
-                selection-background-color: #1f6feb;
-            }
-        """)
-        resp_layout.addWidget(self.response_headers)
-        resp_group.setLayout(resp_layout)
-        splitter.addWidget(resp_group)
-
-        splitter.setSizes([500, 500])
-        splitter.setCollapsible(0, False)
-        splitter.setCollapsible(1, False)
-        layout.addWidget(splitter, 1)
-
-        return widget
-
-    def create_analysis_tab(self):
-        widget = QWidget()
-        widget.setStyleSheet("background: #0d1117;")
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(12)
-
-        sec_group = QGroupBox('SECURITY HEADERS')
-        sec_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-
-        sec_layout = QVBoxLayout()
-        self.security_analysis = QTextEdit()
-        self.security_analysis.setReadOnly(True)
-        self.security_analysis.setStyleSheet("""
-            QTextEdit {
-                background: #161b22;
-                color: #2ea043;
-                border: 2px solid #238636;
-                border-radius: 4px;
-                padding: 8px;
-                font-family: 'Courier New';
-                font-size: 8pt;
-                font-weight: bold;
-            }
-        """)
-        sec_layout.addWidget(self.security_analysis)
-        sec_group.setLayout(sec_layout)
-        layout.addWidget(sec_group, 1)
-
-        issues_group = QGroupBox('POTENTIAL ISSUES')
-        issues_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #da3633;
-            }
-        """)
-
-        issues_layout = QVBoxLayout()
-        self.issues_analysis = QTextEdit()
-        self.issues_analysis.setReadOnly(True)
-        self.issues_analysis.setStyleSheet("""
-            QTextEdit {
-                background: #161b22;
-                color: #f85149;
-                border: 2px solid #da3633;
-                border-radius: 4px;
-                padding: 8px;
-                font-family: 'Courier New';
-                font-size: 8pt;
-                font-weight: bold;
-            }
-        """)
-        issues_layout.addWidget(self.issues_analysis)
-        issues_group.setLayout(issues_layout)
-        layout.addWidget(issues_group, 1)
-
-        return widget
-
-    def display_request(self, request_data: dict):
-        self.current_request = request_data
-
-        url = request_data.get('url', 'N/A')
-        method = request_data.get('method', 'GET')
-        status = request_data.get('status_code', 0)
-        duration = request_data.get('duration', 0)
-        response_size = len(request_data.get('response', ''))
-
-        self.req_method_label.setText(method)
-        self.req_param_label.setText(f"{len(request_data.get('request_headers', {}))} Headers")
-
-        self.resp_status_label.setText(f"{status}")
-        self.resp_size_label.setText(self.format_size(response_size))
-        self.resp_time_label.setText(f"{duration:.3f}s")
-
-        self.url_text.setText(url)
-        self.response_body.setText(request_data.get('response', '')[:2000])
-        self.request_body.setText(request_data.get('response', '')[:1000])
-
-        req_headers = request_data.get('request_headers', {})
-        self.request_headers.setText('\n'.join([f"{k}: {v}" for k, v in req_headers.items()]) or "No headers")
-
-        resp_headers = request_data.get('response_headers', {})
-        self.response_headers.setText('\n'.join([f"{k}: {v}" for k, v in resp_headers.items()]) or "No headers")
-
-        self.analyze_security(resp_headers)
-
-    def analyze_security(self, headers: dict):
-        checks = {
-            'Content-Security-Policy': ('CSP Configured', 'CSP Not Set'),
-            'X-Frame-Options': ('Clickjacking Protection', 'No Protection'),
-            'X-Content-Type-Options': ('MIME Sniffing Protection', 'No Protection'),
-            'Strict-Transport-Security': ('HSTS Enabled', 'HSTS Not Enabled'),
-            'X-XSS-Protection': ('XSS Protection', 'No XSS Protection'),
-        }
-
-        sec_text = ""
-        issues_text = ""
-
-        for header, (good, bad) in checks.items():
-            if header in headers:
-                sec_text += f"✓ {good}\n"
-            else:
-                sec_text += f"✗ {bad}\n"
-                issues_text += f"! Missing: {header}\n"
-
-        self.security_analysis.setText(sec_text or "No security headers found")
-        self.issues_analysis.setText(issues_text or "No issues detected")
-
-    def format_size(self, size: int) -> str:
-        if size < 1024:
-            return f"{size} B"
-        elif size < 1024 * 1024:
-            return f"{size / 1024:.2f} KB"
-        else:
-            return f"{size / (1024 * 1024):.2f} MB"
-
-
-class RequestMonitorTab(QWidget):
-    request_captured = pyqtSignal(dict)
-
-    def __init__(self):
-        super().__init__()
-        self.requests_history = []
-        self.init_ui()
-
-    def init_ui(self):
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
-
-        header_layout = QHBoxLayout()
-
-        title = QLabel('HTTP REQUEST MONITOR')
-        title.setStyleSheet("""
-            QLabel {
-                font-size: 18pt;
-                font-weight: bold;
-                color: #58a6ff;
-                background: transparent;
-            }
-        """)
-        header_layout.addWidget(title)
-
-        header_layout.addStretch()
-
-        self.clear_button = QPushButton('CLEAR ALL')
-        self.clear_button.setMinimumWidth(120)
-        self.clear_button.setMinimumHeight(40)
-        self.clear_button.clicked.connect(self.clear_requests)
-        self.clear_button.setStyleSheet("""
-            QPushButton {
-                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #da3633, stop:1 #b92222);
-                color: white;
-                border: 1px solid #f85149;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-weight: bold;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #f85149, stop:1 #da3633);
-            }
-        """)
-        header_layout.addWidget(self.clear_button)
-
-        self.export_button = QPushButton('EXPORT')
-        self.export_button.setMinimumWidth(120)
-        self.export_button.setMinimumHeight(40)
-        self.export_button.clicked.connect(self.export_requests)
-        self.export_button.setStyleSheet("""
-            QPushButton {
-                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #238636, stop:1 #1a6b2c);
-                color: white;
-                border: 1px solid #2ea043;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-weight: bold;
-                font-size: 11pt;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #2ea043, stop:1 #238636);
-            }
-        """)
-        header_layout.addWidget(self.export_button)
-
-        main_layout.addLayout(header_layout)
-
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        main_splitter.setHandleWidth(3)
-        main_splitter.setStyleSheet("""
-            QSplitter::handle {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                           stop:0 #1f6feb, stop:1 #0969da);
-                width: 3px;
-            }
-            QSplitter::handle:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                           stop:0 #58a6ff, stop:1 #1f6feb);
-            }
-        """)
-
-        left_panel = self.create_requests_panel()
-        right_panel = self.create_packets_panel()
-
-        main_splitter.addWidget(left_panel)
-        main_splitter.addWidget(right_panel)
-        main_splitter.setSizes([400, 600])
-        main_splitter.setCollapsible(0, False)
-        main_splitter.setCollapsible(1, False)
-
-        main_layout.addWidget(main_splitter, 1)
-
-        self.setLayout(main_layout)
-
-    def create_requests_panel(self):
-        panel = QWidget()
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(12)
-
-        filter_group = QGroupBox('FILTERS & SEARCH')
-        filter_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-                margin-top: 0px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-
-        filter_layout = QHBoxLayout()
-        filter_layout.setContentsMargins(12, 12, 12, 12)
-        filter_layout.setSpacing(12)
-
-        filter_layout.addWidget(QLabel('METHOD:'))
-        self.method_filter = QComboBox()
-        self.method_filter.addItems(['All', 'GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
-        self.method_filter.currentTextChanged.connect(self.apply_filters)
-        self.method_filter.setMaximumWidth(100)
-        self.method_filter.setMinimumHeight(40)
-        self.method_filter.setStyleSheet("""
-            QComboBox {
-                background-color: #161b22;
-                color: #c9d1d9;
-                border: 2px solid #30363d;
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-weight: bold;
-                font-size: 9pt;
-            }
-            QComboBox:hover {
-                border: 2px solid #58a6ff;
-            }
-        """)
-        filter_layout.addWidget(self.method_filter)
-
-        filter_layout.addWidget(QLabel('STATUS:'))
-        self.status_filter = QComboBox()
-        self.status_filter.addItems(['All', '2xx', '3xx', '4xx', '5xx'])
-        self.status_filter.currentTextChanged.connect(self.apply_filters)
-        self.status_filter.setMaximumWidth(100)
-        self.status_filter.setMinimumHeight(40)
-        self.status_filter.setStyleSheet("""
-            QComboBox {
-                background-color: #161b22;
-                color: #c9d1d9;
-                border: 2px solid #30363d;
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-weight: bold;
-                font-size: 9pt;
-            }
-            QComboBox:hover {
-                border: 2px solid #58a6ff;
-            }
-        """)
-        filter_layout.addWidget(self.status_filter)
-
-        filter_layout.addWidget(QLabel('SEARCH:'))
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText('Search URL...')
-        self.search_input.textChanged.connect(self.apply_filters)
-        self.search_input.setMinimumHeight(40)
-        self.search_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #161b22;
-                color: #c9d1d9;
-                border: 2px solid #30363d;
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-size: 9pt;
-            }
-            QLineEdit:focus {
-                border: 2px solid #58a6ff;
-            }
-        """)
-        filter_layout.addWidget(self.search_input, 1)
-        filter_layout.addStretch()
-
-        filter_group.setLayout(filter_layout)
-        layout.addWidget(filter_group)
-
-        requests_group = QGroupBox('REQUESTS')
-        requests_group.setStyleSheet("""
-            QGroupBox {
-                color: #c9d1d9;
-                font-weight: bold;
-                border: 2px solid #30363d;
-                border-radius: 6px;
-                padding-top: 12px;
-                margin-top: 0px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-                color: #58a6ff;
-            }
-        """)
-
-        req_layout = QVBoxLayout()
-
+        # Control section
+        control_section = self.add_section("Controls")
+        button_layout = QHBoxLayout()
+        
+        start_button = DesignButton('Start Monitoring', 'primary')
+        start_button.clicked.connect(self.start_monitoring)
+        button_layout.addWidget(start_button)
+        
+        stop_button = DesignButton('Stop Monitoring', 'secondary')
+        stop_button.clicked.connect(self.stop_monitoring)
+        button_layout.addWidget(stop_button)
+        
+        clear_button = DesignButton('Clear Logs', 'danger')
+        clear_button.clicked.connect(self.clear_logs)
+        button_layout.addWidget(clear_button)
+        
+        export_button = DesignButton('Export Logs', 'secondary')
+        export_button.clicked.connect(self.export_logs)
+        button_layout.addWidget(export_button)
+        
+        button_layout.addStretch()
+        control_section.content_layout.addLayout(button_layout)
+        
+        # Requests section
+        requests_section = self.add_section("Captured Requests")
+        
         self.requests_table = QTableWidget()
-        self.requests_table.setColumnCount(7)
-        self.requests_table.setHorizontalHeaderLabels(['#', 'Time', 'Method', 'URL', 'Status', 'Size', 'Duration'])
-
+        self.requests_table.setColumnCount(5)
+        self.requests_table.setHorizontalHeaderLabels(['Method', 'URL', 'Status', 'Time', 'Size'])
+        self.requests_table.setStyleSheet(get_table_stylesheet())
+        
         header = self.requests_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
-
-        self.requests_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.requests_table.setAlternatingRowColors(True)
-        self.requests_table.setStyleSheet("""
-            QTableWidget {
-                background-color: #0d1117;
-                alternate-background-color: #161b22;
-                gridline-color: #30363d;
-                border: 1px solid #30363d;
-                border-radius: 4px;
-                color: #c9d1d9;
-            }
-            QTableWidget::item:selected {
-                background-color: #1f6feb;
-                color: white;
-                font-weight: bold;
-            }
-            QHeaderView::section {
-                background-color: #161b22;
-                color: #c9d1d9;
-                padding: 8px;
-                border: none;
-                border-right: 1px solid #30363d;
-                font-weight: bold;
-                font-size: 9pt;
-            }
-        """)
-
-        self.requests_table.itemSelectionChanged.connect(self.show_request_details)
-        req_layout.addWidget(self.requests_table)
-
-        requests_group.setLayout(req_layout)
-        layout.addWidget(requests_group, 1)
-
-        stats_layout = QHBoxLayout()
-        stats_layout.setContentsMargins(12, 12, 12, 12)
-        stats_layout.setSpacing(12)
-
-        self.total_requests_label = QLabel('TOTAL: 0')
-        self.total_requests_label.setStyleSheet('color: #c9d1d9; font-weight: bold; font-size: 10pt;')
-        stats_layout.addWidget(self.total_requests_label)
-
-        self.success_label = QLabel('SUCCESS: 0')
-        self.success_label.setStyleSheet('color: #2ea043; font-weight: bold; font-size: 10pt;')
-        stats_layout.addWidget(self.success_label)
-
-        self.error_label = QLabel('ERRORS: 0')
-        self.error_label.setStyleSheet('color: #da3633; font-weight: bold; font-size: 10pt;')
-        stats_layout.addWidget(self.error_label)
-
-        self.avg_time_label = QLabel('AVG: 0.00s')
-        self.avg_time_label.setStyleSheet('color: #58a6ff; font-weight: bold; font-size: 10pt;')
-        stats_layout.addWidget(self.avg_time_label)
-
-        stats_layout.addStretch()
-        layout.addLayout(stats_layout)
-
-        return panel
-
-    def create_packets_panel(self):
-        panel = QWidget()
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(12)
-
-        self.details_widget = RequestDetailsWidget()
-        layout.addWidget(self.details_widget, 1)
-
-        return panel
-
-    def add_request(self, request_data: dict):
-        self.requests_history.append(request_data)
-
-        row = self.requests_table.rowCount()
-        self.requests_table.insertRow(row)
-        self.requests_table.setRowHeight(row, 28)
-
-        index_item = QTableWidgetItem(str(row + 1))
-        index_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.requests_table.setItem(row, 0, index_item)
-
-        timestamp = QDateTime.currentDateTime().toString('hh:mm:ss')
-        time_item = QTableWidgetItem(timestamp)
-        time_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.requests_table.setItem(row, 1, time_item)
-
-        method = request_data.get('method', 'GET')
-        method_item = QTableWidgetItem(method)
-        method_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        method_item.setFont(QFont('Arial', 9, QFont.Weight.Bold))
-
-        colors = {
-            'GET': '#0969da',
-            'POST': '#1f883d',
-            'PUT': '#bf8700',
-            'PATCH': '#bf8700',
-            'DELETE': '#da3633',
-        }
-        method_item.setForeground(QColor(colors.get(method, '#666')))
-        self.requests_table.setItem(row, 2, method_item)
-
-        url = request_data.get('url', '')
-        url_item = QTableWidgetItem(url)
-        self.requests_table.setItem(row, 3, url_item)
-
-        status = request_data.get('status_code', 0)
-        status_item = QTableWidgetItem(str(status))
-        status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        status_item.setFont(QFont('Arial', 9, QFont.Weight.Bold))
-
-        status_colors = {
-            (200, 300): '#2ea043',
-            (300, 400): '#0969da',
-            (400, 500): '#d29922',
-            (500, 600): '#da3633',
-        }
-
-        for (min_s, max_s), color in status_colors.items():
-            if min_s <= status < max_s:
-                status_item.setForeground(QColor(color))
-                break
-
-        self.requests_table.setItem(row, 4, status_item)
-
-        size = len(request_data.get('response', ''))
-        size_item = QTableWidgetItem(self.format_size(size))
-        size_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.requests_table.setItem(row, 5, size_item)
-
-        duration = request_data.get('duration', 0)
-        duration_item = QTableWidgetItem(f"{duration:.2f}s")
-        duration_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.requests_table.setItem(row, 6, duration_item)
-
-        self.update_statistics()
-        self.request_captured.emit(request_data)
-
-    def show_request_details(self):
-        selected = self.requests_table.selectedItems()
-        if not selected:
-            return
-
-        row = selected[0].row()
-        if row < len(self.requests_history):
-            self.details_widget.display_request(self.requests_history[row])
-
-    def format_size(self, size: int) -> str:
-        if size < 1024:
-            return f"{size} B"
-        elif size < 1024 * 1024:
-            return f"{size / 1024:.2f} KB"
-        else:
-            return f"{size / (1024 * 1024):.2f} MB"
-
-    def apply_filters(self):
-        method_filter = self.method_filter.currentText()
-        status_filter = self.status_filter.currentText()
-        search_text = self.search_input.text().lower()
-
-        for row in range(self.requests_table.rowCount()):
-            show = True
-
-            if method_filter != 'All':
-                method_item = self.requests_table.item(row, 2)
-                if method_item and method_item.text() != method_filter:
-                    show = False
-
-            if status_filter != 'All':
-                status_item = self.requests_table.item(row, 4)
-                if status_item:
-                    status = int(status_item.text())
-                    ranges = {
-                        '2xx': (200, 300),
-                        '3xx': (300, 400),
-                        '4xx': (400, 500),
-                        '5xx': (500, 600),
-                    }
-                    min_s, max_s = ranges.get(status_filter, (0, 0))
-                    if not (min_s <= status < max_s):
-                        show = False
-
-            if search_text:
-                url_item = self.requests_table.item(row, 3)
-                if url_item and search_text not in url_item.text().lower():
-                    show = False
-
-            self.requests_table.setRowHidden(row, not show)
-
-    def update_statistics(self):
-        total = len(self.requests_history)
-        success = sum(1 for r in self.requests_history if 200 <= r.get('status_code', 0) < 300)
-        errors = sum(1 for r in self.requests_history if r.get('status_code', 0) >= 400)
-        durations = [r.get('duration', 0) for r in self.requests_history if r.get('duration', 0) > 0]
-        avg_time = sum(durations) / len(durations) if durations else 0
-
-        self.total_requests_label.setText(f'TOTAL: {total}')
-        self.success_label.setText(f'SUCCESS: {success}')
-        self.error_label.setText(f'ERRORS: {errors}')
-        self.avg_time_label.setText(f'AVG: {avg_time:.2f}s')
-
-    def clear_requests(self):
-        self.requests_history.clear()
+        
+        requests_section.content_layout.addWidget(self.requests_table)
+        
+        self.add_stretch()
+    
+    def start_monitoring(self):
+        try:
+            self.request_handler.start_monitoring()
+            QMessageBox.information(self, 'Info', 'Request monitoring started')
+        except Exception as e:
+            QMessageBox.warning(self, 'Error', f'Failed to start monitoring: {str(e)}')
+    
+    def stop_monitoring(self):
+        try:
+            self.requests = self.request_handler.stop_monitoring()
+            self.display_requests()
+            QMessageBox.information(self, 'Info', 'Request monitoring stopped')
+        except Exception as e:
+            QMessageBox.warning(self, 'Error', f'Failed to stop monitoring: {str(e)}')
+    
+    def display_requests(self):
+        self.requests_table.setRowCount(len(self.requests))
+        
+        for row_idx, req in enumerate(self.requests):
+            method_item = QTableWidgetItem(req.get('method', 'GET'))
+            url_item = QTableWidgetItem(req.get('url', ''))
+            status_item = QTableWidgetItem(str(req.get('status_code', '')))
+            time_item = QTableWidgetItem(f"{req.get('time', 0):.2f}s")
+            size_item = QTableWidgetItem(f"{req.get('size', 0)} B")
+            
+            self.requests_table.setItem(row_idx, 0, method_item)
+            self.requests_table.setItem(row_idx, 1, url_item)
+            self.requests_table.setItem(row_idx, 2, status_item)
+            self.requests_table.setItem(row_idx, 3, time_item)
+            self.requests_table.setItem(row_idx, 4, size_item)
+    
+    def clear_logs(self):
+        self.requests = []
         self.requests_table.setRowCount(0)
-        self.update_statistics()
-
-    def export_requests(self):
-        if not self.requests_history:
+        QMessageBox.information(self, 'Info', 'Request logs cleared')
+    
+    def export_logs(self):
+        if not self.requests:
+            QMessageBox.warning(self, 'Warning', 'No requests to export')
             return
-
-        filename, _ = QFileDialog.getSaveFileName(
-            self, 'Export Requests', 'requests.json',
-            'JSON Files (*.json);;Text Files (*.txt)'
-        )
-
+        
+        filename, _ = QFileDialog.getSaveFileName(self, 'Export Logs', 'request_logs.json', 'JSON Files (*.json)')
         if filename:
-            if filename.endswith('.json'):
-                with open(filename, 'w') as f:
-                    json.dump(self.requests_history, f, indent=2)
-            else:
-                with open(filename, 'w') as f:
-                    for idx, req in enumerate(self.requests_history, 1):
-                        f.write(f"Request #{idx}\n")
-                        f.write(f"URL: {req.get('url')}\n")
-                        f.write(f"Method: {req.get('method')}\n")
-                        f.write(f"Status: {req.get('status_code')}\n")
-                        f.write(f"Duration: {req.get('duration'):.3f}s\n")
-                        f.write("=" * 80 + "\n\n")
+            with open(filename, 'w') as f:
+                json.dump(self.requests, f, indent=4)
+            QMessageBox.information(self, 'Success', 'Request logs exported successfully')

@@ -1,123 +1,175 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QGroupBox, QFormLayout, QProgressBar, QFileDialog)
-from PyQt6.QtCore import pyqtSignal, QThread, pyqtSlot
-from scanners.subdomain_scanner import SubdomainScanner
+"""Subdomain Enumeration Tab - Professional Design."""
 
-class SubdomainTab(QWidget):
-    scan_started = pyqtSignal(str)
+from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel,
+                             QLineEdit, QTableWidget, QTableWidgetItem,
+                             QHeaderView, QMessageBox, QFileDialog, QCheckBox)
+from PyQt6.QtCore import QThread, pyqtSignal
+from scanners.subdomain_scanner import SubdomainScanner
+from .design_system import (
+    DesignMainWidget, DesignSection, DesignButton,
+    DesignSpacing, DesignColors, get_table_stylesheet
+)
+from typing import List, Dict, Any, Optional
+import json
+
+
+class SubdomainScanThread(QThread):
+    progress_updated = pyqtSignal(str)
     scan_completed = pyqtSignal(list)
+    scan_error = pyqtSignal(str)
     
-    def __init__(self):
+    def __init__(self, domain: str, use_wordlist: bool = True, use_dns: bool = True, use_wayback: bool = False) -> None:
         super().__init__()
+        self.domain = domain
+        self.use_wordlist = use_wordlist
+        self.use_dns = use_dns
+        self.use_wayback = use_wayback
         self.scanner = SubdomainScanner()
-        self.results = []
+    
+    def run(self) -> None:
+        try:
+            self.progress_updated.emit(f"Enumerating subdomains for {self.domain}...")
+            results = self.scanner.scan(self.domain, self.use_wordlist, self.use_dns, self.use_wayback)
+            self.scan_completed.emit(results)
+        except Exception as e:
+            self.scan_error.emit(f"Scan error: {str(e)}")
+
+
+class SubdomainTab(DesignMainWidget):
+    
+    def __init__(self) -> None:
+        super().__init__()
+        self.header.set_title("Subdomain Enumeration")
+        self.header.set_subtitle("Find subdomains and discover attack surface")
+        
+        self.scanner = SubdomainScanner()
+        self.results: List[Dict[str, Any]] = []
+        self.scan_thread: Optional[SubdomainScanThread] = None
         self.init_ui()
     
-    def init_ui(self):
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
+    def init_ui(self) -> None:
+        # Configuration section
+        config_section = self.add_section("Configuration")
         
-        input_group = QGroupBox('Domain Configuration')
-        input_layout = QFormLayout()
+        label = QLabel('Domain:')
+        label.setStyleSheet(f"color: {DesignColors.TEXT_SECONDARY};")
         
         self.domain_input = QLineEdit()
-        self.domain_input.setPlaceholderText('Enter domain (e.g., example.com)')
-        input_layout.addRow('Domain:', self.domain_input)
+        self.domain_input.setPlaceholderText('e.g., example.com')
+        self.domain_input.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {DesignColors.CARD_BG};
+                color: {DesignColors.TEXT_PRIMARY};
+                border: 1px solid {DesignColors.ACCENT};
+                border-radius: 4px;
+                padding: {DesignSpacing.SM}px;
+                min-height: 32px;
+            }}
+        """)
         
-        input_group.setLayout(input_layout)
-        main_layout.addWidget(input_group)
+        config_section.content_layout.addWidget(label)
+        config_section.content_layout.addWidget(self.domain_input)
         
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setValue(0)
-        main_layout.addWidget(self.progress_bar)
+        # Scan options
+        options_label = QLabel('Scan Methods:')
+        options_label.setStyleSheet(f"color: {DesignColors.TEXT_SECONDARY};")
+        config_section.content_layout.addWidget(options_label)
         
+        self.wordlist_check = QCheckBox('Wordlist Brute-force')
+        self.wordlist_check.setChecked(True)
+        self.wordlist_check.setStyleSheet(f"color: {DesignColors.TEXT_PRIMARY};")
+        
+        self.dns_check = QCheckBox('DNS Resolution')
+        self.dns_check.setChecked(True)
+        self.dns_check.setStyleSheet(f"color: {DesignColors.TEXT_PRIMARY};")
+        
+        self.wayback_check = QCheckBox('Wayback Machine')
+        self.wayback_check.setChecked(False)
+        self.wayback_check.setStyleSheet(f"color: {DesignColors.TEXT_PRIMARY};")
+        
+        config_section.content_layout.addWidget(self.wordlist_check)
+        config_section.content_layout.addWidget(self.dns_check)
+        config_section.content_layout.addWidget(self.wayback_check)
+        
+        # Action buttons
+        action_section = self.add_section("Actions")
         button_layout = QHBoxLayout()
         
-        self.scan_button = QPushButton('🔍 Start Enumeration')
-        self.scan_button.setMinimumHeight(40)
-        self.scan_button.clicked.connect(self.start_scan)
-        button_layout.addWidget(self.scan_button)
+        scan_button = DesignButton('Start Enumeration', 'primary')
+        scan_button.clicked.connect(self.start_scan)
+        button_layout.addWidget(scan_button)
         
-        self.export_button = QPushButton('💾 Export Results')
-        self.export_button.setMinimumHeight(40)
-        self.export_button.clicked.connect(self.export_results)
-        button_layout.addWidget(self.export_button)
+        export_button = DesignButton('Export Results', 'secondary')
+        export_button.clicked.connect(self.export_results)
+        button_layout.addWidget(export_button)
         
-        self.clear_button = QPushButton('🗑️ Clear')
-        self.clear_button.setMinimumHeight(40)
-        self.clear_button.clicked.connect(self.clear_results)
-        button_layout.addWidget(self.clear_button)
+        clear_button = DesignButton('Clear', 'danger')
+        clear_button.clicked.connect(self.clear_results)
+        button_layout.addWidget(clear_button)
         
-        main_layout.addLayout(button_layout)
+        button_layout.addStretch()
+        action_section.content_layout.addLayout(button_layout)
+        
+        # Results section
+        results_section = self.add_section("Subdomains Found")
         
         self.results_table = QTableWidget()
-        self.results_table.setColumnCount(4)
-        self.results_table.setHorizontalHeaderLabels(['Subdomain', 'IP Address', 'Status', 'Title'])
+        self.results_table.setColumnCount(3)
+        self.results_table.setHorizontalHeaderLabels(['Subdomain', 'IP Address', 'Status'])
+        self.results_table.setStyleSheet(get_table_stylesheet())
         
         header = self.results_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         
-        main_layout.addWidget(self.results_table)
+        results_section.content_layout.addWidget(self.results_table)
         
-        self.setLayout(main_layout)
+        self.add_stretch()
     
     def start_scan(self):
         domain = self.domain_input.text().strip()
         if not domain:
+            QMessageBox.warning(self, 'Warning', 'Please enter domain name')
             return
         
-        self.scan_started.emit(domain)
         self.results_table.setRowCount(0)
-        self.progress_bar.setValue(0)
         
-        subdomains = self.scanner.scan_domain(domain)
-        
-        self.results = []
-        for subdomain_obj in subdomains:
-            self.results.append({
-                'subdomain': subdomain_obj.subdomain,
-                'ips': subdomain_obj.ip_addresses,
-                'status_code': subdomain_obj.response_code or 'N/A',
-                'title': subdomain_obj.title or ''
-            })
-        
-        self.display_results()
-        self.progress_bar.setValue(100)
-        
-        self.scan_completed.emit(self.results)
+        self.scan_thread = SubdomainScanThread(
+            domain,
+            self.wordlist_check.isChecked(),
+            self.dns_check.isChecked(),
+            self.wayback_check.isChecked()
+        )
+        self.scan_thread.scan_completed.connect(self.display_results)
+        self.scan_thread.scan_error.connect(lambda e: QMessageBox.critical(self, 'Error', e))
+        self.scan_thread.start()
     
-    def display_results(self):
-        self.results_table.setRowCount(len(self.results))
+    def display_results(self, results: List[Dict[str, Any]]):
+        self.results = results
+        self.results_table.setRowCount(len(results))
         
-        for row_idx, result in enumerate(self.results):
+        for row_idx, result in enumerate(results):
             subdomain_item = QTableWidgetItem(result.get('subdomain', ''))
-            ips_item = QTableWidgetItem(', '.join(result.get('ips', [])))
-            status_item = QTableWidgetItem(str(result.get('status_code', 'N/A')))
-            title_item = QTableWidgetItem(result.get('title', ''))
+            ip_item = QTableWidgetItem(result.get('ip_address', ''))
+            status_item = QTableWidgetItem(result.get('status', 'Unknown'))
             
             self.results_table.setItem(row_idx, 0, subdomain_item)
-            self.results_table.setItem(row_idx, 1, ips_item)
+            self.results_table.setItem(row_idx, 1, ip_item)
             self.results_table.setItem(row_idx, 2, status_item)
-            self.results_table.setItem(row_idx, 3, title_item)
     
     def export_results(self):
         if not self.results:
+            QMessageBox.warning(self, 'Warning', 'No results to export')
             return
-        
-        import json
         
         filename, _ = QFileDialog.getSaveFileName(self, 'Export Results', 'subdomains.json', 'JSON Files (*.json)')
         if filename:
             with open(filename, 'w') as f:
                 json.dump(self.results, f, indent=4)
+            QMessageBox.information(self, 'Success', 'Results exported successfully')
     
     def clear_results(self):
         self.results = []
         self.results_table.setRowCount(0)
         self.domain_input.clear()
-        self.progress_bar.setValue(0)

@@ -1,15 +1,22 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QLineEdit, QPushButton, QGroupBox, QFormLayout,
+from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel,
+                             QLineEdit, QPushButton, QFormLayout,
                              QComboBox, QMessageBox, QTabWidget)
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QIcon
 from core.auth_manager import AuthManager
+from .design_system import (
+    DesignMainWidget, DesignColors, DesignSpacing, DesignTypography,
+    DesignButton, DesignSection, get_input_stylesheet
+)
 
-class AuthTab(QWidget):
+class AuthTab(DesignMainWidget):
     auth_configured = pyqtSignal(AuthManager)
     
     def __init__(self):
         super().__init__()
+        self.header.set_title("Authentication")
+        self.header.set_subtitle("Configure authentication methods")
+        
         self.auth_manager = AuthManager()
         self.init_ui()
     

@@ -158,6 +158,8 @@ class DesignHeader(QFrame):
     
     def __init__(self, title="", subtitle="", parent=None):
         super().__init__(parent)
+        self.title_label = None
+        self.subtitle_label = None
         self.setup_ui(title, subtitle)
     
     def setup_ui(self, title, subtitle):
@@ -175,16 +177,36 @@ class DesignHeader(QFrame):
         layout.setSpacing(DesignSpacing.SM)
         
         if title:
-            title_label = QLabel(title)
-            title_label.setFont(DesignTypography.title_medium())
-            title_label.setStyleSheet(f"color: {DesignColors.TEXT_PRIMARY};")
-            layout.addWidget(title_label)
+            self.title_label = QLabel(title)
+            self.title_label.setFont(DesignTypography.title_medium())
+            self.title_label.setStyleSheet(f"color: {DesignColors.TEXT_PRIMARY};")
+            layout.addWidget(self.title_label)
         
         if subtitle:
-            subtitle_label = QLabel(subtitle)
-            subtitle_label.setFont(DesignTypography.caption())
-            subtitle_label.setStyleSheet(f"color: {DesignColors.TEXT_SECONDARY};")
-            layout.addWidget(subtitle_label)
+            self.subtitle_label = QLabel(subtitle)
+            self.subtitle_label.setFont(DesignTypography.caption())
+            self.subtitle_label.setStyleSheet(f"color: {DesignColors.TEXT_SECONDARY};")
+            layout.addWidget(self.subtitle_label)
+    
+    def set_title(self, title):
+        """Set header title"""
+        if not self.title_label:
+            self.title_label = QLabel(title)
+            self.title_label.setFont(DesignTypography.title_medium())
+            self.title_label.setStyleSheet(f"color: {DesignColors.TEXT_PRIMARY};")
+            self.layout().insertWidget(0, self.title_label)
+        else:
+            self.title_label.setText(title)
+    
+    def set_subtitle(self, subtitle):
+        """Set header subtitle"""
+        if not self.subtitle_label:
+            self.subtitle_label = QLabel(subtitle)
+            self.subtitle_label.setFont(DesignTypography.caption())
+            self.subtitle_label.setStyleSheet(f"color: {DesignColors.TEXT_SECONDARY};")
+            self.layout().addWidget(self.subtitle_label)
+        else:
+            self.subtitle_label.setText(subtitle)
 
 
 class DesignDivider(QFrame):
@@ -227,9 +249,25 @@ class DesignSection(QFrame):
         self.content_layout.setSpacing(DesignSpacing.MD)
         layout.addLayout(self.content_layout)
     
-    def add_widget(self, widget):
-        """Add widget to section"""
-        self.content_layout.addWidget(widget)
+    def add_widget(self, label_or_widget, widget=None):
+        """Add widget to section with optional label"""
+        if widget is None:
+            # Single argument: just a widget
+            self.content_layout.addWidget(label_or_widget)
+        else:
+            # Two arguments: label text and widget
+            label_text = label_or_widget
+            item_layout = QHBoxLayout()
+            item_layout.setContentsMargins(0, 0, 0, 0)
+            item_layout.setSpacing(DesignSpacing.MD)
+            
+            label = QLabel(label_text)
+            label.setStyleSheet(f"color: {DesignColors.TEXT_SECONDARY};")
+            label.setMinimumWidth(150)
+            
+            item_layout.addWidget(label)
+            item_layout.addWidget(widget, 1)
+            self.content_layout.addLayout(item_layout)
     
     def add_layout(self, layout):
         """Add layout to section"""
@@ -239,9 +277,14 @@ class DesignSection(QFrame):
 class DesignMainWidget(QWidget):
     """Professional main widget base class"""
     
+    # Constants for spacing
+    INPUT_HEIGHT = 40
+    ITEM_SPACING = 8
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setup_background()
+        self.setup_ui()
     
     def setup_background(self):
         """Setup main background"""
@@ -251,6 +294,46 @@ class DesignMainWidget(QWidget):
                 color: {DesignColors.TEXT_PRIMARY};
             }}
         """)
+    
+    def setup_ui(self):
+        """Setup the main UI structure"""
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # Header
+        self.header = DesignHeader()
+        main_layout.addWidget(self.header)
+        
+        # Scrollable content area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: {DesignColors.DARK_BG};
+                border: none;
+            }}
+            {get_scrollbar_stylesheet()}
+        """)
+        
+        self.scroll_content = QWidget()
+        self.scroll_content.setStyleSheet(f"background-color: {DesignColors.DARK_BG};")
+        scroll_layout = QVBoxLayout(self.scroll_content)
+        scroll_layout.setContentsMargins(DesignSpacing.LG, DesignSpacing.LG, DesignSpacing.LG, DesignSpacing.LG)
+        scroll_layout.setSpacing(DesignSpacing.LG)
+        
+        scroll_area.setWidget(self.scroll_content)
+        main_layout.addWidget(scroll_area)
+    
+    def add_section(self, title=""):
+        """Add a design section to the widget"""
+        section = DesignSection(title)
+        self.scroll_content.layout().addWidget(section)
+        return section
+    
+    def add_stretch(self):
+        """Add stretch at the end of content"""
+        self.scroll_content.layout().addStretch()
 
 
 def get_scrollbar_stylesheet():
