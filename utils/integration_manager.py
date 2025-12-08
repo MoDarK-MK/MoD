@@ -242,6 +242,14 @@ class IntegrationManager:
     def set_discord_webhook(self, webhook_url: str):
         self.discord_webhook = webhook_url
     
+    def get_discord_webhook(self) -> Optional[str]:
+        """Get current Discord webhook URL"""
+        return self.discord_webhook
+    
+    def send_discord_message(self, message: str, severity: str = 'info') -> bool:
+        """Send message to Discord webhook"""
+        return self.send_discord_notification(message, severity)
+    
     def send_slack_notification(self, message: str, severity: str = 'info'):
         if not self.slack_webhook:
             return False
