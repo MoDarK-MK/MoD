@@ -320,6 +320,7 @@ class MainWindow(QMainWindow):
         self.wayback_tab.fetch_completed.connect(self.on_wayback_completed)
         
         self.settings_tab.theme_changed.connect(self.on_theme_changed)
+        self.settings_tab.ui_size_changed.connect(self.on_ui_size_changed)
         self.settings_tab.settings_changed.connect(self.on_settings_changed)
         
         self.auth_tab.auth_configured.connect(self.on_auth_configured)
@@ -561,6 +562,49 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Error applying theme: {e}")
     
+    def apply_ui_size(self, size: str):
+        """Apply UI size scaling based on selection (Small/Medium/Large)"""
+        try:
+            # Define size multipliers
+            size_multipliers = {
+                'Small': 0.85,
+                'Medium': 1.0,
+                'Large': 1.15
+            }
+            
+            multiplier = size_multipliers.get(size, 1.0)
+            
+            # Base font sizes
+            base_sizes = {
+                'Small': {'title': 12, 'label': 10, 'normal': 9},
+                'Medium': {'title': 14, 'label': 11, 'normal': 10},
+                'Large': {'title': 16, 'label': 13, 'normal': 11}
+            }
+            
+            sizes = base_sizes.get(size, base_sizes['Medium'])
+            
+            # Generate stylesheet with size adjustments
+            stylesheet = f"""
+                QWidget {{ font-size: {sizes['normal']}pt; }}
+                QLabel {{ font-size: {sizes['label']}pt; }}
+                QPushButton {{ padding: {int(8 * multiplier)}px; font-size: {sizes['label']}pt; }}
+                QLineEdit {{ padding: {int(6 * multiplier)}px; font-size: {sizes['normal']}pt; }}
+                QComboBox {{ padding: {int(6 * multiplier)}px; font-size: {sizes['normal']}pt; }}
+                QSpinBox {{ padding: {int(4 * multiplier)}px; font-size: {sizes['normal']}pt; }}
+                QCheckBox {{ font-size: {sizes['normal']}pt; }}
+                QGroupBox {{ font-size: {sizes['label']}pt; padding-top: {int(10 * multiplier)}px; }}
+                QGroupBox::title {{ padding: {int(4 * multiplier)}px; }}
+                QTabWidget::pane {{ border: none; padding: {int(4 * multiplier)}px; }}
+                QTabBar::tab {{ padding: {int(6 * multiplier)}px {int(12 * multiplier)}px; font-size: {sizes['normal']}pt; }}
+            """
+            
+            current_stylesheet = self.styleSheet()
+            self.setStyleSheet(current_stylesheet + stylesheet)
+            
+            self.update_status(f'✅ UI resized to {size}')
+        except Exception as e:
+            print(f"Error applying UI size: {e}")
+    
     def update_status(self, message: str, color: str = None):
         self.status_label.setText(message)
         if color:
@@ -599,6 +643,11 @@ class MainWindow(QMainWindow):
         self.apply_theme()
         theme_name = self.theme_manager.THEMES[theme_key]['name']
         self.update_status(f'🎨 Theme changed to {theme_name}')
+    
+    def on_ui_size_changed(self, size: str):
+        """Handle UI size change (Small/Medium/Large)"""
+        self.apply_ui_size(size)
+        self.update_status(f'🔧 UI Size changed to {size}')
     
     def on_settings_changed(self, settings: dict):
         api_key = settings.get('api_key', '')

@@ -14,8 +14,8 @@ def main():
     
     app = QApplication(sys.argv)
     
-    app.setApplicationName("MoD - Master of Defense v3.0")
-    app.setApplicationVersion("3.0.0")
+    app.setApplicationName("MoD - Master of Defense v4.0")
+    app.setApplicationVersion("4.0.0")
     app.setOrganizationName("MoD Security")
     
     font = QFont("Segoe UI", 10)
