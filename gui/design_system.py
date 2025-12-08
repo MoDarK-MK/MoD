@@ -41,6 +41,7 @@ class DesignSpacing:
     INPUT_HEIGHT = 40
     BUTTON_HEIGHT = 40
     SECTION_HEIGHT = 50
+    ITEM_SPACING = 8
 
 
 class DesignTypography:
@@ -272,6 +273,13 @@ class DesignSection(QFrame):
             item_layout.addWidget(widget, 1)
             self.content_layout.addLayout(item_layout)
     
+    def add_layout(self, layout):
+        """Add layout to section"""
+        self.content_layout.addLayout(layout)
+    
+    def layout(self):
+        """Return the content layout"""
+        return self.content_layout
     def add_layout(self, layout):
         """Add layout to section"""
         self.content_layout.addLayout(layout)
