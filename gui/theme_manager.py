@@ -47,28 +47,28 @@ class ThemeManager:
                 secondary='#00D936',
                 accent='#39FF14',
                 background='#0D1117',
-                surface='rgba(18, 28, 22, 0.90)',
-                text_primary='#E6FFE6',
-                text_secondary='#9DFFB3',
+                surface='rgba(15, 35, 25, 0.95)',
+                text_primary='#F0FFEE',
+                text_secondary='#A8E6A1',
                 success='#00FF41',
-                warning='#FFD93D',
-                error='#FF3366',
-                info='#00E5FF',
-                border='rgba(0, 255, 65, 0.25)',
-                shadow='rgba(0, 255, 65, 0.3)',
+                warning='#FFD700',
+                error='#FF4455',
+                info='#00D9FF',
+                border='rgba(0, 255, 65, 0.35)',
+                shadow='rgba(0, 255, 65, 0.4)',
                 gradient_start='#00FF41',
                 gradient_end='#00D936',
-                glass_bg='rgba(18, 28, 22, 0.75)',
-                glass_border='rgba(0, 255, 65, 0.3)',
-                glass_shadow='0 8px 32px rgba(0, 255, 65, 0.25)'
+                glass_bg='rgba(15, 35, 25, 0.85)',
+                glass_border='rgba(0, 255, 65, 0.4)',
+                glass_shadow='0 8px 32px rgba(0, 255, 65, 0.3)'
             ),
             'styles': ThemeStyles(
                 border_radius='16px',
                 blur='24px',
-                shadow='0 8px 32px rgba(0, 255, 65, 0.25)',
+                shadow='0 8px 32px rgba(0, 255, 65, 0.3)',
                 transition='all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
                 font_family='"Fira Code", "JetBrains Mono", monospace',
-                glass_shadow='0 8px 32px 0 rgba(0, 255, 65, 0.25)',
+                glass_shadow='0 8px 32px 0 rgba(0, 255, 65, 0.3)',
                 glass_backdrop='blur(24px) saturate(180%)',
                 glass_border_width='1px'
             )
@@ -77,32 +77,32 @@ class ThemeManager:
             'name': '💜 Neon Purple (Cyberpunk)',
             'description': 'Vibrant purple neon with dark background',
             'colors': ThemeColors(
-                primary='#C77DFF',
-                secondary='#9D4EDD',
-                accent='#E0AAFF',
-                background='#10002B',
-                surface='rgba(30, 15, 50, 0.90)',
-                text_primary='#F0E6FF',
-                text_secondary='#D0B3FF',
+                primary='#D64EF2',
+                secondary='#A833D9',
+                accent='#E8B4FF',
+                background='#15001B',
+                surface='rgba(40, 20, 60, 0.95)',
+                text_primary='#F5E6FF',
+                text_secondary='#D4A8FF',
                 success='#06FFA5',
-                warning='#FFBE0B',
-                error='#FF006E',
-                info='#7209B7',
-                border='rgba(199, 125, 255, 0.25)',
-                shadow='rgba(199, 125, 255, 0.3)',
-                gradient_start='#C77DFF',
-                gradient_end='#9D4EDD',
-                glass_bg='rgba(30, 15, 50, 0.75)',
-                glass_border='rgba(199, 125, 255, 0.3)',
-                glass_shadow='0 8px 32px rgba(199, 125, 255, 0.3)'
+                warning='#FFD100',
+                error='#FF2E7E',
+                info='#8B5CF6',
+                border='rgba(212, 78, 242, 0.4)',
+                shadow='rgba(212, 78, 242, 0.4)',
+                gradient_start='#D64EF2',
+                gradient_end='#A833D9',
+                glass_bg='rgba(40, 20, 60, 0.85)',
+                glass_border='rgba(212, 78, 242, 0.4)',
+                glass_shadow='0 8px 32px rgba(212, 78, 242, 0.35)'
             ),
             'styles': ThemeStyles(
                 border_radius='18px',
                 blur='26px',
-                shadow='0 8px 32px rgba(199, 125, 255, 0.3)',
+                shadow='0 8px 32px rgba(212, 78, 242, 0.35)',
                 transition='all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 font_family='"JetBrains Mono", "Space Mono", monospace',
-                glass_shadow='0 8px 32px 0 rgba(199, 125, 255, 0.3)',
+                glass_shadow='0 8px 32px 0 rgba(212, 78, 242, 0.35)',
                 glass_backdrop='blur(26px) saturate(200%)',
                 glass_border_width='1.5px'
             )
@@ -111,24 +111,24 @@ class ThemeManager:
             'name': '⚡ Electric Blue (Tron)',
             'description': 'Bright electric blue with dark contrast',
             'colors': ThemeColors(
-                primary='#00D9FF',
-                secondary='#0099CC',
-                accent='#66E0FF',
-                background='#0A1628',
-                surface='rgba(15, 30, 50, 0.90)',
-                text_primary='#E0F7FF',
-                text_secondary='#99E0FF',
-                success='#00E676',
-                warning='#FFC107',
-                error='#FF5252',
-                info='#00D9FF',
-                border='rgba(0, 217, 255, 0.25)',
-                shadow='rgba(0, 217, 255, 0.3)',
-                gradient_start='#00D9FF',
-                gradient_end='#0099CC',
-                glass_bg='rgba(15, 30, 50, 0.75)',
-                glass_border='rgba(0, 217, 255, 0.3)',
-                glass_shadow='0 8px 32px rgba(0, 217, 255, 0.3)'
+                primary='#00DDFF',
+                secondary='#0099DD',
+                accent='#66FFFF',
+                background='#05101F',
+                surface='rgba(15, 35, 60, 0.95)',
+                text_primary='#E3F8FF',
+                text_secondary='#A0E0FF',
+                success='#00FF77',
+                warning='#FFD600',
+                error='#FF4466',
+                info='#00DDFF',
+                border='rgba(0, 221, 255, 0.4)',
+                shadow='rgba(0, 221, 255, 0.4)',
+                gradient_start='#00DDFF',
+                gradient_end='#0099DD',
+                glass_bg='rgba(15, 35, 60, 0.85)',
+                glass_border='rgba(0, 221, 255, 0.4)',
+                glass_shadow='0 8px 32px rgba(0, 221, 255, 0.35)'
             ),
             'styles': ThemeStyles(
                 border_radius='14px',
@@ -145,24 +145,24 @@ class ThemeManager:
             'name': '🩸 Blood Red (Vampire)',
             'description': 'Deep red theme with dark gothic aesthetic',
             'colors': ThemeColors(
-                primary='#DC143C',
-                secondary='#A01326',
-                accent='#FF4466',
-                background='#1A0F0F',
-                surface='rgba(40, 15, 15, 0.90)',
-                text_primary='#FFE6E6',
-                text_secondary='#FFCCCC',
-                success='#52B788',
-                warning='#FFB703',
-                error='#DC143C',
-                info='#48CAE4',
-                border='rgba(220, 20, 60, 0.25)',
-                shadow='rgba(220, 20, 60, 0.35)',
-                gradient_start='#DC143C',
-                gradient_end='#A01326',
-                glass_bg='rgba(40, 15, 15, 0.75)',
-                glass_border='rgba(220, 20, 60, 0.3)',
-                glass_shadow='0 8px 32px rgba(220, 20, 60, 0.35)'
+                primary='#D32F2F',
+                secondary='#B71C1C',
+                accent='#FF6B6B',
+                background='#1A0A0A',
+                surface='rgba(45, 15, 15, 0.95)',
+                text_primary='#FFDDDD',
+                text_secondary='#FFB8B8',
+                success='#4CAF50',
+                warning='#FFC107',
+                error='#D32F2F',
+                info='#00BCD4',
+                border='rgba(211, 47, 47, 0.4)',
+                shadow='rgba(211, 47, 47, 0.4)',
+                gradient_start='#D32F2F',
+                gradient_end='#B71C1C',
+                glass_bg='rgba(45, 15, 15, 0.85)',
+                glass_border='rgba(211, 47, 47, 0.4)',
+                glass_shadow='0 8px 32px rgba(211, 47, 47, 0.35)'
             ),
             'styles': ThemeStyles(
                 border_radius='20px',
@@ -179,24 +179,24 @@ class ThemeManager:
             'name': '✨ Golden Luxury (Royal)',
             'description': 'Luxurious gold and black premium theme',
             'colors': ThemeColors(
-                primary='#FFD700',
-                secondary='#D4AF37',
-                accent='#FFF3B0',
-                background='#1C1810',
-                surface='rgba(35, 28, 15, 0.90)',
-                text_primary='#FFFBEB',
-                text_secondary='#FFE6A0',
-                success='#52B788',
-                warning='#FB8500',
-                error='#D00000',
-                info='#219EBC',
-                border='rgba(255, 215, 0, 0.25)',
-                shadow='rgba(255, 215, 0, 0.3)',
-                gradient_start='#FFD700',
-                gradient_end='#D4AF37',
-                glass_bg='rgba(35, 28, 15, 0.75)',
-                glass_border='rgba(255, 215, 0, 0.3)',
-                glass_shadow='0 8px 32px rgba(255, 215, 0, 0.3)'
+                primary='#FFC107',
+                secondary='#E8B923',
+                accent='#FFE082',
+                background='#1A1410',
+                surface='rgba(40, 32, 18, 0.95)',
+                text_primary='#FFFAE0',
+                text_secondary='#FFD9A3',
+                success='#4CAF50',
+                warning='#FF9800',
+                error='#D32F2F',
+                info='#00BCD4',
+                border='rgba(255, 193, 7, 0.4)',
+                shadow='rgba(255, 193, 7, 0.4)',
+                gradient_start='#FFC107',
+                gradient_end='#E8B923',
+                glass_bg='rgba(40, 32, 18, 0.85)',
+                glass_border='rgba(255, 193, 7, 0.4)',
+                glass_shadow='0 8px 32px rgba(255, 193, 7, 0.3)'
             ),
             'styles': ThemeStyles(
                 border_radius='22px',
@@ -213,24 +213,24 @@ class ThemeManager:
             'name': '🌊 Ocean Deep (Aquatic)',
             'description': 'Deep ocean blue with teal accents',
             'colors': ThemeColors(
-                primary='#0FA3B1',
-                secondary='#086375',
-                accent='#5DD9C1',
-                background='#001925',
-                surface='rgba(10, 35, 50, 0.90)',
-                text_primary='#E0F4F7',
-                text_secondary='#A3DDE6',
-                success='#06FFA5',
-                warning='#FFB627',
-                error='#FF4D6D',
-                info='#0FA3B1',
-                border='rgba(15, 163, 177, 0.25)',
-                shadow='rgba(15, 163, 177, 0.25)',
-                gradient_start='#0FA3B1',
-                gradient_end='#086375',
-                glass_bg='rgba(10, 35, 50, 0.75)',
-                glass_border='rgba(15, 163, 177, 0.3)',
-                glass_shadow='0 8px 32px rgba(15, 163, 177, 0.25)'
+                primary='#00BCD4',
+                secondary='#0097A7',
+                accent='#4DD0E1',
+                background='#000F1F',
+                surface='rgba(10, 40, 60, 0.95)',
+                text_primary='#E0F7FA',
+                text_secondary='#B2DFDB',
+                success='#00FF88',
+                warning='#FFD600',
+                error='#FF4466',
+                info='#00BCD4',
+                border='rgba(0, 188, 212, 0.4)',
+                shadow='rgba(0, 188, 212, 0.4)',
+                gradient_start='#00BCD4',
+                gradient_end='#0097A7',
+                glass_bg='rgba(10, 40, 60, 0.85)',
+                glass_border='rgba(0, 188, 212, 0.4)',
+                glass_shadow='0 8px 32px rgba(0, 188, 212, 0.35)'
             ),
             'styles': ThemeStyles(
                 border_radius='18px',
@@ -247,24 +247,24 @@ class ThemeManager:
             'name': '🌅 Sunset Orange (Fire)',
             'description': 'Warm sunset colors with orange and pink',
             'colors': ThemeColors(
-                primary='#FF6B35',
-                secondary='#D84315',
-                accent='#FF9E6D',
-                background='#1F1410',
-                surface='rgba(40, 25, 18, 0.90)',
-                text_primary='#FFF4E6',
-                text_secondary='#FFD4A3',
-                success='#52B788',
-                warning='#FFB627',
-                error='#D00000',
-                info='#219EBC',
-                border='rgba(255, 107, 53, 0.25)',
-                shadow='rgba(255, 107, 53, 0.3)',
-                gradient_start='#FF6B35',
-                gradient_end='#D84315',
-                glass_bg='rgba(40, 25, 18, 0.75)',
-                glass_border='rgba(255, 107, 53, 0.3)',
-                glass_shadow='0 8px 32px rgba(255, 107, 53, 0.3)'
+                primary='#FF7043',
+                secondary='#E64A19',
+                accent='#FFAB91',
+                background='#1A0F0A',
+                surface='rgba(45, 25, 15, 0.95)',
+                text_primary='#FFEDDA',
+                text_secondary='#FFD1B3',
+                success='#4CAF50',
+                warning='#FFC107',
+                error='#D32F2F',
+                info='#00BCD4',
+                border='rgba(255, 112, 67, 0.4)',
+                shadow='rgba(255, 112, 67, 0.4)',
+                gradient_start='#FF7043',
+                gradient_end='#E64A19',
+                glass_bg='rgba(45, 25, 15, 0.85)',
+                glass_border='rgba(255, 112, 67, 0.4)',
+                glass_shadow='0 8px 32px rgba(255, 112, 67, 0.35)'
             ),
             'styles': ThemeStyles(
                 border_radius='20px',
@@ -281,24 +281,24 @@ class ThemeManager:
             'name': '🌙 Midnight Indigo (Night)',
             'description': 'Deep indigo midnight theme',
             'colors': ThemeColors(
-                primary='#6366F1',
-                secondary='#4F46E5',
-                accent='#818CF8',
-                background='#0F0F23',
-                surface='rgba(20, 20, 45, 0.90)',
-                text_primary='#E0E7FF',
-                text_secondary='#C7D2FE',
+                primary='#7C3AED',
+                secondary='#6D28D9',
+                accent='#A78BFA',
+                background='#0F0A2E',
+                surface='rgba(25, 20, 50, 0.95)',
+                text_primary='#EDE9FE',
+                text_secondary='#C4B5FD',
                 success='#10B981',
                 warning='#F59E0B',
                 error='#EF4444',
-                info='#6366F1',
-                border='rgba(99, 102, 241, 0.25)',
-                shadow='rgba(99, 102, 241, 0.25)',
-                gradient_start='#6366F1',
-                gradient_end='#4F46E5',
-                glass_bg='rgba(20, 20, 45, 0.75)',
-                glass_border='rgba(99, 102, 241, 0.3)',
-                glass_shadow='0 8px 32px rgba(99, 102, 241, 0.25)'
+                info='#7C3AED',
+                border='rgba(124, 58, 237, 0.4)',
+                shadow='rgba(124, 58, 237, 0.4)',
+                gradient_start='#7C3AED',
+                gradient_end='#6D28D9',
+                glass_bg='rgba(25, 20, 50, 0.85)',
+                glass_border='rgba(124, 58, 237, 0.4)',
+                glass_shadow='0 8px 32px rgba(124, 58, 237, 0.35)'
             ),
             'styles': ThemeStyles(
                 border_radius='18px',
@@ -315,24 +315,24 @@ class ThemeManager:
             'name': '☢️ Toxic Green (Radioactive)',
             'description': 'Toxic radioactive green theme',
             'colors': ThemeColors(
-                primary='#7FFF00',
-                secondary='#66CC00',
-                accent='#9FFF66',
-                background='#0A1A08',
-                surface='rgba(15, 30, 12, 0.90)',
-                text_primary='#E6FFE0',
-                text_secondary='#B3FF99',
-                success='#7FFF00',
-                warning='#FFD600',
-                error='#FF3333',
+                primary='#ADFF2F',
+                secondary='#7CFC00',
+                accent='#BFFF00',
+                background='#0B1A05',
+                surface='rgba(18, 35, 10, 0.95)',
+                text_primary='#F5FFEB',
+                text_secondary='#C8E6C9',
+                success='#ADFF2F',
+                warning='#FFD700',
+                error='#FF4444',
                 info='#00E5CC',
-                border='rgba(127, 255, 0, 0.25)',
-                shadow='rgba(127, 255, 0, 0.35)',
-                gradient_start='#7FFF00',
-                gradient_end='#66CC00',
-                glass_bg='rgba(15, 30, 12, 0.75)',
-                glass_border='rgba(127, 255, 0, 0.3)',
-                glass_shadow='0 8px 32px rgba(127, 255, 0, 0.35)'
+                border='rgba(173, 255, 47, 0.4)',
+                shadow='rgba(173, 255, 47, 0.4)',
+                gradient_start='#ADFF2F',
+                gradient_end='#7CFC00',
+                glass_bg='rgba(18, 35, 10, 0.85)',
+                glass_border='rgba(173, 255, 47, 0.4)',
+                glass_shadow='0 8px 32px rgba(173, 255, 47, 0.35)'
             ),
             'styles': ThemeStyles(
                 border_radius='16px',
@@ -349,24 +349,24 @@ class ThemeManager:
             'name': '🍭 Pink Candy (Sweet)',
             'description': 'Sweet pink and purple candy theme',
             'colors': ThemeColors(
-                primary='#FF6AC2',
-                secondary='#FF1B8D',
-                accent='#FFB3E6',
-                background='#1F0A18',
-                surface='rgba(35, 15, 28, 0.90)',
-                text_primary='#FFE6F7',
-                text_secondary='#FFCCE6',
-                success='#5EFC82',
-                warning='#FFD60A',
-                error='#FF3366',
-                info='#66B3FF',
-                border='rgba(255, 106, 194, 0.25)',
-                shadow='rgba(255, 106, 194, 0.3)',
-                gradient_start='#FF6AC2',
-                gradient_end='#FF1B8D',
-                glass_bg='rgba(35, 15, 28, 0.75)',
-                glass_border='rgba(255, 106, 194, 0.3)',
-                glass_shadow='0 8px 32px rgba(255, 106, 194, 0.3)'
+                primary='#E91E8C',
+                secondary='#C2185B',
+                accent='#FF80AB',
+                background='#1A0A12',
+                surface='rgba(40, 15, 30, 0.95)',
+                text_primary='#FFDDEE',
+                text_secondary='#FFB3D9',
+                success='#4CAF50',
+                warning='#FFC107',
+                error='#D32F2F',
+                info='#00BCD4',
+                border='rgba(233, 30, 140, 0.4)',
+                shadow='rgba(233, 30, 140, 0.4)',
+                gradient_start='#E91E8C',
+                gradient_end='#C2185B',
+                glass_bg='rgba(40, 15, 30, 0.85)',
+                glass_border='rgba(233, 30, 140, 0.4)',
+                glass_shadow='0 8px 32px rgba(233, 30, 140, 0.35)'
             ),
             'styles': ThemeStyles(
                 border_radius='24px',
@@ -383,24 +383,24 @@ class ThemeManager:
             'name': '🍎 iOS Dark (Liquid Glass)',
             'description': 'Dark theme with teal-cyan gradients',
             'colors': ThemeColors(
-                primary='#30D5C8',
-                secondary='#00B4D8',
-                accent='#66FFE6',
-                background='#0D1117',
-                surface='rgba(22, 27, 34, 0.90)',
-                text_primary='#F0F6FC',
-                text_secondary='#8B949E',
-                success='#3FB950',
-                warning='#D29922',
-                error='#F85149',
-                info='#30D5C8',
-                border='rgba(48, 213, 200, 0.15)',
-                shadow='rgba(48, 213, 200, 0.2)',
-                gradient_start='#30D5C8',
-                gradient_end='#00B4D8',
-                glass_bg='rgba(22, 27, 34, 0.75)',
-                glass_border='rgba(48, 213, 200, 0.2)',
-                glass_shadow='0 8px 32px rgba(48, 213, 200, 0.2)'
+                primary='#30B0C8',
+                secondary='#0099BB',
+                accent='#64D9E5',
+                background='#0A0E15',
+                surface='rgba(20, 28, 40, 0.95)',
+                text_primary='#F2F5F9',
+                text_secondary='#A0A8B5',
+                success='#34C759',
+                warning='#FF9500',
+                error='#FF3B30',
+                info='#30B0C8',
+                border='rgba(48, 176, 200, 0.3)',
+                shadow='rgba(48, 176, 200, 0.3)',
+                gradient_start='#30B0C8',
+                gradient_end='#0099BB',
+                glass_bg='rgba(20, 28, 40, 0.85)',
+                glass_border='rgba(48, 176, 200, 0.3)',
+                glass_shadow='0 8px 32px rgba(48, 176, 200, 0.25)'
             ),
             'styles': ThemeStyles(
                 border_radius='20px',
@@ -454,20 +454,20 @@ class ThemeManager:
                 primary='#0EA5E9',
                 secondary='#0284C7',
                 accent='#38BDF8',
-                background='#FFFFFF',
-                surface='rgba(248, 250, 252, 0.98)',
+                background='#FAFBFC',
+                surface='rgba(255, 255, 255, 0.98)',
                 text_primary='#1E293B',
                 text_secondary='#64748B',
-                success='#10B981',
-                warning='#F59E0B',
-                error='#EF4444',
-                info='#3B82F6',
-                border='rgba(226, 232, 240, 0.8)',
-                shadow='rgba(0, 0, 0, 0.1)',
+                success='#16A34A',
+                warning='#D97706',
+                error='#DC2626',
+                info='#0284C7',
+                border='rgba(209, 213, 219, 0.8)',
+                shadow='rgba(0, 0, 0, 0.08)',
                 gradient_start='#0EA5E9',
                 gradient_end='#0284C7',
-                glass_bg='rgba(255, 255, 255, 0.90)',
-                glass_border='rgba(226, 232, 240, 0.7)',
+                glass_bg='rgba(255, 255, 255, 0.92)',
+                glass_border='rgba(209, 213, 219, 0.7)',
                 glass_shadow='0 4px 24px rgba(0, 0, 0, 0.08)'
             ),
             'styles': ThemeStyles(
@@ -489,20 +489,20 @@ class ThemeManager:
                 secondary='#8BE9FD',
                 accent='#FF79C6',
                 background='#282A36',
-                surface='rgba(68, 71, 90, 0.90)',
+                surface='rgba(68, 71, 90, 0.95)',
                 text_primary='#F8F8F2',
                 text_secondary='#6272A4',
                 success='#50FA7B',
                 warning='#F1FA8C',
                 error='#FF5555',
                 info='#8BE9FD',
-                border='rgba(189, 147, 249, 0.25)',
-                shadow='rgba(189, 147, 249, 0.25)',
+                border='rgba(189, 147, 249, 0.35)',
+                shadow='rgba(189, 147, 249, 0.35)',
                 gradient_start='#BD93F9',
                 gradient_end='#8BE9FD',
-                glass_bg='rgba(68, 71, 90, 0.75)',
-                glass_border='rgba(189, 147, 249, 0.3)',
-                glass_shadow='0 8px 32px rgba(189, 147, 249, 0.25)'
+                glass_bg='rgba(68, 71, 90, 0.85)',
+                glass_border='rgba(189, 147, 249, 0.35)',
+                glass_shadow='0 8px 32px rgba(189, 147, 249, 0.3)'
             ),
             'styles': ThemeStyles(
                 border_radius='18px',
@@ -563,19 +563,21 @@ class ThemeManager:
         colors = theme['colors']
         styles = theme['styles']
         
-        is_light_theme = any(x in theme_name.lower() for x in ['light', 'ios_liquid_glass_light'])
+        is_light_theme = any(x in theme_name.lower() for x in ['light', 'ios_liquid_glass_light', 'modern_light'])
         
         if is_light_theme:
             bg_surface = '#F1F5F9'
             surface_hex = '#FFFFFF'
             text_color_on_primary = '#FFFFFF'
+            button_hover_shadow = f'0 0 20px rgba(14, 165, 233, 0.3)'
         else:
             bg_surface = colors.background
             surface_rgba = colors.surface.replace('rgba', '').replace('(', '').replace(')', '').split(',')
             r, g, b = int(float(surface_rgba[0])), int(float(surface_rgba[1])), int(float(surface_rgba[2]))
             surface_hex = f"#{r:02x}{g:02x}{b:02x}"
             
-            text_color_on_primary = '#000000' if any(x in theme_name.lower() for x in ['cyber', 'toxic', 'golden', 'sunset']) else '#FFFFFF'
+            text_color_on_primary = '#FFFFFF'
+            button_hover_shadow = f'0 0 20px {colors.primary}'
         
         return f'''
 QWidget {{
@@ -606,7 +608,7 @@ QPushButton:hover {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                                stop:0 {colors.gradient_end},
                                stop:1 {colors.gradient_start});
-    box-shadow: 0 0 20px {colors.primary};
+    box-shadow: {button_hover_shadow};
 }}
 
 QPushButton:pressed {{
@@ -622,23 +624,24 @@ QPushButton:disabled {{
 QLineEdit, QTextEdit, QPlainTextEdit {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 2px solid {colors.border.split(',')[0].replace('rgba(', '').replace(')', '').split()[0]};
+    border: 2px solid {colors.border};
     border-radius: 10px;
     padding: 10px 14px;
     selection-background-color: {colors.primary};
     selection-color: {text_color_on_primary};
+    font-size: 13px;
 }}
 
 QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
     border: 2px solid {colors.primary};
-    background-color: {colors.background};
-    box-shadow: 0 0 15px {colors.primary};
+    background-color: {surface_hex};
+    box-shadow: 0 0 12px {colors.primary};
 }}
 
 QTableWidget {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 2px solid {bg_surface};
+    border: 2px solid {colors.border};
     border-radius: 12px;
     gridline-color: {bg_surface};
 }}
@@ -651,10 +654,12 @@ QTableWidget::item {{
 QTableWidget::item:selected {{
     background-color: {colors.primary};
     color: {text_color_on_primary};
+    font-weight: 600;
 }}
 
 QTableWidget::item:hover {{
     background-color: {colors.accent};
+    color: {colors.text_primary};
 }}
 
 QHeaderView::section {{
@@ -719,31 +724,33 @@ QProgressBar::chunk {{
 QComboBox {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 2px solid {bg_surface};
+    border: 2px solid {colors.border};
     border-radius: 10px;
     padding: 8px 14px;
     min-height: 36px;
+    font-size: 13px;
 }}
 
 QComboBox:hover {{
     border: 2px solid {colors.primary};
-    box-shadow: 0 0 10px {colors.primary};
 }}
 
 QComboBox:focus {{
     border: 2px solid {colors.primary};
+    box-shadow: 0 0 10px {colors.primary};
 }}
 
 QComboBox::drop-down {{
     border: none;
     width: 32px;
+    background-color: transparent;
 }}
 
 QComboBox::down-arrow {{
     image: none;
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
-    border-top: 6px solid {colors.text_primary};
+    border-top: 8px solid {colors.primary};
     margin-right: 12px;
 }}
 
@@ -755,6 +762,7 @@ QComboBox QAbstractItemView {{
     selection-background-color: {colors.primary};
     selection-color: {text_color_on_primary};
     padding: 4px;
+    outline: none;
 }}
 
 QScrollBar:vertical {{
@@ -814,10 +822,11 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{
 QLabel {{
     color: {colors.text_primary};
     background-color: transparent;
+    font-size: 14px;
 }}
 
 QGroupBox {{
-    border: 2px solid {bg_surface};
+    border: 2px solid {colors.border};
     border-radius: 14px;
     margin-top: 12px;
     padding-top: 12px;
@@ -831,25 +840,31 @@ QGroupBox::title {{
     subcontrol-position: top left;
     padding: 0 12px;
     color: {colors.primary};
+    font-weight: 700;
 }}
 
 QCheckBox {{
     color: {colors.text_primary};
     spacing: 10px;
     font-size: 14px;
+    padding: 4px;
+}}
+
+QCheckBox:hover {{
+    color: {colors.primary};
 }}
 
 QCheckBox::indicator {{
     width: 22px;
     height: 22px;
     border-radius: 6px;
-    border: 2px solid {bg_surface};
+    border: 2px solid {colors.border};
     background-color: {surface_hex};
 }}
 
 QCheckBox::indicator:hover {{
     border-color: {colors.primary};
-    box-shadow: 0 0 8px {colors.primary};
+    background-color: {bg_surface};
 }}
 
 QCheckBox::indicator:checked {{
@@ -863,19 +878,24 @@ QRadioButton {{
     color: {colors.text_primary};
     spacing: 10px;
     font-size: 14px;
+    padding: 4px;
+}}
+
+QRadioButton:hover {{
+    color: {colors.primary};
 }}
 
 QRadioButton::indicator {{
     width: 22px;
     height: 22px;
     border-radius: 11px;
-    border: 2px solid {bg_surface};
+    border: 2px solid {colors.border};
     background-color: {surface_hex};
 }}
 
 QRadioButton::indicator:hover {{
     border-color: {colors.primary};
-    box-shadow: 0 0 8px {colors.primary};
+    background-color: {bg_surface};
 }}
 
 QRadioButton::indicator:checked {{
@@ -895,10 +915,11 @@ QStatusBar {{
 QSpinBox, QDoubleSpinBox {{
     background-color: {surface_hex};
     color: {colors.text_primary};
-    border: 2px solid {bg_surface};
+    border: 2px solid {colors.border};
     border-radius: 10px;
     padding: 8px 14px;
     min-height: 36px;
+    font-size: 13px;
 }}
 
 QSpinBox:focus, QDoubleSpinBox:focus {{
@@ -906,10 +927,28 @@ QSpinBox:focus, QDoubleSpinBox:focus {{
     box-shadow: 0 0 10px {colors.primary};
 }}
 
+QSpinBox::up-button, QDoubleSpinBox::up-button {{
+    width: 32px;
+    border-left: 1px solid {colors.border};
+    background-color: {colors.background};
+}}
+
+QSpinBox::down-button, QDoubleSpinBox::down-button {{
+    width: 32px;
+    border-left: 1px solid {colors.border};
+    background-color: {colors.background};
+}}
+
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+    background-color: {colors.primary};
+}}
+
 QFrame {{
-    border: 2px solid {bg_surface};
+    border: 2px solid {colors.border};
     border-radius: 12px;
     background-color: {surface_hex};
+    padding: 8px;
 }}
 '''
     
