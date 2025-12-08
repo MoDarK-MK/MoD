@@ -6,12 +6,29 @@ import hashlib
 import itertools
 import binascii
 import re
+import socket
+import struct
+import logging
 from typing import List, Callable, Dict, Set, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import time
+from collections import defaultdict
+
+# Import enhanced components
+try:
+    from .waf_bypass_engine_v2 import (
+        PacketFrame, TraceReport, PacketInspector, ProxyConfig, ProxySession,
+        EnhancedWAFBypassEngine
+    )
+except ImportError:
+    # Fallback if v2 not available
+    PacketInspector = None
+    ProxyConfig = None
+    ProxySession = None
+    EnhancedWAFBypassEngine = None
 
 class WAFType(Enum):
     CLOUDFLARE = "cloudflare"
@@ -63,6 +80,9 @@ class BypassTestResult:
     bypassed: bool
     response_content: str = ""
     timestamp: float = field(default_factory=time.time)
+    trace_report: Optional[Any] = None  # TraceReport object
+    waf_indicators: List[str] = field(default_factory=list)
+    intercepted_request: Optional[Dict] = None
 
 class IntelligentPayloadGenerator:
     """Advanced Intelligent Payload Generator with ML-inspired mutations"""
@@ -307,9 +327,9 @@ class IntelligentPayloadGenerator:
         )
 
 class WAFBypassEngine:
-    """Advanced WAF Detection and Bypass Engine"""
+    """Advanced WAF Detection and Bypass Engine with Enhanced Packet Inspection"""
     
-    def __init__(self, max_workers: int = 20, max_combinations: int = 3000):
+    def __init__(self, max_workers: int = 20, max_combinations: int = 3000, enable_proxy: bool = False):
         self.max_workers = max_workers
         self.max_combinations = max_combinations
         self.payload_generator = IntelligentPayloadGenerator()
@@ -317,6 +337,18 @@ class WAFBypassEngine:
         self.vulnerabilities = []
         self.bypass_results = []
         self.lock = threading.Lock()
+        
+        # Initialize enhanced components
+        self.packet_inspector = PacketInspector() if PacketInspector else None
+        self.proxy_config = None
+        self.proxy_session = None
+        
+        if enable_proxy and ProxySession:
+            self.proxy_config = ProxyConfig()
+            self.proxy_session = ProxySession(self.proxy_config)
+        
+        self.trace_reports = {}
+        self.intercepted_requests = []
         
         self.waf_signatures = {
             WAFType.CLOUDFLARE: ['cf-ray', 'cloudflare', '__cfduid'],
@@ -328,6 +360,8 @@ class WAFBypassEngine:
             WAFType.FORTIWEB: ['fortiweb', 'fortigate'],
             WAFType.BARRACUDA: ['barracuda', 'barra'],
         }
+        
+        self.logger = logging.getLogger('WAFBypassEngine')
     
     def detect_waf(self, response: Dict) -> WAFDetectionResult:
         """Detect WAF from response"""
@@ -506,3 +540,153 @@ class WAFBypassEngine:
         with self.lock:
             self.vulnerabilities.clear()
             self.bypass_results.clear()
+    
+    # ========================================================================
+    # ENHANCED PACKET INSPECTION AND PROXY SUPPORT
+    # ========================================================================
+    
+    def enable_proxy(self, proxy_host: str, proxy_port: int, username: str = None, password: str = None):
+        """Enable proxy for packet inspection and request capture"""
+        if not ProxyConfig or not ProxySession:
+            self.logger.warning("Proxy support not available")
+            return False
+        
+        self.proxy_config = ProxyConfig(
+            proxy_type='http',
+            proxy_host=proxy_host,
+            proxy_port=proxy_port,
+            username=username,
+            password=password
+        )
+        self.proxy_config.enabled = True
+        self.proxy_session = ProxySession(self.proxy_config)
+        self.logger.info(f"Proxy enabled: {self.proxy_config.get_proxy_url()}")
+        return True
+    
+    def disable_proxy(self):
+        """Disable proxy"""
+        if self.proxy_config:
+            self.proxy_config.enabled = False
+            self.logger.info("Proxy disabled")
+    
+    def enable_packet_inspection(self):
+        """Enable packet inspection mode"""
+        if self.proxy_config:
+            self.proxy_config.enable_intercept()
+            self.logger.info("Packet inspection enabled")
+        else:
+            self.logger.warning("Proxy must be enabled first")
+    
+    def disable_packet_inspection(self):
+        """Disable packet inspection mode"""
+        if self.proxy_config:
+            self.proxy_config.disable_intercept()
+            self.logger.info("Packet inspection disabled")
+    
+    def get_intercepted_requests(self) -> List[Dict]:
+        """Get all intercepted requests from proxy"""
+        if self.proxy_config:
+            return self.proxy_config.get_intercepted_requests()
+        return []
+    
+    def export_trace_logs(self, output_file: str = None) -> Dict:
+        """Export all trace logs"""
+        if self.proxy_session:
+            return self.proxy_session.export_traces(output_file)
+        return {}
+    
+    def get_trace_reports(self) -> Dict:
+        """Get all trace reports"""
+        if self.proxy_session:
+            return self.proxy_session.get_trace_reports()
+        return {}
+    
+    def test_bypass_with_tracing(self, target_url: str, payloads: List[WAFBypassPayload], 
+                                param_name: str = 'test') -> List[BypassTestResult]:
+        """Test bypass payloads with packet tracing using proxy"""
+        if not self.proxy_session:
+            # Fallback to regular testing
+            return self.test_bypass(target_url, payloads, None, param_name)
+        
+        results = []
+        
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = {
+                executor.submit(
+                    self._test_single_payload_with_trace,
+                    target_url, payload, param_name
+                ): payload for payload in payloads
+            }
+            
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    results.append(result)
+                    with self.lock:
+                        self.bypass_results.append(result)
+        
+        return results
+    
+    def _test_single_payload_with_trace(self, url: str, payload: WAFBypassPayload, 
+                                        param_name: str) -> Optional[BypassTestResult]:
+        """Test single payload with packet tracing"""
+        try:
+            test_url = f"{url}?{param_name}={payload.bypassed_payload}"
+            
+            start_time = time.time()
+            response = self.proxy_session.get(test_url, trace_enabled=True)
+            response_time = time.time() - start_time
+            
+            if not response:
+                return None
+            
+            blocked = response.status_code in [403, 406, 429, 503]
+            bypassed = response.status_code == 200 and not blocked
+            
+            # Get trace report
+            trace_reports = self.proxy_session.get_trace_reports()
+            trace_report = list(trace_reports.values())[0] if trace_reports else None
+            
+            waf_indicators = trace_report.waf_indicators if trace_report else []
+            
+            result = BypassTestResult(
+                payload=payload,
+                status_code=response.status_code,
+                response_time=response_time,
+                blocked=blocked,
+                bypassed=bypassed,
+                response_content=response.text[:500]
+            )
+            
+            # Add trace info if available
+            if trace_report:
+                result.trace_report = trace_report
+                result.waf_indicators = waf_indicators
+            
+            return result
+        except Exception as e:
+            self.logger.error(f"Test failed: {str(e)}")
+            return None
+    
+    def get_packet_statistics(self) -> Dict:
+        """Get packet capture statistics"""
+        if self.packet_inspector:
+            stats = {
+                'total_frames': len(self.packet_inspector.frames),
+                'total_reports': len(self.packet_inspector.trace_reports),
+                'waf_signatures_detected': 0
+            }
+            
+            for report in self.packet_inspector.trace_reports.values():
+                stats['waf_signatures_detected'] += len(report.waf_indicators)
+            
+            return stats
+        return {}
+    
+    def clear_proxy_logs(self):
+        """Clear proxy logs and intercepted requests"""
+        if self.proxy_config:
+            self.proxy_config.clear_logs()
+        if self.packet_inspector:
+            self.packet_inspector.trace_reports.clear()
+            self.packet_inspector.frames.clear()
