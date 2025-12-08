@@ -16,8 +16,8 @@ class SubdomainTab(QWidget):
     
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(6, 6, 6, 6)
+        main_layout.setSpacing(4)
         
         input_group = QGroupBox('Domain Configuration')
         input_layout = QFormLayout()
@@ -36,17 +36,17 @@ class SubdomainTab(QWidget):
         button_layout = QHBoxLayout()
         
         self.scan_button = QPushButton('🔍 Start Enumeration')
-        self.scan_button.setMinimumHeight(32)
+        self.scan_button.setMinimumHeight(24)
         self.scan_button.clicked.connect(self.start_scan)
         button_layout.addWidget(self.scan_button)
         
         self.export_button = QPushButton('💾 Export Results')
-        self.export_button.setMinimumHeight(32)
+        self.export_button.setMinimumHeight(24)
         self.export_button.clicked.connect(self.export_results)
         button_layout.addWidget(self.export_button)
         
         self.clear_button = QPushButton('🗑️ Clear')
-        self.clear_button.setMinimumHeight(32)
+        self.clear_button.setMinimumHeight(24)
         self.clear_button.clicked.connect(self.clear_results)
         button_layout.addWidget(self.clear_button)
         

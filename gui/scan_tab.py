@@ -419,8 +419,8 @@ class ScanTab(QWidget):
     
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(6, 6, 6, 6)
+        main_layout.setSpacing(4)
         
         target_group = QGroupBox('Target Configuration')
         target_layout = QFormLayout()
@@ -434,7 +434,7 @@ class ScanTab(QWidget):
         
         scanner_group = QGroupBox('Scanner Selection')
         scanner_layout = QGridLayout()
-        scanner_layout.setSpacing(8)
+        scanner_layout.setSpacing(4)
         
         self.xss_checkbox = QCheckBox('🔴 XSS Injection')
         self.sql_checkbox = QCheckBox('💉 SQL Injection')
@@ -510,18 +510,18 @@ class ScanTab(QWidget):
         button_layout = QHBoxLayout()
         
         self.start_button = QPushButton('▶️ Start Scan')
-        self.start_button.setMinimumHeight(32)
+        self.start_button.setMinimumHeight(24)
         self.start_button.clicked.connect(self.start_scan)
         button_layout.addWidget(self.start_button)
         
         self.stop_button = QPushButton('⏹️ Stop Scan')
-        self.stop_button.setMinimumHeight(32)
+        self.stop_button.setMinimumHeight(24)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_scan)
         button_layout.addWidget(self.stop_button)
         
         self.clear_button = QPushButton('🗑️ Clear')
-        self.clear_button.setMinimumHeight(32)
+        self.clear_button.setMinimumHeight(24)
         self.clear_button.clicked.connect(self.clear_inputs)
         button_layout.addWidget(self.clear_button)
         

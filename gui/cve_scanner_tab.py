@@ -22,8 +22,8 @@ class POCDialog(QDialog):
 
     def init_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(4)
 
         header_layout = QHBoxLayout()
         title = QLabel(f"{self.poc_data['cve_id']} - {self.poc_data['cve_name']}")
@@ -86,8 +86,8 @@ class POCDialog(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         copy_btn = QPushButton('COPY ALL')
-        copy_btn.setMinimumHeight(32)
-        copy_btn.setMinimumWidth(100)
+        copy_btn.setMinimumHeight(24)
+        copy_btn.setMinimumWidth(70)
         copy_btn.clicked.connect(self.copy_to_clipboard)
         copy_btn.setStyleSheet("""
             QPushButton {
@@ -106,8 +106,8 @@ class POCDialog(QDialog):
         """)
         button_layout.addWidget(copy_btn)
         close_btn = QPushButton('CLOSE')
-        close_btn.setMinimumHeight(32)
-        close_btn.setMinimumWidth(100)
+        close_btn.setMinimumHeight(24)
+        close_btn.setMinimumWidth(70)
         close_btn.clicked.connect(self.accept)
         close_btn.setStyleSheet("""
             QPushButton {
@@ -329,8 +329,8 @@ class CVEScannerTab(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(6, 6, 6, 6)
+        main_layout.setSpacing(4)
         header_layout = QHBoxLayout()
         title = QLabel('CVE VULNERABILITY SCANNER')
         title.setStyleSheet("""
@@ -381,7 +381,7 @@ class CVEScannerTab(QWidget):
         panel = QWidget()
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setSpacing(4)
 
         config_group = QGroupBox('TARGET CONFIGURATION')
         config_layout = QVBoxLayout()
@@ -390,7 +390,7 @@ class CVEScannerTab(QWidget):
         url_layout.addWidget(url_label)
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText('https://example.com')
-        self.target_input.setMinimumHeight(28)
+        self.target_input.setMinimumHeight(20)
         url_layout.addWidget(self.target_input, 1)
         config_layout.addLayout(url_layout)
         options_layout = QHBoxLayout()
@@ -399,13 +399,13 @@ class CVEScannerTab(QWidget):
         self.timeout_combo = QComboBox()
         self.timeout_combo.addItems(['5s', '10s', '15s', '30s'])
         self.timeout_combo.setCurrentText('10s')
-        self.timeout_combo.setMinimumHeight(28)
+        self.timeout_combo.setMinimumHeight(20)
         options_layout.addWidget(self.timeout_combo)
         severity_label = QLabel('SEVERITY:')
         options_layout.addWidget(severity_label)
         self.severity_combo = QComboBox()
         self.severity_combo.addItems(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'])
-        self.severity_combo.setMinimumHeight(28)
+        self.severity_combo.setMinimumHeight(20)
         options_layout.addWidget(self.severity_combo)
         options_layout.addStretch()
         config_layout.addLayout(options_layout)
@@ -422,11 +422,11 @@ class CVEScannerTab(QWidget):
 
         control_layout = QHBoxLayout()
         self.scan_button = QPushButton('START SCAN')
-        self.scan_button.setMinimumHeight(32)
+        self.scan_button.setMinimumHeight(24)
         self.scan_button.clicked.connect(self.start_scan)
         control_layout.addWidget(self.scan_button)
         self.stop_button = QPushButton('STOP')
-        self.stop_button.setMinimumHeight(32)
+        self.stop_button.setMinimumHeight(24)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_scan)
         control_layout.addWidget(self.stop_button)
@@ -437,7 +437,7 @@ class CVEScannerTab(QWidget):
         self.status_label = QLabel('Ready to scan')
         progress_layout.addWidget(self.status_label)
         self.progress_bar = QProgressBar()
-        self.progress_bar.setMinimumHeight(22)
+        self.progress_bar.setMinimumHeight(16)
         self.progress_bar.setValue(0)
         progress_layout.addWidget(self.progress_bar)
         stats_layout = QHBoxLayout()
