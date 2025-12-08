@@ -2,7 +2,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QCheckBox, QGroupBox,
                              QFormLayout, QSpinBox, QDoubleSpinBox, QProgressBar,
-                             QComboBox, QTextEdit, QMessageBox)
+                             QComboBox, QTextEdit, QMessageBox, QGridLayout)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 import requests
 import time
@@ -433,7 +433,8 @@ class ScanTab(QWidget):
         main_layout.addWidget(target_group)
         
         scanner_group = QGroupBox('Scanner Selection')
-        scanner_layout = QVBoxLayout()
+        scanner_layout = QGridLayout()
+        scanner_layout.setSpacing(8)
         
         self.xss_checkbox = QCheckBox('🔴 XSS Injection')
         self.sql_checkbox = QCheckBox('💉 SQL Injection')
@@ -450,17 +451,24 @@ class ScanTab(QWidget):
         self.ldap_checkbox = QCheckBox('🔐 LDAP Injection')
         self.oauth_checkbox = QCheckBox('🔑 OAuth2/SAML')
         
-        for checkbox in [self.xss_checkbox, self.sql_checkbox, self.rce_checkbox,
-                        self.cmd_checkbox, self.ssrf_checkbox, self.csrf_checkbox,
-                        self.xxe_checkbox, self.upload_checkbox, self.api_checkbox,
-                        self.websocket_checkbox, self.graphql_checkbox, self.ssti_checkbox,
-                        self.ldap_checkbox, self.oauth_checkbox]:
-            scanner_layout.addWidget(checkbox)
+        checkboxes = [
+            self.xss_checkbox, self.sql_checkbox, self.rce_checkbox,
+            self.cmd_checkbox, self.ssrf_checkbox, self.csrf_checkbox,
+            self.xxe_checkbox, self.upload_checkbox, self.api_checkbox,
+            self.websocket_checkbox, self.graphql_checkbox, self.ssti_checkbox,
+            self.ldap_checkbox, self.oauth_checkbox
+        ]
+        
+        for i, checkbox in enumerate(checkboxes):
+            row = i // 2
+            col = i % 2
+            scanner_layout.addWidget(checkbox, row, col)
             checkbox.setChecked(True)
         
+        button_row = (len(checkboxes) + 1) // 2
         select_all_btn = QPushButton('Select All / Deselect All')
         select_all_btn.clicked.connect(self.select_all_scanners)
-        scanner_layout.addWidget(select_all_btn)
+        scanner_layout.addWidget(select_all_btn, button_row, 0, 1, 2)
         
         scanner_group.setLayout(scanner_layout)
         main_layout.addWidget(scanner_group)

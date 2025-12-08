@@ -9,6 +9,7 @@ from gui.theme_manager import ThemeManager
 
 class SettingsTab(QWidget):
     theme_changed = pyqtSignal(str)
+    ui_size_changed = pyqtSignal(str)
     settings_changed = pyqtSignal(dict)
     
     def __init__(self, theme_manager: ThemeManager):
@@ -224,6 +225,25 @@ class SettingsTab(QWidget):
         
         display_layout = QVBoxLayout()
         display_layout.setSpacing(8)
+        
+        # UI Size setting
+        ui_size_layout = QHBoxLayout()
+        ui_size_label = QLabel('UI Element Size:')
+        ui_size_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 120px;')
+        ui_size_label.setMinimumHeight(32)
+        
+        self.ui_size_combo = QComboBox()
+        self.ui_size_combo.addItems(['Small', 'Medium', 'Large'])
+        self.ui_size_combo.setCurrentText('Medium')
+        self.ui_size_combo.setMinimumHeight(36)
+        self.ui_size_combo.setMaximumWidth(150)
+        self.ui_size_combo.setStyleSheet(combo_stylesheet)
+        self.ui_size_combo.currentTextChanged.connect(self.on_ui_size_changed)
+        
+        ui_size_layout.addWidget(ui_size_label)
+        ui_size_layout.addWidget(self.ui_size_combo)
+        ui_size_layout.addStretch()
+        display_layout.addLayout(ui_size_layout)
         
         auto_minimize_check = QCheckBox('Minimize to system tray')
         auto_minimize_check.setChecked(True)
@@ -877,6 +897,10 @@ With a valid API key, advanced POC generation and analysis will be available.
             self.theme_desc_label.setText(f'Theme: {theme_name}')
             self.theme_changed.emit(theme_key)
     
+    def on_ui_size_changed(self, size: str):
+        """Handle UI size change (Small/Medium/Large)"""
+        self.ui_size_changed.emit(size)
+    
     def on_provider_changed(self, provider: str):
         self.model_combo.clear()
         
@@ -1031,6 +1055,7 @@ With a valid API key, advanced POC generation and analysis will be available.
     def save_settings(self):
         settings = {
             'theme': self.theme_combo.itemData(self.theme_combo.currentIndex()),
+            'ui_size': self.ui_size_combo.currentText(),
             'ai_provider': self.ai_provider_combo.currentText(),
             'ai_model': self.model_combo.currentText() if self.model_combo.isEnabled() else '',
             'api_key': self.api_key_input.text(),
