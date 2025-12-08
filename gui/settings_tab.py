@@ -335,6 +335,112 @@ class SettingsTab(QWidget):
         update_freq_layout.addStretch()
         display_layout.addLayout(update_freq_layout)
         
+        # Discord webhook setting
+        discord_group = QGroupBox('🎮 DISCORD LOGGING')
+        discord_group.setStyleSheet(f"""
+            QGroupBox {{
+                color: {styles['text']};
+                font-weight: bold;
+                border: 2px solid {styles['border']};
+                border-radius: 8px;
+                padding-top: 12px;
+                background: {styles['surface']};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 8px;
+                color: {styles['primary']};
+            }}
+        """)
+        
+        discord_layout = QVBoxLayout()
+        discord_layout.setSpacing(8)
+        
+        # Discord webhook input
+        webhook_layout = QHBoxLayout()
+        webhook_label = QLabel('Discord Webhook URL:')
+        webhook_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 140px;')
+        webhook_label.setMinimumHeight(32)
+        
+        self.discord_webhook_input = QLineEdit()
+        self.discord_webhook_input.setPlaceholderText('https://discord.com/api/webhooks/...')
+        self.discord_webhook_input.setEchoMode(QLineEdit.EchoMode.Normal)
+        self.discord_webhook_input.setMinimumHeight(36)
+        self.discord_webhook_input.setStyleSheet(f"""
+            QLineEdit {{
+                background: {styles['background']};
+                color: {styles['text']};
+                border: 2px solid {styles['border']};
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 10pt;
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {styles['primary']};
+                background: {styles['surface']};
+            }}
+        """)
+        
+        webhook_layout.addWidget(webhook_label)
+        webhook_layout.addWidget(self.discord_webhook_input, 1)
+        discord_layout.addLayout(webhook_layout)
+        
+        # Discord log level setting
+        loglevel_layout = QHBoxLayout()
+        loglevel_label = QLabel('Log Level:')
+        loglevel_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 140px;')
+        loglevel_label.setMinimumHeight(32)
+        
+        self.discord_loglevel_combo = QComboBox()
+        self.discord_loglevel_combo.addItems(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
+        self.discord_loglevel_combo.setCurrentText('INFO')
+        self.discord_loglevel_combo.setMinimumHeight(36)
+        self.discord_loglevel_combo.setMaximumWidth(150)
+        self.discord_loglevel_combo.setStyleSheet(combo_stylesheet)
+        
+        loglevel_layout.addWidget(loglevel_label)
+        loglevel_layout.addWidget(self.discord_loglevel_combo)
+        loglevel_layout.addStretch()
+        discord_layout.addLayout(loglevel_layout)
+        
+        # Discord controls
+        controls_layout = QHBoxLayout()
+        controls_layout.addStretch()
+        
+        test_discord_btn = QPushButton('🧪 TEST')
+        test_discord_btn.setMinimumHeight(32)
+        test_discord_btn.setMaximumWidth(100)
+        test_discord_btn.clicked.connect(self.test_discord_webhook)
+        test_discord_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {styles['primary']};
+                color: white;
+                border: 2px solid {styles['primary']};
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 10pt;
+            }}
+            QPushButton:hover {{
+                background: rgba(0, 0, 0, 0.2);
+            }}
+        """)
+        controls_layout.addWidget(test_discord_btn)
+        
+        discord_layout.addLayout(controls_layout)
+        
+        # Discord info
+        info_layout = QHBoxLayout()
+        info_label = QLabel('💡 Logs will be sent to Discord webhook in real-time')
+        info_label.setStyleSheet(f'color: {styles["text_secondary"]}; font-size: 9pt;')
+        info_layout.addWidget(info_label)
+        info_layout.addStretch()
+        discord_layout.addLayout(info_layout)
+        
+        discord_group.setLayout(discord_layout)
+        display_layout.addSpacing(8)
+        display_layout.addWidget(discord_group)
+        
         display_group.setLayout(display_layout)
         layout.addWidget(display_group)
         
@@ -1087,10 +1193,53 @@ With a valid API key, advanced POC generation and analysis will be available.
             'show_notifications': self.notifications_check.isChecked(),
             'auto_update': self.auto_update_check.isChecked(),
             'update_frequency': self._get_frequency_days(self.update_freq_combo.currentText()),
+            'discord_webhook': self.discord_webhook_input.text(),
+            'discord_log_level': self.discord_loglevel_combo.currentText(),
         }
         
         self.settings_changed.emit(settings)
         QMessageBox.information(self, '✅ Success', 'Settings saved successfully!')
+    
+    def test_discord_webhook(self):
+        """Test Discord webhook connection"""
+        webhook_url = self.discord_webhook_input.text().strip()
+        
+        if not webhook_url:
+            QMessageBox.warning(self, '⚠️ Warning', 'Please enter a Discord webhook URL first')
+            return
+        
+        try:
+            import requests
+            
+            # Send test message to Discord
+            payload = {
+                'embeds': [{
+                    'title': '✅ MoD Connection Test',
+                    'description': 'Successfully connected to Discord webhook!',
+                    'color': 65280,  # Green
+                    'fields': [
+                        {
+                            'name': 'Status',
+                            'value': 'Active',
+                            'inline': True
+                        },
+                        {
+                            'name': 'Timestamp',
+                            'value': str(__import__('datetime').datetime.now()),
+                            'inline': True
+                        }
+                    ]
+                }]
+            }
+            
+            response = requests.post(webhook_url, json=payload, timeout=5)
+            
+            if response.status_code in [200, 204]:
+                QMessageBox.information(self, '✅ Success', 'Discord webhook is working correctly!')
+            else:
+                QMessageBox.warning(self, '❌ Error', f'Discord returned error code: {response.status_code}')
+        except Exception as e:
+            QMessageBox.critical(self, '❌ Error', f'Failed to connect to Discord:\n{str(e)}')
     
     def _get_frequency_days(self, frequency_text: str) -> int:
         """Convert frequency text to days"""

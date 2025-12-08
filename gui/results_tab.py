@@ -1,11 +1,12 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QTableWidget, QTableWidgetItem, QFileDialog,
-                             QMessageBox, QHeaderView, QComboBox)
+                             QMessageBox, QHeaderView, QComboBox, QInputDialog)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFont
 from utils.report_generator import ReportGenerator
 from utils.database import Database
 import json
+import requests
 
 class ResultsTab(QWidget):
     def __init__(self):
@@ -33,6 +34,10 @@ class ResultsTab(QWidget):
         self.export_json_btn = QPushButton('📋 Export JSON')
         self.export_json_btn.clicked.connect(self.export_json)
         toolbar_layout.addWidget(self.export_json_btn)
+        
+        self.export_discord_btn = QPushButton('🎮 Export to Discord')
+        self.export_discord_btn.clicked.connect(self.export_discord)
+        toolbar_layout.addWidget(self.export_discord_btn)
         
         self.severity_filter = QComboBox()
         self.severity_filter.addItems(['All', 'Critical', 'High', 'Medium', 'Low', 'Info'])
@@ -145,6 +150,107 @@ class ResultsTab(QWidget):
                 QMessageBox.information(self, 'Success', f'Report saved to {filename}')
             except Exception as e:
                 QMessageBox.critical(self, 'Error', f'Failed to export JSON: {str(e)}')
+    
+    def export_discord(self):
+        """Export scan results to Discord webhook"""
+        if not self.vulnerabilities:
+            QMessageBox.warning(self, 'Warning', 'No results to export')
+            return
+        
+        # Ask user for Discord webhook URL
+        webhook_url, ok = QInputDialog.getText(
+            self,
+            'Discord Webhook',
+            'Enter Discord webhook URL:',
+            text='https://discord.com/api/webhooks/'
+        )
+        
+        if not ok or not webhook_url:
+            return
+        
+        try:
+            # Group vulnerabilities by severity
+            severity_groups = {
+                'Critical': [],
+                'High': [],
+                'Medium': [],
+                'Low': [],
+                'Info': []
+            }
+            
+            for vuln in self.vulnerabilities:
+                severity = vuln.get('severity', 'Info')
+                if severity in severity_groups:
+                    severity_groups[severity].append(vuln)
+            
+            # Create summary embed
+            embeds = []
+            
+            # Summary embed
+            total_count = len(self.vulnerabilities)
+            summary_embed = {
+                'title': '🔒 Security Scan Report Summary',
+                'color': 0x0099ff,
+                'fields': [
+                    {'name': 'Total Vulnerabilities', 'value': str(total_count), 'inline': True},
+                    {'name': 'Critical', 'value': str(len(severity_groups['Critical'])), 'inline': True},
+                    {'name': 'High', 'value': str(len(severity_groups['High'])), 'inline': True},
+                    {'name': 'Medium', 'value': str(len(severity_groups['Medium'])), 'inline': True},
+                    {'name': 'Low', 'value': str(len(severity_groups['Low'])), 'inline': True},
+                    {'name': 'Info', 'value': str(len(severity_groups['Info'])), 'inline': True},
+                ]
+            }
+            embeds.append(summary_embed)
+            
+            # Vulnerability details (limit to 10 most critical)
+            displayed_count = 0
+            for severity in ['Critical', 'High', 'Medium', 'Low', 'Info']:
+                for vuln in severity_groups[severity]:
+                    if displayed_count >= 10:
+                        break
+                    
+                    severity_colors = {
+                        'Critical': 0xff0000,
+                        'High': 0xff6600,
+                        'Medium': 0xffff00,
+                        'Low': 0x00ff00,
+                        'Info': 0x0099ff
+                    }
+                    
+                    vuln_embed = {
+                        'title': f'{severity} - {vuln.get("type", "Unknown")}',
+                        'color': severity_colors.get(severity, 0x0099ff),
+                        'fields': [
+                            {'name': 'URL', 'value': vuln.get('url', 'N/A'), 'inline': False},
+                            {'name': 'Parameter', 'value': vuln.get('parameter', 'N/A'), 'inline': True},
+                            {'name': 'Description', 'value': vuln.get('description', 'N/A')[:100], 'inline': False},
+                        ]
+                    }
+                    embeds.append(vuln_embed)
+                    displayed_count += 1
+                
+                if displayed_count >= 10:
+                    break
+            
+            # Send to Discord (split into multiple messages if needed, max 10 embeds per message)
+            while embeds:
+                batch = embeds[:10]
+                embeds = embeds[10:]
+                
+                payload = {'embeds': batch}
+                response = requests.post(webhook_url, json=payload, timeout=10)
+                
+                if response.status_code not in [200, 204]:
+                    raise Exception(f'Discord returned error code: {response.status_code}')
+            
+            QMessageBox.information(
+                self,
+                'Success',
+                f'Successfully exported {total_count} vulnerabilities to Discord!'
+            )
+        
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Failed to export to Discord:\n{str(e)}')
     
     def export_results(self):
         if not self.vulnerabilities:

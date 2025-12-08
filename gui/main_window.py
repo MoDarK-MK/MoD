@@ -672,6 +672,27 @@ class MainWindow(QMainWindow):
                 self.update_status('🔄 Update checks disabled')
         except Exception as e:
             print(f"Error saving update settings: {e}")
+        
+        # Configure Discord logging
+        discord_webhook = settings.get('discord_webhook', '')
+        discord_log_level = settings.get('discord_log_level', 'INFO')
+        
+        try:
+            from utils.logger import Logger
+            logger = Logger('MoD')
+            
+            if discord_webhook:
+                # Enable Discord logging
+                if logger.enable_discord_logging(discord_webhook, discord_log_level):
+                    self.update_status(f'🎮 Discord logging enabled ({discord_log_level})')
+                else:
+                    self.update_status('⚠️ Failed to enable Discord logging')
+            else:
+                # Disable Discord logging if webhook is empty
+                logger.disable_discord_logging()
+                self.update_status('🎮 Discord logging disabled')
+        except Exception as e:
+            print(f"Error configuring Discord logging: {e}")
     
     def on_auth_configured(self, auth_manager):
         if hasattr(self.scan_tab, 'set_auth_manager'):

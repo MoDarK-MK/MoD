@@ -53,6 +53,53 @@ This patch introduces comprehensive support for **20+ AI providers** with intell
 - `get_connected_providers()` - List active connections
 - `send_discord_notification()` - New Discord webhook support
 
+### 🎮 Real-Time Discord Logging & Export
+
+Added comprehensive Discord integration for live application logging and scan result export:
+
+#### Discord Logging Features:
+
+- ✅ Real-time log streaming to Discord webhook
+- ✅ Color-coded log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- ✅ Configurable log level filtering (what gets sent to Discord)
+- ✅ Background thread processing (non-blocking logging)
+- ✅ Automatic message chunking for Discord limits (1900 chars)
+- ✅ Queue-based log delivery (100 item queue)
+- ✅ Embed-based formatting with timestamps
+- ✅ Logger context (name, module, function)
+
+#### Discord Export Features:
+
+- ✅ Export scan results directly to Discord
+- ✅ Results grouped by severity (Critical, High, Medium, Low, Info)
+- ✅ Summary embed showing vulnerability statistics
+- ✅ Detailed vulnerability embeds (top 10 most critical)
+- ✅ Color-coded severity levels in Discord
+- ✅ Batch embed sending for large result sets
+- ✅ Custom webhook URL support
+
+#### New Logger Methods:
+
+- `enable_discord_logging(webhook_url, min_level)` - Enable Discord webhook logging
+- `disable_discord_logging(webhook_url)` - Disable specific webhook
+- `get_active_webhooks()` - List active Discord webhooks
+
+#### Settings Tab Enhancements:
+
+- New Discord Logging section in Display Settings
+- Discord Webhook URL input field
+- Log Level selector (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- Test button to verify webhook connectivity
+- Real-time status updates in main window
+
+#### Results Tab Enhancements:
+
+- New "🎮 Export to Discord" button in toolbar
+- Interactive webhook URL prompt
+- Vulnerability grouping and severity sorting
+- Summary statistics in Discord embed
+- Multi-message batch support for large reports
+
 ### 🧹 Code Cleanup
 
 - **Removed temporary test files:**
@@ -96,19 +143,52 @@ All production code and essential test files remain intact:
 
 ## Technical Details
 
-- **Total Commits in this Patch:** 1
-- **Files Modified:** 81 (80 deletions, 1 enhancement)
-- **New Classes:** AIProvider (base class for provider abstraction)
+- **Total Commits in this Patch:** 3
+- **Files Modified:** 84 (80 deletions, 4 enhancements)
+- **New Classes:**
+  - AIProvider (base class for provider abstraction)
+  - DiscordHandler (logging.Handler for Discord webhooks)
 - **AI Provider Support:** 20+ providers with unified interface
+- **Discord Features:** Real-time logging + result export
 - **Retry Logic:** 3 attempts with timeout handling
 - **API Timeout:** 30 seconds default
-- **Code Lines Added:** ~350 (integration enhancements)
-- **Repository Impact:** Cleaner, production-ready codebase with AI capabilities
+- **Log Queue:** 100 items with background thread processing
+- **Code Lines Added:** ~550+ (AI integration + Discord logging)
+- **Repository Impact:** Production-ready codebase with advanced integrations
 - **Backward Compatibility:** ✅ Fully compatible with v4.0.0
 
 ## Usage Examples
 
-### Connecting to OpenAI:
+### Discord Logging Setup:
+
+```python
+from utils.logger import Logger
+
+# Create logger with Discord webhook
+logger = Logger('MoD', discord_webhook='https://discord.com/api/webhooks/...')
+
+# Or enable Discord logging on existing logger
+logger = Logger('MoD')
+logger.enable_discord_logging('https://discord.com/api/webhooks/...', min_level='INFO')
+
+# Logs will now be sent to Discord in real-time
+logger.info('Scan started')
+logger.warning('Potential vulnerability detected')
+logger.error('Connection timeout')
+```
+
+### Exporting Results to Discord:
+
+1. Complete a security scan
+2. Click "🎮 Export to Discord" in Results tab
+3. Enter your Discord webhook URL
+4. Results appear in Discord with:
+   - Summary statistics
+   - Top 10 critical vulnerabilities
+   - Color-coded severity levels
+   - Timestamp information
+
+### AI Integration (OpenAI example):
 
 ```python
 from utils.integration_manager import IntegrationManager
@@ -116,13 +196,6 @@ from utils.integration_manager import IntegrationManager
 manager = IntegrationManager()
 manager.connect_ai_provider('openai', api_key='sk-...')
 response = manager.send_ai_request('openai', 'Analyze this security report', model='gpt-4')
-```
-
-### Connecting to Anthropic Claude:
-
-```python
-manager.connect_ai_provider('anthropic', api_key='sk-ant-...')
-response = manager.send_ai_request('anthropic', 'Your prompt here')
 ```
 
 ### Local LLM (Self-hosted):
@@ -136,7 +209,7 @@ response = manager.send_ai_request('ollama', 'Prompt', model='llama2')
 
 ```python
 manager.set_discord_webhook('https://discord.com/api/webhooks/...')
-manager.send_discord_notification('Security scan completed', severity='info')
+manager.send_discord_notification('Critical vulnerability found!', severity='Critical')
 ```
 
 ## Installation/Update
