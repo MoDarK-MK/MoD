@@ -172,6 +172,14 @@ class UpdateCheckerWindow:
             button_layout = QHBoxLayout()
             button_layout.addStretch()
             
+            # Update button (shown only when update available)
+            self.update_button = QPushButton('⬇️ Download & Install')
+            self.update_button.clicked.connect(self._on_update)
+            self.update_button.setEnabled(False)
+            self.update_button.setVisible(False)
+            button_layout.addWidget(self.update_button)
+            
+            # Continue/Skip buttons
             self.check_button = QPushButton('✓ Continue')
             self.check_button.clicked.connect(self._on_continue)
             self.check_button.setEnabled(False)
@@ -208,16 +216,22 @@ class UpdateCheckerWindow:
             <p><b>Reason:</b> {status['error']}</p>
             <p>You can continue using the application.</p>
             """
+            self.update_button.setVisible(False)
+            self.check_button.setText('✓ Continue')
         elif update_available:
             info_html = f"""
             <h3 style="color: #4caf50;">✅ Update Available!</h3>
             <p><b>Current Version:</b> {status['current_version']}</p>
             <p><b>Latest Version:</b> {status['latest_version']}</p>
             <p><b>Release Name:</b> {status['info'].get('name', 'N/A')}</p>
-            <p><b>Description:</b></p>
-            <p>{status['info'].get('body', 'N/A')[:200]}...</p>
-            <p><a href="{status['info'].get('url', '#')}">View on GitHub →</a></p>
+            <p style="margin-top: 15px;"><b>📝 What's New:</b></p>
+            <p>{status['info'].get('body', 'N/A')[:300]}</p>
+            <p style="margin-top: 10px; font-size: 10pt; color: #999;">
+            <a href="{status['info'].get('url', '#')}" style="color: #667eea; text-decoration: none;">View Full Release Notes on GitHub →</a>
+            </p>
             """
+            self.update_button.setVisible(True)
+            self.check_button.setText('✓ Continue')
         else:
             info_html = f"""
             <h3 style="color: #2196f3;">✓ You're Up to Date</h3>
@@ -225,21 +239,26 @@ class UpdateCheckerWindow:
             <p>You are running the latest version of MoD.</p>
             <p>Last checked: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
             """
+            self.update_button.setVisible(False)
+            self.check_button.setText('✓ Continue')
         
         self.info_text.setHtml(info_html)
         self.check_button.setEnabled(True)
-        self.check_button.setText('✓ Continue' if not update_available else '↓ Download & Continue')
+        self.update_button.setEnabled(True)
         
         self.result = status
     
     def _on_continue(self):
+        self.window.accept()
+    
+    def _on_update(self):
+        """Handle update button click - open GitHub release page"""
         if self.checker.update_available and self.checker.update_info.get('url'):
             try:
                 import webbrowser
                 webbrowser.open(self.checker.update_info['url'])
-            except:
-                pass
-        
+            except Exception as e:
+                print(f"Error opening browser: {e}")
         self.window.accept()
     
     def _on_skip(self):
