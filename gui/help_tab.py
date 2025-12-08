@@ -50,21 +50,48 @@ class HelpTab(QWidget):
         
         text_edit = QTextEdit()
         text_edit.setReadOnly(True)
-        text_edit.setHtml(content)
+        formatted_content = self.format_html_content(content)
+        text_edit.setHtml(formatted_content)
         text_edit.setStyleSheet("""
             QTextEdit {
-                background-color: #f5f5f5;
-                border: 1px solid #ddd;
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+                border: 1px solid #404040;
                 border-radius: 5px;
                 padding: 10px;
                 font-family: 'Segoe UI', Arial, sans-serif;
                 font-size: 11pt;
+            }
+            QTextEdit:focus {
+                border: 1px solid #667eea;
             }
         """)
         
         layout.addWidget(text_edit)
         widget.setLayout(layout)
         return widget
+    
+    def format_html_content(self, content: str) -> str:
+        """Format HTML content with proper colors for dark theme"""
+        # Add CSS styles for dark theme
+        dark_theme_css = """
+        <style>
+            body { color: #e0e0e0; }
+            h2 { color: #667eea !important; margin-top: 20px; margin-bottom: 10px; }
+            h3 { color: #58a6ff !important; margin-top: 15px; margin-bottom: 8px; }
+            h4 { color: #79c0ff !important; margin-top: 12px; margin-bottom: 6px; }
+            p { color: #e0e0e0; line-height: 1.5; }
+            li { color: #e0e0e0; line-height: 1.5; }
+            pre { background: #2d2d2d !important; color: #00ff00 !important; padding: 10px; border-radius: 5px; border: 1px solid #404040; overflow-x: auto; }
+            code { background: #2d2d2d; color: #00ff00; padding: 2px 6px; border-radius: 3px; }
+            b { color: #58a6ff; font-weight: bold; }
+            a { color: #667eea; text-decoration: none; }
+            a:hover { color: #79c0ff; text-decoration: underline; }
+            ol, ul { margin-left: 20px; }
+            hr { border: 1px solid #404040; }
+        </style>
+        """
+        return dark_theme_css + content
     
     def create_getting_started(self):
         content = """
