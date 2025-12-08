@@ -118,8 +118,8 @@ class ScannerSelectionDialog(QDialog):
         self.setMinimumSize(900, 700)
         
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(12)
         
         title_label = QLabel('🔍 ADVANCED SCANNER SELECTION')
         title_font = QFont()
@@ -201,16 +201,16 @@ class ScannerSelectionDialog(QDialog):
         main_layout.addWidget(scroll_area)
         
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(15)
+        button_layout.setSpacing(12)
         
         apply_btn = QPushButton('✅ Apply Selection')
-        apply_btn.setMinimumHeight(45)
+        apply_btn.setMinimumHeight(36)
         apply_btn.setMinimumWidth(180)
         apply_btn.clicked.connect(self.accept)
         button_layout.addWidget(apply_btn)
         
         cancel_btn = QPushButton('❌ Cancel')
-        cancel_btn.setMinimumHeight(45)
+        cancel_btn.setMinimumHeight(36)
         cancel_btn.setMinimumWidth(180)
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(cancel_btn)

@@ -22,8 +22,8 @@ class POCDialog(QDialog):
 
     def init_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(12)
 
         header_layout = QHBoxLayout()
         title = QLabel(f"{self.poc_data['cve_id']} - {self.poc_data['cve_name']}")
@@ -86,7 +86,7 @@ class POCDialog(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         copy_btn = QPushButton('COPY ALL')
-        copy_btn.setMinimumHeight(40)
+        copy_btn.setMinimumHeight(36)
         copy_btn.setMinimumWidth(120)
         copy_btn.clicked.connect(self.copy_to_clipboard)
         copy_btn.setStyleSheet("""
@@ -106,7 +106,7 @@ class POCDialog(QDialog):
         """)
         button_layout.addWidget(copy_btn)
         close_btn = QPushButton('CLOSE')
-        close_btn.setMinimumHeight(40)
+        close_btn.setMinimumHeight(36)
         close_btn.setMinimumWidth(120)
         close_btn.clicked.connect(self.accept)
         close_btn.setStyleSheet("""
@@ -329,8 +329,8 @@ class CVEScannerTab(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(12)
         header_layout = QHBoxLayout()
         title = QLabel('CVE VULNERABILITY SCANNER')
         title.setStyleSheet("""
@@ -390,7 +390,7 @@ class CVEScannerTab(QWidget):
         url_layout.addWidget(url_label)
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText('https://example.com')
-        self.target_input.setMinimumHeight(40)
+        self.target_input.setMinimumHeight(36)
         url_layout.addWidget(self.target_input, 1)
         config_layout.addLayout(url_layout)
         options_layout = QHBoxLayout()
@@ -422,11 +422,11 @@ class CVEScannerTab(QWidget):
 
         control_layout = QHBoxLayout()
         self.scan_button = QPushButton('START SCAN')
-        self.scan_button.setMinimumHeight(50)
+        self.scan_button.setMinimumHeight(36)
         self.scan_button.clicked.connect(self.start_scan)
         control_layout.addWidget(self.scan_button)
         self.stop_button = QPushButton('STOP')
-        self.stop_button.setMinimumHeight(50)
+        self.stop_button.setMinimumHeight(36)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_scan)
         control_layout.addWidget(self.stop_button)
@@ -437,7 +437,7 @@ class CVEScannerTab(QWidget):
         self.status_label = QLabel('Ready to scan')
         progress_layout.addWidget(self.status_label)
         self.progress_bar = QProgressBar()
-        self.progress_bar.setMinimumHeight(30)
+        self.progress_bar.setMinimumHeight(22)
         self.progress_bar.setValue(0)
         progress_layout.addWidget(self.progress_bar)
         stats_layout = QHBoxLayout()

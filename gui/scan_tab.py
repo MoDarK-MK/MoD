@@ -419,8 +419,8 @@ class ScanTab(QWidget):
     
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(30, 30, 30, 30)
-        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(12)
         
         target_group = QGroupBox('Target Configuration')
         target_layout = QFormLayout()
@@ -502,18 +502,18 @@ class ScanTab(QWidget):
         button_layout = QHBoxLayout()
         
         self.start_button = QPushButton('▶️ Start Scan')
-        self.start_button.setMinimumHeight(50)
+        self.start_button.setMinimumHeight(36)
         self.start_button.clicked.connect(self.start_scan)
         button_layout.addWidget(self.start_button)
         
         self.stop_button = QPushButton('⏹️ Stop Scan')
-        self.stop_button.setMinimumHeight(50)
+        self.stop_button.setMinimumHeight(36)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_scan)
         button_layout.addWidget(self.stop_button)
         
         self.clear_button = QPushButton('🗑️ Clear')
-        self.clear_button.setMinimumHeight(50)
+        self.clear_button.setMinimumHeight(36)
         self.clear_button.clicked.connect(self.clear_inputs)
         button_layout.addWidget(self.clear_button)
         

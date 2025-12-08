@@ -55,8 +55,8 @@ class CORSTab(QWidget):
     def init_ui(self) -> None:
         """Initialize user interface."""
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(30, 30, 30, 30)
-        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(12)
         
         # Input configuration group
         input_group = QGroupBox('🔍 CORS Configuration')
@@ -65,7 +65,7 @@ class CORSTab(QWidget):
         
         self.target_url_input = QLineEdit()
         self.target_url_input.setPlaceholderText('Enter target URL (e.g., http://example.com)')
-        self.target_url_input.setMinimumHeight(35)
+        self.target_url_input.setMinimumHeight(32)
         input_layout.addRow('Target URL:', self.target_url_input)
         
         # Custom origins input
@@ -80,25 +80,25 @@ class CORSTab(QWidget):
         
         # Control buttons
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(10)
+        button_layout.setSpacing(8)
         
         scan_button = QPushButton('🔬 Start CORS Scan')
-        scan_button.setMinimumHeight(40)
+        scan_button.setMinimumHeight(36)
         scan_button.clicked.connect(self.start_scan)
         button_layout.addWidget(scan_button)
         
-        generate_poc_button = QPushButton('📝 Generate PoC')
-        generate_poc_button.setMinimumHeight(40)
+        generate_poc_button = QPushButton('📏 Generate PoC')
+        generate_poc_button.setMinimumHeight(36)
         generate_poc_button.clicked.connect(self.generate_poc)
         button_layout.addWidget(generate_poc_button)
         
         export_button = QPushButton('💾 Export Results')
-        export_button.setMinimumHeight(40)
+        export_button.setMinimumHeight(36)
         export_button.clicked.connect(self.export_results)
         button_layout.addWidget(export_button)
         
         clear_button = QPushButton('🗑️ Clear All')
-        clear_button.setMinimumHeight(40)
+        clear_button.setMinimumHeight(36)
         clear_button.clicked.connect(self.clear_all)
         button_layout.addWidget(clear_button)
         

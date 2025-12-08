@@ -18,12 +18,12 @@ class SettingsTab(QWidget):
     
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(12)
         
         title = QLabel('⚙️ APPLICATION SETTINGS')
         title_font = QFont()
-        title_font.setPointSize(16)
+        title_font.setPointSize(14)
         title_font.setBold(True)
         title.setFont(title_font)
         main_layout.addWidget(title)
@@ -97,8 +97,8 @@ class SettingsTab(QWidget):
         widget = QWidget()
         
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(15)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
         
         styles = self.get_stylesheet_for_theme()
         
@@ -123,15 +123,15 @@ class SettingsTab(QWidget):
         """)
         
         theme_layout = QVBoxLayout()
-        theme_layout.setSpacing(12)
+        theme_layout.setSpacing(8)
         
         theme_select_layout = QHBoxLayout()
         theme_label = QLabel('Current Theme:')
         theme_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 120px;')
-        theme_label.setMinimumHeight(36)
+        theme_label.setMinimumHeight(32)
         
         self.theme_combo = QComboBox()
-        self.theme_combo.setMinimumHeight(40)
+        self.theme_combo.setMinimumHeight(36)
         
         theme_display_names = self.theme_manager.get_theme_display_names()
         for theme_key, theme_name in theme_display_names.items():
@@ -223,7 +223,7 @@ class SettingsTab(QWidget):
         """)
         
         display_layout = QVBoxLayout()
-        display_layout.setSpacing(12)
+        display_layout.setSpacing(8)
         
         auto_minimize_check = QCheckBox('Minimize to system tray')
         auto_minimize_check.setChecked(True)
@@ -306,7 +306,7 @@ class SettingsTab(QWidget):
         save_layout.addStretch()
         
         save_btn = QPushButton('💾 SAVE SETTINGS')
-        save_btn.setMinimumHeight(40)
+        save_btn.setMinimumHeight(36)
         save_btn.setMinimumWidth(180)
         save_btn.clicked.connect(self.save_settings)
         save_btn.setStyleSheet(f"""
@@ -342,8 +342,8 @@ class SettingsTab(QWidget):
         widget.setStyleSheet(f"background: {styles['background']};")
         
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(15)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
         
         ai_group = QGroupBox('🤖 AI MODEL CONFIGURATION')
         ai_group.setStyleSheet(f"""
@@ -364,12 +364,12 @@ class SettingsTab(QWidget):
         """)
         
         ai_layout = QVBoxLayout()
-        ai_layout.setSpacing(12)
+        ai_layout.setSpacing(8)
         
         provider_layout = QHBoxLayout()
         provider_label = QLabel('AI PROVIDER:')
         provider_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 150px;')
-        provider_label.setMinimumHeight(40)
+        provider_label.setMinimumHeight(32)
         
         self.ai_provider_combo = QComboBox()
         self.ai_provider_combo.addItems([
@@ -393,7 +393,7 @@ class SettingsTab(QWidget):
             'AWS Bedrock',
             'IBM Watson'
         ])
-        self.ai_provider_combo.setMinimumHeight(40)
+        self.ai_provider_combo.setMinimumHeight(36)
         
         combo_stylesheet = f"""
             QComboBox {{
@@ -426,12 +426,12 @@ class SettingsTab(QWidget):
         api_key_layout = QHBoxLayout()
         api_key_label = QLabel('API KEY:')
         api_key_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 150px;')
-        api_key_label.setMinimumHeight(40)
+        api_key_label.setMinimumHeight(32)
         
         self.api_key_input = QLineEdit()
         self.api_key_input.setPlaceholderText('Enter your API key here...')
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.api_key_input.setMinimumHeight(40)
+        self.api_key_input.setMinimumHeight(36)
         self.api_key_input.setStyleSheet(f"""
             QLineEdit {{
                 background: {styles['background']};
@@ -455,10 +455,10 @@ class SettingsTab(QWidget):
         model_layout = QHBoxLayout()
         model_label = QLabel('MODEL:')
         model_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 150px;')
-        model_label.setMinimumHeight(40)
+        model_label.setMinimumHeight(32)
         
         self.model_combo = QComboBox()
-        self.model_combo.setMinimumHeight(40)
+        self.model_combo.setMinimumHeight(36)
         self.model_combo.setStyleSheet(combo_stylesheet)
         
         model_layout.addWidget(model_label)
@@ -469,7 +469,7 @@ class SettingsTab(QWidget):
         test_layout.addStretch()
         
         test_btn = QPushButton('🧪 TEST CONNECTION')
-        test_btn.setMinimumHeight(40)
+        test_btn.setMinimumHeight(36)
         test_btn.setMinimumWidth(160)
         test_btn.clicked.connect(self.test_ai_connection)
         test_btn.setStyleSheet(f"""
@@ -649,7 +649,7 @@ With a valid API key, advanced POC generation and analysis will be available.
         
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(15)
+        layout.setSpacing(12)
         
         scan_group = QGroupBox('🔍 SCANNER VERIFICATION SETTINGS')
         scan_group.setStyleSheet(f"""
@@ -670,7 +670,7 @@ With a valid API key, advanced POC generation and analysis will be available.
         """)
         
         scan_layout = QVBoxLayout()
-        scan_layout.setSpacing(12)
+        scan_layout.setSpacing(8)
         
         verify_check = QCheckBox('✓ Enable Real Vulnerability Verification')
         verify_check.setChecked(True)
@@ -706,13 +706,13 @@ With a valid API key, advanced POC generation and analysis will be available.
         timeout_layout = QHBoxLayout()
         timeout_label = QLabel('Verification Timeout:')
         timeout_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 200px;')
-        timeout_label.setMinimumHeight(40)
+        timeout_label.setMinimumHeight(32)
         
         self.timeout_spin = QSpinBox()
         self.timeout_spin.setRange(5, 120)
         self.timeout_spin.setValue(10)
         self.timeout_spin.setSuffix(' seconds')
-        self.timeout_spin.setMinimumHeight(40)
+        self.timeout_spin.setMinimumHeight(36)
         self.timeout_spin.setMinimumWidth(120)
         self.timeout_spin.setStyleSheet(f"""
             QSpinBox {{
@@ -736,12 +736,12 @@ With a valid API key, advanced POC generation and analysis will be available.
         retries_layout = QHBoxLayout()
         retries_label = QLabel('Max Verification Retries:')
         retries_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 200px;')
-        retries_label.setMinimumHeight(40)
+        retries_label.setMinimumHeight(32)
         
         self.retries_spin = QSpinBox()
         self.retries_spin.setRange(0, 10)
         self.retries_spin.setValue(3)
-        self.retries_spin.setMinimumHeight(40)
+        self.retries_spin.setMinimumHeight(36)
         self.retries_spin.setMinimumWidth(120)
         self.retries_spin.setStyleSheet(f"""
             QSpinBox {{
@@ -765,12 +765,12 @@ With a valid API key, advanced POC generation and analysis will be available.
         threads_layout = QHBoxLayout()
         threads_label = QLabel('Worker Threads:')
         threads_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 200px;')
-        threads_label.setMinimumHeight(40)
+        threads_label.setMinimumHeight(32)
         
         self.threads_spin = QSpinBox()
         self.threads_spin.setRange(5, 50)
         self.threads_spin.setValue(20)
-        self.threads_spin.setMinimumHeight(40)
+        self.threads_spin.setMinimumHeight(36)
         self.threads_spin.setMinimumWidth(120)
         self.threads_spin.setStyleSheet(f"""
             QSpinBox {{
@@ -813,7 +813,7 @@ With a valid API key, advanced POC generation and analysis will be available.
         """)
         
         advanced_layout = QVBoxLayout()
-        advanced_layout.setSpacing(10)
+        advanced_layout.setSpacing(8)
         
         verify_ssl_check = QCheckBox('🔒 Verify SSL certificates')
         verify_ssl_check.setChecked(False)
