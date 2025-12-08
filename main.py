@@ -4,7 +4,6 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from gui.main_window import MainWindow
 from utils.config import Config
-from utils.update_checker import UpdateChecker, run_update_checker_sync
 
 
 def main():
@@ -23,13 +22,10 @@ def main():
     
     try:
         config = Config()
-        checker = UpdateChecker()
-        
-        if checker.should_check_for_updates():
-            run_update_checker_sync()
+        # Skip update checker for now - go straight to main window
         
         window = MainWindow()
-        window.show()
+        window.showMaximized()  # Ensure fullscreen on startup
         sys.exit(app.exec())
     except Exception as e:
         print(f"Error: {e}")
