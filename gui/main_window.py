@@ -18,6 +18,7 @@ from .request_monitor_tab import RequestMonitorTab
 from .cve_scanner_tab import CVEScannerTab
 from .waf_bypass_tab import WAFBypassTab
 from .cors_tab import CORSTab
+from .help_tab import HelpTab
 from gui.theme_manager import ThemeManager
 import time
 
@@ -288,6 +289,7 @@ class MainWindow(QMainWindow):
         self.settings_tab = SettingsTab(self.theme_manager)
         self.advanced_settings_tab = AdvancedSettingsTab()
         self.cors_tab = CORSTab()
+        self.help_tab = HelpTab()
         
         self.tab_widget.addTab(self.scan_tab, '🎯 Vulnerability Scan')
         self.tab_widget.addTab(self.results_tab, '📊 Scan Results')
@@ -298,6 +300,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.wayback_tab, '⏰ Wayback URLs')
         self.tab_widget.addTab(self.auth_tab, '🔐 Authentication')
         self.tab_widget.addTab(self.cors_tab, '🌐 CORS Tester')
+        self.tab_widget.addTab(self.help_tab, '📚 Help & Documentation')
         self.tab_widget.addTab(self.settings_tab, '⚙️ Settings')
         self.tab_widget.addTab(self.advanced_settings_tab, '🔧 Advanced')
         
