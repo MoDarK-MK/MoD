@@ -38,6 +38,9 @@ class DesignSpacing:
     LG = 16
     XL = 24
     XXL = 32
+    INPUT_HEIGHT = 40
+    BUTTON_HEIGHT = 40
+    SECTION_HEIGHT = 50
 
 
 class DesignTypography:
