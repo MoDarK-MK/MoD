@@ -1,14 +1,20 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QTableWidget, QTableWidgetItem, QFileDialog,
-                             QMessageBox, QHeaderView, QComboBox, QInputDialog)
+                             QMessageBox, QHeaderView, QComboBox, QInputDialog,
+                             QScrollArea, QFrame, QLabel)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFont
 from utils.report_generator import ReportGenerator
 from utils.database import Database
+from .design_system import (
+    DesignColors, DesignSpacing, DesignTypography, DesignButton,
+    DesignCard, DesignSection, DesignHeader, DesignMainWidget,
+    get_table_stylesheet, get_combobox_stylesheet
+)
 import json
 import requests
 
-class ResultsTab(QWidget):
+class ResultsTab(DesignMainWidget):
     def __init__(self):
         super().__init__()
         self.report_generator = ReportGenerator()
@@ -17,36 +23,103 @@ class ResultsTab(QWidget):
         self.init_ui()
     
     def init_ui(self):
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # Header
+        header = DesignHeader(
+            title="Scan Results Analysis",
+            subtitle="View and export vulnerability findings"
+        )
+        main_layout.addWidget(header)
+        
+        # Content area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: {DesignColors.DARK_BG};
+                border: none;
+            }}
+        """)
+        
+        content_widget = QWidget()
+        content_widget.setStyleSheet(f"background-color: {DesignColors.DARK_BG};")
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(DesignSpacing.LG, DesignSpacing.LG, DesignSpacing.LG, DesignSpacing.LG)
+        content_layout.setSpacing(DesignSpacing.LG)
+        
+        # Controls Section
+        controls_section = DesignSection("Controls")
         
         toolbar_layout = QHBoxLayout()
+        toolbar_layout.setSpacing(DesignSpacing.MD)
         
-        self.export_pdf_btn = QPushButton('📄 Export PDF')
+        self.export_pdf_btn = DesignButton('📄 Export PDF', 'primary')
         self.export_pdf_btn.clicked.connect(self.export_pdf)
         toolbar_layout.addWidget(self.export_pdf_btn)
         
-        self.export_html_btn = QPushButton('🌐 Export HTML')
+        self.export_html_btn = DesignButton('🌐 Export HTML', 'primary')
         self.export_html_btn.clicked.connect(self.export_html)
         toolbar_layout.addWidget(self.export_html_btn)
         
-        self.export_json_btn = QPushButton('📋 Export JSON')
+        self.export_json_btn = DesignButton('📋 Export JSON', 'primary')
         self.export_json_btn.clicked.connect(self.export_json)
         toolbar_layout.addWidget(self.export_json_btn)
         
-        self.export_discord_btn = QPushButton('🎮 Export to Discord')
+        self.export_discord_btn = DesignButton('🎮 Export to Discord', 'primary')
         self.export_discord_btn.clicked.connect(self.export_discord)
         toolbar_layout.addWidget(self.export_discord_btn)
         
+        toolbar_layout.addSpacing(DesignSpacing.LG)
+        
+        # Severity filter
+        filter_label = QLabel('Filter by Severity:')
+        filter_label.setStyleSheet(f"color: {DesignColors.TEXT_PRIMARY};")
+        toolbar_layout.addWidget(filter_label)
+        
         self.severity_filter = QComboBox()
         self.severity_filter.addItems(['All', 'Critical', 'High', 'Medium', 'Low', 'Info'])
+        self.severity_filter.setStyleSheet(get_combobox_stylesheet())
+        self.severity_filter.setMinimumWidth(150)
         self.severity_filter.currentTextChanged.connect(self.filter_results)
         toolbar_layout.addWidget(self.severity_filter)
         
-        self.clear_btn = QPushButton('🗑️ Clear Results')
+        toolbar_layout.addStretch()
+        
+        self.clear_btn = DesignButton('🗑️ Clear Results', 'danger')
         self.clear_btn.clicked.connect(self.clear_results)
         toolbar_layout.addWidget(self.clear_btn)
+        
+        controls_section.add_layout(toolbar_layout)
+        content_layout.addWidget(controls_section)
+        
+        # Results Table Section
+        results_section = DesignSection("Vulnerability Results")
+        
+        self.results_table = QTableWidget()
+        self.results_table.setColumnCount(6)
+        self.results_table.setHorizontalHeaderLabels([
+            'Type', 'Severity', 'URL', 'Parameter', 'Payload', 'Description'
+        ])
+        self.results_table.setStyleSheet(get_table_stylesheet())
+        self.results_table.setMinimumHeight(400)
+        self.results_table.horizontalHeader().setStretchLastSection(True)
+        
+        header = self.results_table.horizontalHeader()
+        header.setFixedHeight(40)
+        self.results_table.verticalHeader().setDefaultSectionSize(35)
+        
+        results_section.add_widget(self.results_table)
+        content_layout.addWidget(results_section)
+        
+        content_layout.addStretch()
+        
+        scroll_area.setWidget(content_widget)
+        main_layout.addWidget(scroll_area)
+        
+        self.setLayout(main_layout)
         
         toolbar_layout.addStretch()
         

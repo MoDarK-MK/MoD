@@ -1,13 +1,18 @@
  
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QGroupBox, QComboBox, QCheckBox, QTextEdit,
-                             QMessageBox, QTabWidget, QSpinBox, QFrame)
+                             QMessageBox, QTabWidget, QSpinBox, QFrame, QScrollArea)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from gui.theme_manager import ThemeManager
+from .design_system import (
+    DesignColors, DesignSpacing, DesignTypography, DesignButton,
+    DesignCard, DesignSection, DesignHeader, DesignMainWidget,
+    get_input_stylesheet, get_combobox_stylesheet
+)
 
 
-class SettingsTab(QWidget):
+class SettingsTab(DesignMainWidget):
     theme_changed = pyqtSignal(str)
     ui_size_changed = pyqtSignal(str)
     settings_changed = pyqtSignal(dict)
@@ -18,29 +23,71 @@ class SettingsTab(QWidget):
         self.init_ui()
     
     def init_ui(self):
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         
-        title = QLabel('⚙️ APPLICATION SETTINGS')
-        title_font = QFont()
-        title_font.setPointSize(14)
-        title_font.setBold(True)
-        title.setFont(title_font)
-        main_layout.addWidget(title)
+        # Header
+        header = DesignHeader(
+            title="⚙️ Application Settings",
+            subtitle="Configure scanner preferences and integration settings"
+        )
+        main_layout.addWidget(header)
         
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        main_layout.addWidget(separator)
+        # Scroll area for content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: {DesignColors.DARK_BG};
+                border: none;
+            }}
+        """)
         
+        content_widget = QWidget()
+        content_widget.setStyleSheet(f"background-color: {DesignColors.DARK_BG};")
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(DesignSpacing.LG, DesignSpacing.LG, DesignSpacing.LG, DesignSpacing.LG)
+        content_layout.setSpacing(DesignSpacing.LG)
+        
+        # Tab widget
         tabs = QTabWidget()
+        tabs.setStyleSheet(f"""
+            QTabWidget::pane {{
+                border: none;
+                background-color: {DesignColors.DARK_BG};
+            }}
+            QTabBar {{
+                background-color: {DesignColors.DARK_BG};
+                border-bottom: 1px solid {DesignColors.BORDER};
+            }}
+            QTabBar::tab {{
+                background-color: {DesignColors.DARK_BG};
+                color: {DesignColors.TEXT_SECONDARY};
+                border: none;
+                padding: {DesignSpacing.MD}px {DesignSpacing.LG}px;
+                font-size: 10pt;
+                font-weight: bold;
+            }}
+            QTabBar::tab:selected {{
+                color: {DesignColors.ACCENT};
+                border-bottom: 3px solid {DesignColors.ACCENT};
+                background-color: {DesignColors.CARD_BG};
+            }}
+            QTabBar::tab:hover {{
+                background-color: {DesignColors.CARD_BG};
+            }}
+        """)
         
         tabs.addTab(self.create_general_settings_tab(), '🎨 GENERAL')
         tabs.addTab(self.create_ai_settings_tab(), '🤖 AI INTEGRATION')
         tabs.addTab(self.create_scanner_settings_tab(), '🔍 SCANNER CONFIG')
         
-        main_layout.addWidget(tabs, 1)
+        content_layout.addWidget(tabs)
+        content_layout.addStretch()
+        
+        scroll_area.setWidget(content_widget)
+        main_layout.addWidget(scroll_area)
         
         self.setLayout(main_layout)
     
