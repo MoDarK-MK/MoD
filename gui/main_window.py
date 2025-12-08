@@ -38,11 +38,11 @@ class ScannerCard(QFrame):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(6)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
         
         header_layout = QHBoxLayout()
-        header_layout.setSpacing(4)
+        header_layout.setSpacing(12)
         
         icon_label = QLabel(icon)
         icon_label.setStyleSheet('font-size: 22px;')
@@ -119,8 +119,8 @@ class ScannerSelectionDialog(QDialog):
         self.setMinimumSize(900, 700)
         
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(6, 6, 6, 6)
-        main_layout.setSpacing(4)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(12)
         
         title_label = QLabel('🔍 ADVANCED SCANNER SELECTION')
         title_font = QFont()
@@ -136,16 +136,16 @@ class ScannerSelectionDialog(QDialog):
         main_layout.addWidget(desc_label)
         
         toolbar_layout = QHBoxLayout()
-        toolbar_layout.setSpacing(4)
+        toolbar_layout.setSpacing(12)
         
         select_all_btn = QPushButton('✓ Select All')
-        select_all_btn.setMinimumHeight(24)
+        select_all_btn.setMinimumHeight(40)
         select_all_btn.setMinimumWidth(110)
         select_all_btn.clicked.connect(self.select_all)
         toolbar_layout.addWidget(select_all_btn)
         
         deselect_all_btn = QPushButton('✗ Deselect All')
-        deselect_all_btn.setMinimumHeight(24)
+        deselect_all_btn.setMinimumHeight(40)
         deselect_all_btn.setMinimumWidth(110)
         deselect_all_btn.clicked.connect(self.deselect_all)
         toolbar_layout.addWidget(deselect_all_btn)
@@ -164,7 +164,7 @@ class ScannerSelectionDialog(QDialog):
         
         scroll_widget = QWidget()
         scanner_layout = QGridLayout(scroll_widget)
-        scanner_layout.setSpacing(4)
+        scanner_layout.setSpacing(12)
         
         scanners = [
             ('sql', 'SQL Injection', '💉', 'Database query manipulation attacks'),
@@ -202,16 +202,16 @@ class ScannerSelectionDialog(QDialog):
         main_layout.addWidget(scroll_area)
         
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(4)
+        button_layout.setSpacing(12)
         
         apply_btn = QPushButton('✅ Apply Selection')
-        apply_btn.setMinimumHeight(24)
+        apply_btn.setMinimumHeight(40)
         apply_btn.setMinimumWidth(160)
         apply_btn.clicked.connect(self.accept)
         button_layout.addWidget(apply_btn)
         
         cancel_btn = QPushButton('❌ Cancel')
-        cancel_btn.setMinimumHeight(24)
+        cancel_btn.setMinimumHeight(40)
         cancel_btn.setMinimumWidth(160)
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(cancel_btn)
@@ -271,8 +271,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         
         layout = QVBoxLayout(central_widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
         
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
@@ -525,8 +525,8 @@ class MainWindow(QMainWindow):
         
         status_widget = QWidget()
         status_layout = QHBoxLayout(status_widget)
-        status_layout.setContentsMargins(8, 0, 8, 0)
-        status_layout.setSpacing(15)
+        status_layout.setContentsMargins(12, 12, 12, 12)
+        status_layout.setSpacing(12)
         
         self.status_label = QLabel('🟢 Ready | MoD v4.0 Enterprise')
         self.status_label.setStyleSheet('font-weight: bold; font-size: 10pt;')
@@ -592,7 +592,9 @@ class MainWindow(QMainWindow):
             stylesheet = f"""
                 QWidget {{ font-size: {sizes['normal']}pt; }}
                 QLabel {{ font-size: {sizes['label']}pt; }}
-                QPushButton {{ padding: {int(8 * multiplier)}px; font-size: {sizes['label']}pt; }}
+                QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                border-radius: 12px;{ padding: {int(8 * multiplier)}px; font-size: {sizes['label']}pt; }}
                 QLineEdit {{ padding: {int(6 * multiplier)}px; font-size: {sizes['normal']}pt; }}
                 QComboBox {{ padding: {int(6 * multiplier)}px; font-size: {sizes['normal']}pt; }}
                 QSpinBox {{ padding: {int(4 * multiplier)}px; font-size: {sizes['normal']}pt; }}

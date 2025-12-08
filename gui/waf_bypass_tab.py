@@ -134,8 +134,8 @@ class WAFBypassTab(QWidget):
     
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(6, 6, 6, 6)
-        main_layout.setSpacing(4)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(12)
         
         title = QLabel('🔥 FAST WAF BYPASS')
         title.setStyleSheet("""
@@ -216,10 +216,11 @@ class WAFBypassTab(QWidget):
         button_layout = QHBoxLayout()
         
         self.start_button = QPushButton('▶️ START')
-        self.start_button.setMinimumHeight(24)
+        self.start_button.setMinimumHeight(40)
         self.start_button.clicked.connect(self.start_bypass)
         self.start_button.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: #f85149;
                 color: white;
                 border: none;
@@ -234,11 +235,12 @@ class WAFBypassTab(QWidget):
         button_layout.addWidget(self.start_button)
         
         self.stop_button = QPushButton('⏹️ STOP')
-        self.stop_button.setMinimumHeight(24)
+        self.stop_button.setMinimumHeight(40)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_bypass)
         self.stop_button.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: #0969da;
                 color: white;
                 border: none;
@@ -250,10 +252,11 @@ class WAFBypassTab(QWidget):
         button_layout.addWidget(self.stop_button)
         
         self.clear_button = QPushButton('🗑️ CLEAR')
-        self.clear_button.setMinimumHeight(24)
+        self.clear_button.setMinimumHeight(40)
         self.clear_button.clicked.connect(self.clear_all)
         self.clear_button.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: #6b7280;
                 color: white;
                 border: none;

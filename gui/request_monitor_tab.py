@@ -17,7 +17,7 @@ class RequestDetailsWidget(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(12)
 
         tabs = QTabWidget()
@@ -59,7 +59,7 @@ class RequestDetailsWidget(QWidget):
         widget.setStyleSheet("background: #0d1117;")
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
+        layout.setSpacing(12)
 
         url_group = QGroupBox('REQUEST URL')
         url_group.setStyleSheet("""
@@ -191,7 +191,7 @@ class RequestDetailsWidget(QWidget):
         widget.setStyleSheet("background: #0d1117;")
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
+        layout.setSpacing(12)
 
         status_group = QGroupBox('RESPONSE STATUS')
         status_group.setStyleSheet("""
@@ -292,7 +292,7 @@ class RequestDetailsWidget(QWidget):
         widget.setStyleSheet("background: #0d1117;")
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
+        layout.setSpacing(12)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setHandleWidth(1)
@@ -387,7 +387,7 @@ class RequestDetailsWidget(QWidget):
         widget.setStyleSheet("background: #0d1117;")
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
+        layout.setSpacing(12)
 
         sec_group = QGroupBox('SECURITY HEADERS')
         sec_group.setStyleSheet("""
@@ -532,7 +532,7 @@ class RequestMonitorTab(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(12)
 
         header_layout = QHBoxLayout()
@@ -552,10 +552,11 @@ class RequestMonitorTab(QWidget):
 
         self.clear_button = QPushButton('CLEAR ALL')
         self.clear_button.setMinimumWidth(120)
-        self.clear_button.setMinimumHeight(36)
+        self.clear_button.setMinimumHeight(40)
         self.clear_button.clicked.connect(self.clear_requests)
         self.clear_button.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                            stop:0 #da3633, stop:1 #b92222);
                 color: white;
@@ -574,10 +575,11 @@ class RequestMonitorTab(QWidget):
 
         self.export_button = QPushButton('EXPORT')
         self.export_button.setMinimumWidth(120)
-        self.export_button.setMinimumHeight(36)
+        self.export_button.setMinimumHeight(40)
         self.export_button.clicked.connect(self.export_requests)
         self.export_button.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                            stop:0 #238636, stop:1 #1a6b2c);
                 color: white;
@@ -626,7 +628,7 @@ class RequestMonitorTab(QWidget):
     def create_requests_panel(self):
         panel = QWidget()
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(12)
 
         filter_group = QGroupBox('FILTERS & SEARCH')
@@ -648,7 +650,7 @@ class RequestMonitorTab(QWidget):
         """)
 
         filter_layout = QHBoxLayout()
-        filter_layout.setContentsMargins(12, 8, 12, 8)
+        filter_layout.setContentsMargins(12, 12, 12, 12)
         filter_layout.setSpacing(12)
 
         filter_layout.addWidget(QLabel('METHOD:'))
@@ -656,7 +658,7 @@ class RequestMonitorTab(QWidget):
         self.method_filter.addItems(['All', 'GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
         self.method_filter.currentTextChanged.connect(self.apply_filters)
         self.method_filter.setMaximumWidth(100)
-        self.method_filter.setMinimumHeight(28)
+        self.method_filter.setMinimumHeight(40)
         self.method_filter.setStyleSheet("""
             QComboBox {
                 background-color: #161b22;
@@ -678,7 +680,7 @@ class RequestMonitorTab(QWidget):
         self.status_filter.addItems(['All', '2xx', '3xx', '4xx', '5xx'])
         self.status_filter.currentTextChanged.connect(self.apply_filters)
         self.status_filter.setMaximumWidth(100)
-        self.status_filter.setMinimumHeight(28)
+        self.status_filter.setMinimumHeight(40)
         self.status_filter.setStyleSheet("""
             QComboBox {
                 background-color: #161b22;
@@ -699,7 +701,7 @@ class RequestMonitorTab(QWidget):
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText('Search URL...')
         self.search_input.textChanged.connect(self.apply_filters)
-        self.search_input.setMinimumHeight(28)
+        self.search_input.setMinimumHeight(40)
         self.search_input.setStyleSheet("""
             QLineEdit {
                 background-color: #161b22;
@@ -786,8 +788,8 @@ class RequestMonitorTab(QWidget):
         layout.addWidget(requests_group, 1)
 
         stats_layout = QHBoxLayout()
-        stats_layout.setContentsMargins(0, 5, 0, 0)
-        stats_layout.setSpacing(15)
+        stats_layout.setContentsMargins(12, 12, 12, 12)
+        stats_layout.setSpacing(12)
 
         self.total_requests_label = QLabel('TOTAL: 0')
         self.total_requests_label.setStyleSheet('color: #c9d1d9; font-weight: bold; font-size: 10pt;')
@@ -813,8 +815,8 @@ class RequestMonitorTab(QWidget):
     def create_packets_panel(self):
         panel = QWidget()
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
 
         self.details_widget = RequestDetailsWidget()
         layout.addWidget(self.details_widget, 1)

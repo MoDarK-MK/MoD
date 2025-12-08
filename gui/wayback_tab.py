@@ -69,8 +69,8 @@ class WaybackTab(QWidget):
     def init_ui(self):
         button_layout = QHBoxLayout()
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(6, 6, 6, 6)
-        main_layout.setSpacing(4)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(12)
         
         title = QLabel('WAYBACK MACHINE URL FETCHER')
         title.setStyleSheet("""
@@ -131,10 +131,11 @@ class WaybackTab(QWidget):
         button_layout = QHBoxLayout()
         
         self.fetch_button = QPushButton('FETCH URLS')
-        self.fetch_button.setMinimumHeight(24)
+        self.fetch_button.setMinimumHeight(40)
         self.fetch_button.clicked.connect(self.start_fetch)
         self.fetch_button.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                            stop:0 #238636, stop:1 #1a6b2c);
                 color: white;
@@ -156,11 +157,12 @@ class WaybackTab(QWidget):
         button_layout.addWidget(self.fetch_button)
         
         self.stop_button = QPushButton('STOP')
-        self.stop_button.setMinimumHeight(24)
+        self.stop_button.setMinimumHeight(40)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_fetch)
         self.stop_button.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                            stop:0 #da3633, stop:1 #b92222);
                 color: white;
@@ -182,10 +184,11 @@ class WaybackTab(QWidget):
         button_layout.addWidget(self.stop_button)
         
         export_button = QPushButton('EXPORT URLS')
-        export_button.setMinimumHeight(24)
+        export_button.setMinimumHeight(40)
         export_button.clicked.connect(self.export_urls)
         export_button.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                            stop:0 #0969da, stop:1 #0757b8);
                 color: white;
@@ -271,10 +274,11 @@ class WaybackTab(QWidget):
         """)
         
         clear_button = QPushButton('CLEAR')
-        clear_button.setMinimumHeight(24)
+        clear_button.setMinimumHeight(40)
         clear_button.clicked.connect(self.clear_urls)
         clear_button.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                         stop:0 #da3633, stop:1 #962314);
                 color: white;

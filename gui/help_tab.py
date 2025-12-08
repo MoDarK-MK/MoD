@@ -10,11 +10,11 @@ class HelpTab(QWidget):
     
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(12)
         
         header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(15, 15, 15, 8)
+        header_layout.setContentsMargins(12, 12, 12, 12)
         
         title = QLabel('📚 Help & Documentation')
         title_font = QFont()
@@ -45,8 +45,8 @@ class HelpTab(QWidget):
     def create_help_section(self, title, content):
         widget = QWidget()
         layout = QVBoxLayout()
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(8)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
         
         text_edit = QTextEdit()
         text_edit.setReadOnly(True)

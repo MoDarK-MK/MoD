@@ -22,8 +22,8 @@ class POCDialog(QDialog):
 
     def init_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(4)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
 
         header_layout = QHBoxLayout()
         title = QLabel(f"{self.poc_data['cve_id']} - {self.poc_data['cve_name']}")
@@ -86,11 +86,12 @@ class POCDialog(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         copy_btn = QPushButton('COPY ALL')
-        copy_btn.setMinimumHeight(24)
+        copy_btn.setMinimumHeight(40)
         copy_btn.setMinimumWidth(70)
         copy_btn.clicked.connect(self.copy_to_clipboard)
         copy_btn.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                            stop:0 #0969da, stop:1 #0757b8);
                 color: white;
@@ -106,11 +107,12 @@ class POCDialog(QDialog):
         """)
         button_layout.addWidget(copy_btn)
         close_btn = QPushButton('CLOSE')
-        close_btn.setMinimumHeight(24)
+        close_btn.setMinimumHeight(40)
         close_btn.setMinimumWidth(70)
         close_btn.clicked.connect(self.accept)
         close_btn.setStyleSheet("""
             QPushButton {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                            stop:0 #da3633, stop:1 #b92222);
                 color: white;
@@ -329,8 +331,8 @@ class CVEScannerTab(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(6, 6, 6, 6)
-        main_layout.setSpacing(4)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(12)
         header_layout = QHBoxLayout()
         title = QLabel('CVE VULNERABILITY SCANNER')
         title.setStyleSheet("""
@@ -380,8 +382,8 @@ class CVEScannerTab(QWidget):
     def create_scan_panel(self):
         panel = QWidget()
         layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
 
         config_group = QGroupBox('TARGET CONFIGURATION')
         config_layout = QVBoxLayout()
@@ -422,11 +424,11 @@ class CVEScannerTab(QWidget):
 
         control_layout = QHBoxLayout()
         self.scan_button = QPushButton('START SCAN')
-        self.scan_button.setMinimumHeight(24)
+        self.scan_button.setMinimumHeight(40)
         self.scan_button.clicked.connect(self.start_scan)
         control_layout.addWidget(self.scan_button)
         self.stop_button = QPushButton('STOP')
-        self.stop_button.setMinimumHeight(24)
+        self.stop_button.setMinimumHeight(40)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_scan)
         control_layout.addWidget(self.stop_button)
@@ -456,7 +458,7 @@ class CVEScannerTab(QWidget):
     def create_results_panel(self):
         panel = QWidget()
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(12, 12, 12, 12)
         results_group = QGroupBox('VULNERABILITIES DETECTED (Double-click for POC)')
         results_layout = QVBoxLayout()
         self.results_table = QTableWidget()

@@ -14,8 +14,8 @@ class WebSocketTab(QWidget):
     
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(6, 6, 6, 6)
-        main_layout.setSpacing(4)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(12)
         
         input_group = QGroupBox('WebSocket Configuration')
         input_layout = QFormLayout()
@@ -34,17 +34,17 @@ class WebSocketTab(QWidget):
         button_layout = QHBoxLayout()
         
         scan_button = QPushButton('🔍 Start WebSocket Scan')
-        scan_button.setMinimumHeight(24)
+        scan_button.setMinimumHeight(40)
         scan_button.clicked.connect(self.start_scan)
         button_layout.addWidget(scan_button)
         
         export_button = QPushButton('💾 Export Results')
-        export_button.setMinimumHeight(24)
+        export_button.setMinimumHeight(40)
         export_button.clicked.connect(self.export_results)
         button_layout.addWidget(export_button)
         
         clear_button = QPushButton('🗑️ Clear')
-        clear_button.setMinimumHeight(24)
+        clear_button.setMinimumHeight(40)
         clear_button.clicked.connect(self.clear_results)
         button_layout.addWidget(clear_button)
         
