@@ -272,7 +272,7 @@ class WaybackTab(QWidget):
         
         clear_button = QPushButton('CLEAR')
         clear_button.setMinimumHeight(32)
-        clear_button.clicked.connect(self.clear_results)
+        clear_button.clicked.connect(self.clear_urls)
         clear_button.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
