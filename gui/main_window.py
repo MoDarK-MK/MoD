@@ -651,12 +651,27 @@ class MainWindow(QMainWindow):
     
     def on_settings_changed(self, settings: dict):
         api_key = settings.get('api_key', '')
-        api_provider = settings.get('api_provider', 'None')
+        api_provider = settings.get('ai_provider', 'None')
         
         if api_key and api_provider != 'None':
             if hasattr(self.cve_scanner_tab, 'set_api_config'):
                 self.cve_scanner_tab.set_api_config(api_key, api_provider)
             self.update_status(f'🔐 AI API configured: {api_provider}')
+        
+        # Save update check preferences
+        auto_update = settings.get('auto_update', True)
+        update_frequency = settings.get('update_frequency', 7)
+        
+        try:
+            from utils.update_checker import UpdateChecker
+            checker = UpdateChecker()
+            checker.save_check_settings(auto_update, update_frequency)
+            if auto_update:
+                self.update_status(f'🔄 Update checks enabled (every {update_frequency} days)')
+            else:
+                self.update_status('🔄 Update checks disabled')
+        except Exception as e:
+            print(f"Error saving update settings: {e}")
     
     def on_auth_configured(self, auth_manager):
         if hasattr(self.scan_tab, 'set_auth_manager'):
