@@ -22,8 +22,8 @@ class POCDialog(QDialog):
 
     def init_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(12)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
 
         header_layout = QHBoxLayout()
         title = QLabel(f"{self.poc_data['cve_id']} - {self.poc_data['cve_name']}")
@@ -86,8 +86,8 @@ class POCDialog(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         copy_btn = QPushButton('COPY ALL')
-        copy_btn.setMinimumHeight(36)
-        copy_btn.setMinimumWidth(120)
+        copy_btn.setMinimumHeight(32)
+        copy_btn.setMinimumWidth(100)
         copy_btn.clicked.connect(self.copy_to_clipboard)
         copy_btn.setStyleSheet("""
             QPushButton {
@@ -106,8 +106,8 @@ class POCDialog(QDialog):
         """)
         button_layout.addWidget(copy_btn)
         close_btn = QPushButton('CLOSE')
-        close_btn.setMinimumHeight(36)
-        close_btn.setMinimumWidth(120)
+        close_btn.setMinimumHeight(32)
+        close_btn.setMinimumWidth(100)
         close_btn.clicked.connect(self.accept)
         close_btn.setStyleSheet("""
             QPushButton {
@@ -329,8 +329,8 @@ class CVEScannerTab(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(8)
         header_layout = QHBoxLayout()
         title = QLabel('CVE VULNERABILITY SCANNER')
         title.setStyleSheet("""
@@ -379,9 +379,9 @@ class CVEScannerTab(QWidget):
 
     def create_scan_panel(self):
         panel = QWidget()
-        layout = QVBoxLayout(panel)
+        layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
 
         config_group = QGroupBox('TARGET CONFIGURATION')
         config_layout = QVBoxLayout()
@@ -390,7 +390,7 @@ class CVEScannerTab(QWidget):
         url_layout.addWidget(url_label)
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText('https://example.com')
-        self.target_input.setMinimumHeight(36)
+        self.target_input.setMinimumHeight(28)
         url_layout.addWidget(self.target_input, 1)
         config_layout.addLayout(url_layout)
         options_layout = QHBoxLayout()
@@ -399,13 +399,13 @@ class CVEScannerTab(QWidget):
         self.timeout_combo = QComboBox()
         self.timeout_combo.addItems(['5s', '10s', '15s', '30s'])
         self.timeout_combo.setCurrentText('10s')
-        self.timeout_combo.setMinimumHeight(32)
+        self.timeout_combo.setMinimumHeight(28)
         options_layout.addWidget(self.timeout_combo)
         severity_label = QLabel('SEVERITY:')
         options_layout.addWidget(severity_label)
         self.severity_combo = QComboBox()
         self.severity_combo.addItems(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'])
-        self.severity_combo.setMinimumHeight(32)
+        self.severity_combo.setMinimumHeight(28)
         options_layout.addWidget(self.severity_combo)
         options_layout.addStretch()
         config_layout.addLayout(options_layout)
@@ -422,11 +422,11 @@ class CVEScannerTab(QWidget):
 
         control_layout = QHBoxLayout()
         self.scan_button = QPushButton('START SCAN')
-        self.scan_button.setMinimumHeight(36)
+        self.scan_button.setMinimumHeight(32)
         self.scan_button.clicked.connect(self.start_scan)
         control_layout.addWidget(self.scan_button)
         self.stop_button = QPushButton('STOP')
-        self.stop_button.setMinimumHeight(36)
+        self.stop_button.setMinimumHeight(32)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_scan)
         control_layout.addWidget(self.stop_button)

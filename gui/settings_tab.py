@@ -19,8 +19,8 @@ class SettingsTab(QWidget):
     
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
         
         title = QLabel('⚙️ APPLICATION SETTINGS')
         title_font = QFont()
@@ -98,8 +98,8 @@ class SettingsTab(QWidget):
         widget = QWidget()
         
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
         
         styles = self.get_stylesheet_for_theme()
         

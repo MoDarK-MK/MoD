@@ -119,8 +119,8 @@ class ScannerSelectionDialog(QDialog):
         self.setMinimumSize(900, 700)
         
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(8)
         
         title_label = QLabel('🔍 ADVANCED SCANNER SELECTION')
         title_font = QFont()
@@ -136,17 +136,17 @@ class ScannerSelectionDialog(QDialog):
         main_layout.addWidget(desc_label)
         
         toolbar_layout = QHBoxLayout()
-        toolbar_layout.setSpacing(10)
+        toolbar_layout.setSpacing(8)
         
         select_all_btn = QPushButton('✓ Select All')
-        select_all_btn.setMinimumHeight(38)
-        select_all_btn.setMinimumWidth(120)
+        select_all_btn.setMinimumHeight(32)
+        select_all_btn.setMinimumWidth(110)
         select_all_btn.clicked.connect(self.select_all)
         toolbar_layout.addWidget(select_all_btn)
         
         deselect_all_btn = QPushButton('✗ Deselect All')
-        deselect_all_btn.setMinimumHeight(38)
-        deselect_all_btn.setMinimumWidth(120)
+        deselect_all_btn.setMinimumHeight(32)
+        deselect_all_btn.setMinimumWidth(110)
         deselect_all_btn.clicked.connect(self.deselect_all)
         toolbar_layout.addWidget(deselect_all_btn)
         
@@ -160,11 +160,11 @@ class ScannerSelectionDialog(QDialog):
         
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMinimumHeight(450)
+        scroll_area.setMinimumHeight(380)
         
         scroll_widget = QWidget()
         scanner_layout = QGridLayout(scroll_widget)
-        scanner_layout.setSpacing(12)
+        scanner_layout.setSpacing(8)
         
         scanners = [
             ('sql', 'SQL Injection', '💉', 'Database query manipulation attacks'),
@@ -202,17 +202,17 @@ class ScannerSelectionDialog(QDialog):
         main_layout.addWidget(scroll_area)
         
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
+        button_layout.setSpacing(10)
         
         apply_btn = QPushButton('✅ Apply Selection')
-        apply_btn.setMinimumHeight(36)
-        apply_btn.setMinimumWidth(180)
+        apply_btn.setMinimumHeight(32)
+        apply_btn.setMinimumWidth(160)
         apply_btn.clicked.connect(self.accept)
         button_layout.addWidget(apply_btn)
         
         cancel_btn = QPushButton('❌ Cancel')
-        cancel_btn.setMinimumHeight(36)
-        cancel_btn.setMinimumWidth(180)
+        cancel_btn.setMinimumHeight(32)
+        cancel_btn.setMinimumWidth(160)
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(cancel_btn)
         

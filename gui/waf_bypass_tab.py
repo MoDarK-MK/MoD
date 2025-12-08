@@ -134,8 +134,8 @@ class WAFBypassTab(QWidget):
     
     def init_ui(self):
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(8)
         
         title = QLabel('🔥 FAST WAF BYPASS')
         title.setStyleSheet("""
@@ -175,7 +175,7 @@ class WAFBypassTab(QWidget):
         
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText('https://target.com')
-        self.target_input.setMinimumHeight(32)
+        self.target_input.setMinimumHeight(28)
         self.target_input.setStyleSheet("""
             QLineEdit {
                 background: #161b22;
@@ -197,7 +197,7 @@ class WAFBypassTab(QWidget):
         
         self.vector_combo = QComboBox()
         self.vector_combo.addItems(['XSS', 'SQLi', 'RCE', 'SSRF', 'XXE'])
-        self.vector_combo.setMinimumHeight(32)
+        self.vector_combo.setMinimumHeight(28)
         self.vector_combo.setStyleSheet("""
             QComboBox {
                 background: #161b22;
@@ -216,7 +216,7 @@ class WAFBypassTab(QWidget):
         button_layout = QHBoxLayout()
         
         self.start_button = QPushButton('▶️ START')
-        self.start_button.setMinimumHeight(36)
+        self.start_button.setMinimumHeight(32)
         self.start_button.clicked.connect(self.start_bypass)
         self.start_button.setStyleSheet("""
             QPushButton {
@@ -234,7 +234,7 @@ class WAFBypassTab(QWidget):
         button_layout.addWidget(self.start_button)
         
         self.stop_button = QPushButton('⏹️ STOP')
-        self.stop_button.setMinimumHeight(36)
+        self.stop_button.setMinimumHeight(32)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_bypass)
         self.stop_button.setStyleSheet("""
@@ -250,7 +250,7 @@ class WAFBypassTab(QWidget):
         button_layout.addWidget(self.stop_button)
         
         self.clear_button = QPushButton('🗑️ CLEAR')
-        self.clear_button.setMinimumHeight(36)
+        self.clear_button.setMinimumHeight(32)
         self.clear_button.clicked.connect(self.clear_all)
         self.clear_button.setStyleSheet("""
             QPushButton {

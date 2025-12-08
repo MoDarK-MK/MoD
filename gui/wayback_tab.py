@@ -69,8 +69,8 @@ class WaybackTab(QWidget):
     def init_ui(self):
         button_layout = QHBoxLayout()
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(8)
         
         title = QLabel('WAYBACK MACHINE URL FETCHER')
         title.setStyleSheet("""
@@ -108,7 +108,7 @@ class WaybackTab(QWidget):
         
         self.domain_input = QLineEdit()
         self.domain_input.setPlaceholderText('example.com')
-        self.domain_input.setMinimumHeight(36)
+        self.domain_input.setMinimumHeight(28)
         self.domain_input.setStyleSheet("""
             QLineEdit {
                 background: #161b22;
@@ -131,7 +131,7 @@ class WaybackTab(QWidget):
         button_layout = QHBoxLayout()
         
         self.fetch_button = QPushButton('FETCH URLS')
-        self.fetch_button.setMinimumHeight(36)
+        self.fetch_button.setMinimumHeight(32)
         self.fetch_button.clicked.connect(self.start_fetch)
         self.fetch_button.setStyleSheet("""
             QPushButton {
@@ -156,7 +156,7 @@ class WaybackTab(QWidget):
         button_layout.addWidget(self.fetch_button)
         
         self.stop_button = QPushButton('STOP')
-        self.stop_button.setMinimumHeight(36)
+        self.stop_button.setMinimumHeight(32)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_fetch)
         self.stop_button.setStyleSheet("""
@@ -181,8 +181,8 @@ class WaybackTab(QWidget):
         """)
         button_layout.addWidget(self.stop_button)
         
-        export_button = QPushButton('EXPORT')
-        export_button.setMinimumHeight(36)
+        export_button = QPushButton('EXPORT URLS')
+        export_button.setMinimumHeight(32)
         export_button.clicked.connect(self.export_urls)
         export_button.setStyleSheet("""
             QPushButton {
@@ -271,8 +271,8 @@ class WaybackTab(QWidget):
         """)
         
         clear_button = QPushButton('CLEAR')
-        clear_button.setMinimumHeight(36)
-        clear_button.clicked.connect(self.clear_urls)
+        clear_button.setMinimumHeight(32)
+        clear_button.clicked.connect(self.clear_results)
         clear_button.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
