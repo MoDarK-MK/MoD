@@ -233,7 +233,7 @@ class SettingsTab(QWidget):
         ui_size_label.setMinimumHeight(32)
         
         self.ui_size_combo = QComboBox()
-        self.ui_size_combo.addItems(['Small', 'Medium', 'Large'])
+        self.ui_size_combo.addItems(['Very Small', 'Small', 'Medium', 'Large'])
         self.ui_size_combo.setCurrentText('Medium')
         self.ui_size_combo.setMinimumHeight(36)
         self.ui_size_combo.setMaximumWidth(150)

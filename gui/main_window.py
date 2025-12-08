@@ -18,6 +18,7 @@ from .request_monitor_tab import RequestMonitorTab
 from .cve_scanner_tab import CVEScannerTab
 from .waf_bypass_tab import WAFBypassTab
 from .cors_tab import CORSTab
+from .discord_tab import DiscordTab
 from .help_tab import HelpTab
 from gui.theme_manager import ThemeManager
 import time
@@ -289,6 +290,7 @@ class MainWindow(QMainWindow):
         self.settings_tab = SettingsTab(self.theme_manager)
         self.advanced_settings_tab = AdvancedSettingsTab()
         self.cors_tab = CORSTab()
+        self.discord_tab = DiscordTab()
         self.help_tab = HelpTab()
         
         self.tab_widget.addTab(self.scan_tab, '🎯 Vulnerability Scan')
@@ -300,6 +302,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.wayback_tab, '⏰ Wayback URLs')
         self.tab_widget.addTab(self.auth_tab, '🔐 Authentication')
         self.tab_widget.addTab(self.cors_tab, '🌐 CORS Tester')
+        self.tab_widget.addTab(self.discord_tab, '💬 Discord')
         self.tab_widget.addTab(self.help_tab, '📚 Help & Documentation')
         self.tab_widget.addTab(self.settings_tab, '⚙️ Settings')
         self.tab_widget.addTab(self.advanced_settings_tab, '🔧 Advanced')
@@ -322,6 +325,8 @@ class MainWindow(QMainWindow):
         self.settings_tab.theme_changed.connect(self.on_theme_changed)
         self.settings_tab.ui_size_changed.connect(self.on_ui_size_changed)
         self.settings_tab.settings_changed.connect(self.on_settings_changed)
+        
+        self.discord_tab.settings_changed.connect(self.on_discord_settings_changed)
         
         self.auth_tab.auth_configured.connect(self.on_auth_configured)
         self.advanced_settings_tab.settings_changed.connect(self.on_advanced_settings_changed)
@@ -693,6 +698,29 @@ class MainWindow(QMainWindow):
                 self.update_status('🎮 Discord logging disabled')
         except Exception as e:
             print(f"Error configuring Discord logging: {e}")
+    
+    def on_discord_settings_changed(self, settings: dict):
+        """Handle Discord tab settings changes"""
+        discord_webhook = settings.get('discord_webhook', '')
+        discord_log_level = settings.get('discord_log_level', 'INFO')
+        logging_enabled = settings.get('discord_logging_enabled', False)
+        
+        try:
+            from utils.logger import Logger
+            logger = Logger('MoD')
+            
+            if discord_webhook and logging_enabled:
+                # Enable Discord logging
+                if logger.enable_discord_logging(discord_webhook, discord_log_level):
+                    self.update_status(f'💬 Discord logging enabled ({discord_log_level})')
+                else:
+                    self.update_status('⚠️ Failed to enable Discord logging')
+            else:
+                # Disable Discord logging if webhook is empty or disabled
+                logger.disable_discord_logging()
+                self.update_status('💬 Discord logging disabled')
+        except Exception as e:
+            print(f"Error configuring Discord settings: {e}")
     
     def on_auth_configured(self, auth_manager):
         if hasattr(self.scan_tab, 'set_auth_manager'):
