@@ -17,41 +17,17 @@ import requests
 class ResultsTab(DesignMainWidget):
     def __init__(self):
         super().__init__()
+        self.header.set_title("Scan Results Analysis")
+        self.header.set_subtitle("View and export vulnerability findings")
+        
         self.report_generator = ReportGenerator()
         self.database = Database()
         self.vulnerabilities = []
         self.init_ui()
     
     def init_ui(self):
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        
-        # Header
-        header = DesignHeader(
-            title="Scan Results Analysis",
-            subtitle="View and export vulnerability findings"
-        )
-        main_layout.addWidget(header)
-        
-        # Content area
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet(f"""
-            QScrollArea {{
-                background-color: {DesignColors.DARK_BG};
-                border: none;
-            }}
-        """)
-        
-        content_widget = QWidget()
-        content_widget.setStyleSheet(f"background-color: {DesignColors.DARK_BG};")
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(DesignSpacing.LG, DesignSpacing.LG, DesignSpacing.LG, DesignSpacing.LG)
-        content_layout.setSpacing(DesignSpacing.LG)
-        
         # Controls Section
-        controls_section = DesignSection("Controls")
+        controls_section = self.add_section("Controls")
         
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setSpacing(DesignSpacing.MD)
@@ -93,10 +69,9 @@ class ResultsTab(DesignMainWidget):
         toolbar_layout.addWidget(self.clear_btn)
         
         controls_section.add_layout(toolbar_layout)
-        content_layout.addWidget(controls_section)
         
         # Results Table Section
-        results_section = DesignSection("Vulnerability Results")
+        results_section = self.add_section("Vulnerability Results")
         
         self.results_table = QTableWidget()
         self.results_table.setColumnCount(6)
@@ -112,34 +87,8 @@ class ResultsTab(DesignMainWidget):
         self.results_table.verticalHeader().setDefaultSectionSize(35)
         
         results_section.add_widget(self.results_table)
-        content_layout.addWidget(results_section)
         
-        content_layout.addStretch()
-        
-        scroll_area.setWidget(content_widget)
-        main_layout.addWidget(scroll_area)
-        
-        self.setLayout(main_layout)
-        
-        toolbar_layout.addStretch()
-        
-        main_layout.addLayout(toolbar_layout)
-        
-        self.results_table = QTableWidget()
-        self.results_table.setColumnCount(6)
-        self.results_table.setHorizontalHeaderLabels(['Type', 'Severity', 'URL', 'Parameter', 'Payload', 'Description'])
-        
-        header = self.results_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
-        
-        main_layout.addWidget(self.results_table)
-        
-        self.setLayout(main_layout)
+        self.scroll_content.layout().addStretch()
     
     def display_results(self, vulnerabilities: list):
         self.vulnerabilities = vulnerabilities

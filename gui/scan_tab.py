@@ -498,7 +498,7 @@ class ScanTab(DesignMainWidget):
         
         # Status
         self.status_label = QLabel("Ready to scan")
-        self.status_label.setFont(DesignTypography.get_body_font())
+        self.status_label.setFont(DesignTypography.body())
         self.status_label.setStyleSheet(f"color: {DesignColors.TEXT_SECONDARY};")
         
         self.progress_bar = QProgressBar()

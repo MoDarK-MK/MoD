@@ -460,9 +460,7 @@ class SettingsTab(DesignMainWidget):
         test_discord_btn.setMaximumWidth(70)
         test_discord_btn.clicked.connect(self.test_discord_webhook)
         test_discord_btn.setStyleSheet(f"""
-            QPushButton {
-                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-                border-radius: 12px;{
+            QPushButton {{
                 background: {styles['primary']};
                 color: white;
                 border: 2px solid {styles['primary']};
@@ -503,9 +501,7 @@ class SettingsTab(DesignMainWidget):
         save_btn.setMinimumWidth(120)
         save_btn.clicked.connect(self.save_settings)
         save_btn.setStyleSheet(f"""
-            QPushButton {
-                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-                border-radius: 12px;{
+            QPushButton {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                            stop:0 {styles['primary']},
                                            stop:1 rgba(0, 0, 0, 0.2));
@@ -668,9 +664,7 @@ class SettingsTab(DesignMainWidget):
         test_btn.setMinimumWidth(160)
         test_btn.clicked.connect(self.test_ai_connection)
         test_btn.setStyleSheet(f"""
-            QPushButton {
-                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-                border-radius: 12px;{
+            QPushButton {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                            stop:0 {styles['primary']},
                                            stop:1 rgba(0, 0, 0, 0.2));

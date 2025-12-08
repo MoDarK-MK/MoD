@@ -22,7 +22,6 @@ def main():
     app.setFont(font)
     
     try:
-        # Check for updates based on user preferences
         config = Config()
         checker = UpdateChecker()
         

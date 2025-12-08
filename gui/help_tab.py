@@ -51,7 +51,7 @@ class HelpTab(DesignMainWidget):
         self.help_tabs.addTab(self.create_advanced_features(), '🔧 Advanced')
         self.help_tabs.addTab(self.create_tips_tricks(), '💡 Tips & Tricks')
         
-        self.content_layout.addWidget(self.help_tabs)
+        self.scroll_content.layout().addWidget(self.help_tabs)
         self.add_stretch()
     
     def create_help_section(self, title: str, content: str):
