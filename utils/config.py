@@ -1,16 +1,28 @@
+"""
+Configuration management for MoD Security Scanner v4.0.0.2
+Handles application settings with validation and defaults.
+"""
+
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 logger = logging.getLogger('MoD.config')
+
 
 class Config:
     """Application configuration with validation and defaults."""
     
-    def __init__(self):
-        """Initialize configuration with defaults."""
-        self.config_dir = Path.home() / '.mod'
+    VERSION = "4.0.0.2"
+    
+    def __init__(self, config_path: Optional[Path] = None):
+        """Initialize configuration with defaults.
+        
+        Args:
+            config_path: Optional custom configuration directory path.
+        """
+        self.config_dir = config_path or (Path.home() / '.mod')
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.config_file = self.config_dir / 'config.json'
         

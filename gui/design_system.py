@@ -1,103 +1,141 @@
 """
-Professional Design System for MoD Security Scanner
-Organized, clean, and maintainable design patterns
+Professional Design System for MoD Security Scanner v4.0.0.2
+Organized, clean, and maintainable design patterns with consistent theming.
 """
 
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QColor, QFont, QIcon
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QPushButton, QFrame, QScrollArea)
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QPushButton, QFrame, QScrollArea
+)
 
 
 class DesignColors:
-    """Professional color palette"""
+    """Professional color palette with MoD branding."""
+    
     # Primary colors
-    DARK_BG = "#0F1419"      # Dark background
-    CARD_BG = "#1A1F26"      # Card background
-    ACCENT = "#00D4FF"        # Cyan accent
-    ACCENT_HOVER = "#00E5FF"  # Lighter cyan
-    DANGER = "#FF3D3D"        # Red for danger
-    SUCCESS = "#00FF41"       # Green for success
-    WARNING = "#FFB800"       # Orange for warning
+    DARK_BG = "#0F1419"       # Deep dark background
+    CARD_BG = "#1A1F26"       # Card/surface background
+    SURFACE = "#252A32"       # Elevated surface
+    ACCENT = "#00D4FF"        # Cyan primary accent
+    ACCENT_HOVER = "#00E5FF"  # Hover state
+    ACCENT_DARK = "#00B8E6"   # Active/pressed state
+    
+    # Status colors
+    DANGER = "#FF5252"        # Red for critical/danger
+    SUCCESS = "#00E676"       # Green for success
+    WARNING = "#FFB300"       # Orange for warning
+    INFO = "#00D4FF"          # Cyan for info
     
     # Text colors
-    TEXT_PRIMARY = "#FFFFFF"
-    TEXT_SECONDARY = "#B0B8C1"
-    TEXT_TERTIARY = "#7A8290"
+    TEXT_PRIMARY = "#FFFFFF"       # Main text (white)
+    TEXT_SECONDARY = "#8B949E"     # Secondary text (gray)
+    TEXT_TERTIARY = "#6E7681"      # Tertiary text (darker gray)
+    TEXT_DISABLED = "#484F58"      # Disabled text
     
     # Borders and dividers
-    BORDER = "#2A3139"
-    DIVIDER = "#1F2530"
+    BORDER = "#30363D"        # Default border
+    BORDER_LIGHT = "#3D444D"  # Lighter border
+    DIVIDER = "#21262D"       # Divider line
 
 
 class DesignSpacing:
-    """Consistent spacing system"""
-    XS = 4
-    SM = 8
-    MD = 12
-    LG = 16
-    XL = 24
-    XXL = 32
+    """Consistent 4px-based spacing system."""
+    
+    XS = 4      # Extra small spacing
+    SM = 8      # Small spacing
+    MD = 12     # Medium spacing (default)
+    LG = 16     # Large spacing
+    XL = 24     # Extra large spacing
+    XXL = 32    # Double extra large spacing
+    
+    # Component-specific heights
     INPUT_HEIGHT = 40
     BUTTON_HEIGHT = 40
     SECTION_HEIGHT = 50
     ITEM_SPACING = 8
+    CARD_PADDING = 16
+    PAGE_MARGIN = 24
 
 
 class DesignTypography:
-    """Typography system"""
+    """Typography system with consistent font hierarchy."""
+    
+    FONT_FAMILY = "Segoe UI, SF Pro Display, Arial, sans-serif"
+    MONOSPACE_FAMILY = "Consolas, Monaco, Courier New, monospace"
     
     @staticmethod
-    def title_large():
-        """Large title font"""
-        font = QFont()
+    def title_large() -> QFont:
+        """Large title font (24px, bold)."""
+        font = QFont(DesignTypography.FONT_FAMILY)
         font.setPointSize(18)
         font.setBold(True)
         return font
     
     @staticmethod
-    def title_medium():
-        """Medium title font"""
-        font = QFont()
+    def title_medium() -> QFont:
+        """Medium title font (18px, bold)."""
+        font = QFont(DesignTypography.FONT_FAMILY)
         font.setPointSize(14)
         font.setBold(True)
         return font
     
     @staticmethod
-    def title_small():
-        """Small title font"""
-        font = QFont()
+    def title_small() -> QFont:
+        """Small title font (16px, bold)."""
+        font = QFont(DesignTypography.FONT_FAMILY)
         font.setPointSize(12)
         font.setBold(True)
         return font
     
     @staticmethod
-    def body():
-        """Body text font"""
-        font = QFont()
+    def body() -> QFont:
+        """Body text font (14px, normal)."""
+        font = QFont(DesignTypography.FONT_FAMILY)
         font.setPointSize(10)
         font.setWeight(QFont.Weight.Normal)
         return font
     
     @staticmethod
-    def caption():
-        """Caption text font"""
-        font = QFont()
-        font.setPointSize(8)
+    def caption() -> QFont:
+        """Caption text font (12px, normal)."""
+        font = QFont(DesignTypography.FONT_FAMILY)
+        font.setPointSize(9)
         font.setWeight(QFont.Weight.Normal)
+        return font
+    
+    @staticmethod
+    def monospace() -> QFont:
+        """Monospace font for code (13px)."""
+        font = QFont(DesignTypography.MONOSPACE_FAMILY)
+        font.setPointSize(10)
         return font
 
 
 class DesignButton(QPushButton):
-    """Professional button component"""
+    """Professional button component with multiple variants."""
     
-    def __init__(self, text, button_type="primary", parent=None):
+    BUTTON_TYPES = {'primary', 'secondary', 'danger', 'success', 'ghost'}
+    
+    def __init__(self, text: str, button_type: str = "primary", parent=None):
+        """Initialize styled button.
+        
+        Args:
+            text: Button label text.
+            button_type: Button style variant (primary, secondary, danger, success, ghost).
+            parent: Parent widget.
+        """
         super().__init__(text, parent)
+        
+        if button_type not in self.BUTTON_TYPES:
+            raise ValueError(f"Invalid button_type: {button_type}. Must be one of {self.BUTTON_TYPES}")
+        
         self.button_type = button_type
         self.setup_style()
     
-    def setup_style(self):
-        """Setup button styling"""
+    def setup_style(self) -> None:
+        """Apply styling based on button type."""
         if self.button_type == "primary":
             bg = DesignColors.ACCENT
             text = DesignColors.DARK_BG

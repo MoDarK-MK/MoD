@@ -1,3 +1,8 @@
+"""
+MoD - Master of Defense v4.0.0.2
+Professional Web Application Security Scanner
+"""
+
 import sys
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
@@ -7,32 +12,40 @@ from utils.config import Config
 
 
 def main():
+    """Initialize and run the MoD application."""
+    # Configure high DPI scaling for modern displays
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
     
     app = QApplication(sys.argv)
     
-    app.setApplicationName("MoD - Master of Defense v4.0")
-    app.setApplicationVersion("4.0.0")
+    # Set application metadata
+    app.setApplicationName("MoD - Master of Defense v4.0.0.2")
+    app.setApplicationVersion("4.0.0.2")
     app.setOrganizationName("MoD Security")
     
+    # Set default font
     font = QFont("Segoe UI", 10)
     app.setFont(font)
     
     try:
+        # Initialize configuration
         config = Config()
-        # Skip update checker for now - go straight to main window
         
+        # Create and show main window
         window = MainWindow()
-        window.showMaximized()  # Ensure fullscreen on startup
-        sys.exit(app.exec())
+        window.showMaximized()
+        
+        # Start event loop
+        return app.exec()
+    
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Fatal error: {e}")
         import traceback
         traceback.print_exc()
-        sys.exit(1)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

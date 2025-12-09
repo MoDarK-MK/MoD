@@ -1,59 +1,78 @@
+"""
+Logging system for MoD Security Scanner v4.0.0.2
+Provides file, console, and Discord webhook logging with formatting.
+"""
+
 import logging
 import requests
 from datetime import datetime
 from pathlib import Path
 from typing import Set, Optional
-from queue import Queue
+from queue import Queue, Empty
 import threading
 
+
 class DiscordHandler(logging.Handler):
-    """Custom logging handler that sends logs to Discord webhook"""
+    """Custom logging handler that sends logs to Discord webhook with batching."""
     
     def __init__(self, webhook_url: str, queue_size: int = 100):
+        """Initialize Discord logging handler.
+        
+        Args:
+            webhook_url: Discord webhook URL.
+            queue_size: Maximum queue size for buffering logs.
+        """
         super().__init__()
         self.webhook_url = webhook_url
-        self.queue = Queue(maxsize=queue_size)
+        self.queue: Queue = Queue(maxsize=queue_size)
         self.is_running = True
         
         # Start background thread for sending logs
         self.thread = threading.Thread(target=self._process_logs, daemon=True)
         self.thread.start()
     
-    def emit(self, record: logging.LogRecord):
-        """Send log record to Discord"""
+    def emit(self, record: logging.LogRecord) -> None:
+        """Queue log record for Discord delivery.
+        
+        Args:
+            record: Log record to send.
+        """
         try:
-            if not self.webhook_url:
+            if not self.webhook_url or self.queue.full():
                 return
             
-            # Don't queue if queue is full
-            if self.queue.full():
-                return
-            
-            self.queue.put(record, block=False)
+            self.queue.put_nowait(record)
         except Exception:
-            pass
+            self.handleError(record)
     
-    def _process_logs(self):
-        """Process logs from queue in background thread"""
+    def _process_logs(self) -> None:
+        """Process logs from queue in background thread."""
         while self.is_running:
             try:
-                record = self.queue.get(timeout=1)
+                record = self.queue.get(timeout=1.0)
                 self._send_to_discord(record)
-            except:
+            except Empty:
+                continue
+            except Exception:
                 pass
     
-    def _send_to_discord(self, record: logging.LogRecord):
-        """Send log to Discord webhook with formatting"""
+    def _send_to_discord(self, record: logging.LogRecord) -> None:
+        """Send log to Discord webhook with rich formatting.
+        
+        Args:
+            record: Log record to send.
+        """
         try:
+            # Color mapping for log levels
             level_colors = {
                 'DEBUG': 0x808080,      # Gray
-                'INFO': 0x0099ff,       # Blue
-                'WARNING': 0xffff00,    # Yellow
-                'ERROR': 0xff6600,      # Orange
-                'CRITICAL': 0xff0000   # Red
+                'INFO': 0x00D4FF,       # Cyan (MoD brand color)
+                'WARNING': 0xFFB300,    # Orange
+                'ERROR': 0xFF5252,      # Red
+                'CRITICAL': 0xFF0000    # Bright Red
             }
             
-            color = level_colors.get(record.levelname, 0x0099ff)
+            color = level_colors.get(record.levelname, 0x00D4FF)
             
             # Format message (truncate if too long for Discord)
             message = self.format(record)

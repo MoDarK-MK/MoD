@@ -2,7 +2,7 @@
 
 # 🛡️ MoD - Master of Defense
 
-[![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://github.com/MoDarK-MK/MoD)
+[![Version](https://img.shields.io/badge/version-4.0.0.2-blue.svg)](https://github.com/MoDarK-MK/MoD)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/MoDarK-MK/MoD)
@@ -646,7 +646,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ by the MoD Team**
 
-_Version 4.0.0 | Last Updated: December 9, 2025_
+_Version 4.0.0.2 | Last Updated: December 9, 2025_
 
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-success?style=for-the-badge)
 
