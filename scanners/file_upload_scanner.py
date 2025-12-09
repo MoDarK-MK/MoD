@@ -25,6 +25,12 @@ class UploadVulnerabilityType(Enum):
     XXE_VIA_UPLOAD = "xxe_via_upload"
     XSS_VIA_UPLOAD = "xss_via_upload"
     SSRF_VIA_UPLOAD = "ssrf_via_upload"
+    ZIP_SLIP = "zip_slip"
+    IMAGETRAGICK = "imagetragick"
+    METADATA_INJECTION = "metadata_injection"
+    HTACCESS_OVERRIDE = "htaccess_override"
+    SYMLINK_UPLOAD = "symlink_upload"
+    RACE_CONDITION = "race_condition"
 
 class FileType(Enum):
     PHP = "php"

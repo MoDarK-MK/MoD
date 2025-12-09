@@ -28,6 +28,12 @@ class XXEType(Enum):
     XXE_CHAIN = "xxe_chain"
     ENTITY_EXPANSION_ATTACK = "entity_expansion_attack"
     ENCODED_XXE = "encoded_xxe"
+    UTF7_XXE = "utf7_xxe"
+    CDATA_BYPASS = "cdata_bypass"
+    SOAP_XXE = "soap_xxe"
+    SVG_XXE = "svg_xxe"
+    OFFICE_XXE = "office_xxe"
+    PDF_XXE = "pdf_xxe"
 
 class PayloadType(Enum):
     FILE_INCLUSION = "file_inclusion"

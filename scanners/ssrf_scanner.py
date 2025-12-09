@@ -28,6 +28,13 @@ class SSRFType(Enum):
     HTTP_HEADER_INJECTION = "http_header_injection"
     CACHE_POISONING = "cache_poisoning"
     REVERSE_DNS_POISONING = "reverse_dns_poisoning"
+    URL_SCHEMA_BYPASS = "url_schema_bypass"
+    DECIMAL_IP_BYPASS = "decimal_ip_bypass"
+    OCTAL_IP_BYPASS = "octal_ip_bypass"
+    HEX_IP_BYPASS = "hex_ip_bypass"
+    IPV6_BYPASS = "ipv6_bypass"
+    DNS_REBINDING = "dns_rebinding"
+    OPEN_REDIRECT_CHAIN = "open_redirect_chain"
 
 
 class TargetType(Enum):

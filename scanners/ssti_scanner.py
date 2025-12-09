@@ -30,6 +30,14 @@ class SSTIType(Enum):
     SSTI_WAF_BYPASS = "ssti_waf_bypass"
     SSTI_ENCODING_BYPASS = "ssti_encoding_bypass"
     SSTI_BLIND = "ssti_blind"
+    NUNJUCKS = "nunjucks"
+    EJS = "ejs"
+    PUG = "pug"
+    MUSTACHE = "mustache"
+    DOTJS = "dotjs"
+    UNDERSCORE = "underscore"
+    RAZOR = "razor"
+    GROOVY = "groovy"
 
 class TemplateEngine(Enum):
     PYTHON_JINJA2 = "python_jinja2"

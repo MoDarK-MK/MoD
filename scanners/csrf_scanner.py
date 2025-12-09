@@ -28,6 +28,12 @@ class CSRFVulnerabilityType(Enum):
     NULL_BYTE_BYPASS = "null_byte_bypass"
     HEADER_INJECTION = "header_injection"
     JSON_HIJACKING = "json_hijacking"
+    CORS_MISCONFIGURATION = "cors_misconfiguration"
+    REFERER_BYPASS = "referer_bypass"
+    SUBDOMAIN_TAKEOVER = "subdomain_takeover"
+    WEBSOCKET_CSRF = "websocket_csrf"
+    FLASH_CSRF = "flash_csrf"
+    GRAPHQL_CSRF = "graphql_csrf"
 
 class HTTPMethod(Enum):
     GET = "GET"

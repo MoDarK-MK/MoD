@@ -35,6 +35,11 @@ class SQLInjectionType(Enum):
     NOSQL_INJECTION = "nosql_injection"
     MULTI_PARAMETER = "multi_parameter"
     AUTHENTICATION_BYPASS = "authentication_bypass"
+    POLYGLOT_INJECTION = "polyglot_injection"
+    WAF_BYPASS_INJECTION = "waf_bypass_injection"
+    CONTENT_TYPE_CONFUSION = "content_type_confusion"
+    HPP_INJECTION = "hpp_injection"
+    HEADER_INJECTION = "header_injection"
 
 
 class DatabaseType(Enum):

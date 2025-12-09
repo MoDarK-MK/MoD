@@ -21,6 +21,12 @@ class RCEType(Enum):
     LDAP_INJECTION = "ldap_injection"
     OS_COMMAND_INJECTION = "os_command_injection"
     PROCESS_INJECTION = "process_injection"
+    EXPRESSION_LANGUAGE_INJECTION = "expression_language_injection"
+    OGNL_INJECTION = "ognl_injection"
+    SPEL_INJECTION = "spel_injection"
+    MVEL_INJECTION = "mvel_injection"
+    LOG4SHELL = "log4shell"
+    PROTOTYPE_POLLUTION = "prototype_pollution"
 
 
 class ExecutionContext(Enum):

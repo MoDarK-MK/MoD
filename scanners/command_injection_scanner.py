@@ -24,6 +24,11 @@ class CommandInjectionType(Enum):
     COMMAND_CHAINING = "command_chaining"
     ENCODING_BYPASS = "encoding_bypass"
     VARIABLE_EXPANSION = "variable_expansion"
+    UNICODE_EVASION = "unicode_evasion"
+    NULL_BYTE_INJECTION = "null_byte_injection"
+    WILDCARD_INJECTION = "wildcard_injection"
+    PARAMETER_POLLUTION = "parameter_pollution"
+    MUTATION_BASED = "mutation_based"
 
 class OSSeparator(Enum):
     SEMICOLON = ";"

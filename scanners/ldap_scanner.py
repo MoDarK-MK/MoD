@@ -22,6 +22,10 @@ class LDAPVulnerabilityType(Enum):
     NULL_BYTE_INJECTION = "null_byte_injection"
     UNICODE_BYPASS = "unicode_bypass"
     INFORMATION_DISCLOSURE = "information_disclosure"
+    SEARCH_FILTER_INJECTION = "search_filter_injection"
+    BASE64_BYPASS = "base64_bypass"
+    TIME_BASED_BLIND = "time_based_blind"
+    ATTRIBUTE_ENUMERATION = "attribute_enumeration"
 
 class InjectionTechnique(Enum):
     OR_TRUE = "or_true"
