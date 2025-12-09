@@ -240,6 +240,12 @@ class ModAIConfig:
     # 18. Performance Metrics
     enable_metrics: bool = True
     metrics_window: int = 500
+    # Phase B: Advanced Detection Features (5 new capabilities)
+    enable_lateral_movement: bool = True
+    enable_time_series: bool = True
+    enable_request_correlation: bool = True
+    enable_protocol_analysis: bool = True
+    enable_historical_context: bool = True
 
 
 class ModAILabel(Enum):
@@ -385,6 +391,149 @@ class ResponseDiffer:
         is_different = diff_percent > threshold
         return is_different, diff_percent
 
+    @staticmethod
+    def extract_json_keys(obj: any, keys: set = None) -> set:
+        """Recursively extract all keys from JSON object."""
+        if keys is None:
+            keys = set()
+        if isinstance(obj, dict):
+            keys.update(obj.keys())
+            for v in obj.values():
+                ResponseDiffer.extract_json_keys(v, keys)
+        elif isinstance(obj, list):
+            for item in obj:
+                ResponseDiffer.extract_json_keys(item, keys)
+        return keys
+
+    @staticmethod
+    def json_structure_diff(baseline: Dict, injected: Dict) -> Tuple[bool, float, Dict]:
+        """Advanced JSON structure comparison (field additions/removals)."""
+        if not baseline or not injected:
+            return False, 0.0, {}
+        
+        base_keys = ResponseDiffer.extract_json_keys(baseline)
+        inj_keys = ResponseDiffer.extract_json_keys(injected)
+        
+        added_keys = inj_keys - base_keys
+        removed_keys = base_keys - inj_keys
+        common_keys = base_keys & inj_keys
+        
+        total_keys = len(base_keys) if base_keys else 1
+        structure_diff = (len(added_keys) + len(removed_keys)) / total_keys
+        
+        return structure_diff > 0.1, structure_diff, {
+            "added": list(added_keys),
+            "removed": list(removed_keys),
+            "common": len(common_keys)
+        }
+
+    @staticmethod
+    def html_table_diff(baseline: str, injected: str) -> float:
+        """Detect table cell content changes (SQL injection indicator)."""
+        import re
+        base_cells = re.findall(r'<t[dh]>([^<]+)</t[dh]>', baseline.lower())
+        inj_cells = re.findall(r'<t[dh]>([^<]+)</t[dh]>', injected.lower())
+        
+        if not base_cells:
+            return 0.0
+        
+        # Calculate row count difference
+        base_rows = len(re.findall(r'<tr[^>]*>', baseline))
+        inj_rows = len(re.findall(r'<tr[^>]*>', injected))
+        row_diff = abs(inj_rows - base_rows) / (base_rows + 1)
+        
+        # Calculate cell content similarity
+        cell_match = sum(1 for c in inj_cells if c in base_cells) / max(len(inj_cells), 1)
+        
+        return (row_diff + (1.0 - cell_match)) / 2.0
+
+
+class PayloadComplexityAnalyzer:
+    """Analyze payload complexity and sophistication."""
+
+    @staticmethod
+    def count_nesting_depth(payload: str) -> int:
+        """Count nesting depth (parentheses, brackets, etc.)."""
+        depth = 0
+        max_depth = 0
+        for char in payload:
+            if char in '({[':
+                depth += 1
+                max_depth = max(max_depth, depth)
+            elif char in ')}]':
+                depth = max(0, depth - 1)
+        return max_depth
+
+    @staticmethod
+    def detect_encoding(payload: str) -> List[str]:
+        """Detect common encodings (base64, hex, URL, etc.)."""
+        encodings = []
+        if re.match(r'^[A-Za-z0-9+/]+={0,2}$', payload):
+            encodings.append('base64')
+        if re.match(r'^[0-9a-fA-F]+$', payload):
+            encodings.append('hex')
+        if '%' in payload:
+            encodings.append('url')
+        if '\\x' in payload or '\\u' in payload:
+            encodings.append('escape')
+        return encodings
+
+    @staticmethod
+    def score_complexity(payload: str) -> float:
+        """Score payload complexity (0-1)."""
+        nesting = PayloadComplexityAnalyzer.count_nesting_depth(payload)
+        encoding_count = len(PayloadComplexityAnalyzer.detect_encoding(payload))
+        unique_chars = len(set(payload))
+        payload_len = len(payload)
+        
+        # Normalize and combine
+        nesting_score = min(nesting / 10.0, 1.0)
+        encoding_score = min(encoding_count / 3.0, 1.0)
+        char_diversity = min(unique_chars / 50.0, 1.0)
+        length_score = min(payload_len / 500.0, 1.0)
+        
+        return (nesting_score * 0.3 + encoding_score * 0.25 + char_diversity * 0.25 + length_score * 0.2)
+
+
+class HTTPContextAnalyzer:
+    """Analyze HTTP context for vulnerability scoring."""
+
+    @staticmethod
+    def analyze_method(method: str) -> float:
+        """Score HTTP method riskiness."""
+        risk_scores = {
+            "POST": 0.8,
+            "GET": 0.6,
+            "PUT": 0.75,
+            "DELETE": 0.85,
+            "PATCH": 0.7,
+            "HEAD": 0.3,
+            "OPTIONS": 0.2,
+        }
+        return risk_scores.get(method.upper(), 0.5)
+
+    @staticmethod
+    def analyze_headers(headers: Dict[str, str]) -> float:
+        """Detect authentication/sensitive headers."""
+        risk = 0.0
+        sensitive = ["authorization", "cookie", "x-api-key", "x-auth-token"]
+        for header in sensitive:
+            if header in [h.lower() for h in headers.keys()]:
+                risk += 0.15
+        return min(risk, 1.0)
+
+    @staticmethod
+    def analyze_content_type(content_type: str) -> float:
+        """Score content-type riskiness."""
+        dangerous = ["application/json", "application/xml", "text/plain"]
+        safe = ["image/", "font/", "application/pdf"]
+        
+        if any(d in content_type.lower() for d in dangerous):
+            return 0.7
+        if any(s in content_type.lower() for s in safe):
+            return 0.1
+        return 0.4
+
 
 class AnomalyDetector:
     """Detect outliers and unusual patterns in response times and scores."""
@@ -441,6 +590,20 @@ class ModAIEngine:
         self.differ = ResponseDiffer()
         self.calibration_history: deque = deque(maxlen=self.cfg.calibration_window)
         self.throttle_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=self.cfg.throttle_pattern_size))
+        # Phase A helpers
+        self.payload_complexity = PayloadComplexityAnalyzer()
+        self.http_context = HTTPContextAnalyzer()
+        self.isolation_forest = IsolationForestAnomalyDetector()
+        self.evidence_graph = ChainOfEvidenceGraph()
+        self.calibrator = ConfidenceCalibrator(window=100)
+        self.fuzzy_matcher = FuzzyMatcher()
+        self.score_history: deque = deque(maxlen=100)  # For ML training
+        # Phase B helpers
+        self.lateral_movement = LateralMovementDetector()
+        self.time_series = TimeSeriesAnalyzer(window_size=self.cfg.window_size)
+        self.request_correlation = RequestCorrelationEngine()
+        self.protocol_analyzer = ProtocolSpecificAnalyzer()
+        self.historical_context = HistoricalContextEngine()
 
     @staticmethod
     def _shannon_entropy(text: str) -> float:
@@ -684,6 +847,63 @@ class ModAIEngine:
             base *= hour_weight
             explanations.append(f"temporal*{hour_weight:.2f}")
 
+        # ===== PHASE A: Advanced Enhancements =====
+        
+        # Feature 1b: Advanced JSON/XML structural diffing
+        if self.cfg.enable_response_diffing and features.injected_response:
+            try:
+                inj_json = ResponseDiffer.parse_json_structure(features.injected_response)
+                base_json = ResponseDiffer.parse_json_structure(features.baseline_response) if features.baseline_response else None
+                if inj_json and base_json:
+                    is_struct_diff, struct_ratio, diff_info = ResponseDiffer.json_structure_diff(base_json, inj_json)
+                    if is_struct_diff:
+                        base += 0.12
+                        explanations.append(f"json_struct_diff+0.12({len(diff_info['added'])}new)")
+            except:
+                pass
+        
+        # Feature 1c: HTML table diffing for SQLi
+        if features.baseline_response and features.injected_response and '<table' in features.baseline_response.lower():
+            table_diff = ResponseDiffer.html_table_diff(features.baseline_response, features.injected_response)
+            if table_diff > 0.2:
+                base += min(table_diff * 0.15, 0.10)
+                explanations.append(f"table_diff+{min(table_diff * 0.15, 0.10):.2f}")
+        
+        # Feature 2: Payload complexity analysis
+        payload_text = ";".join(features.notes)[:200]
+        if payload_text:
+            complexity = self.payload_complexity.score_complexity(payload_text)
+            encodings = self.payload_complexity.detect_encoding(payload_text)
+            
+            # Higher complexity + multiple encodings = higher risk
+            if complexity > 0.7 and len(encodings) > 1:
+                base += 0.08
+                explanations.append(f"complex_payload+0.08")
+            
+            # Nesting depth indicator
+            nesting = self.payload_complexity.count_nesting_depth(payload_text)
+            if nesting > 5:
+                base += min(nesting * 0.02, 0.10)
+                explanations.append(f"deep_nesting+{min(nesting * 0.02, 0.10):.2f}")
+        
+        # Feature 5b: Fuzzy payload matching (better evasion detection)
+        if len(features.hard_hits) > 0 and features.payload_length > 0:
+            payload_sample = features.hard_hits[0] if features.hard_hits else ""
+            # Try fuzzy matching against known signatures
+            known_sql_sigs = ["union select", "or 1=1", "; drop table", "benchmark("]
+            fuzzy_matches = self.fuzzy_matcher.find_similar(payload_sample, known_sql_sigs, threshold=0.75)
+            if fuzzy_matches:
+                base += min(len(fuzzy_matches) * 0.05, 0.15)
+                explanations.append(f"fuzzy_match+{min(len(fuzzy_matches) * 0.05, 0.15):.2f}")
+        
+        # Feature 6: HTTP context scoring
+        http_risk = 0.0
+        http_risk += self.http_context.analyze_method(detection.get("method", "GET")) * 0.1
+        http_risk += self.http_context.analyze_content_type(detection.get("content_type", "text/html")) * 0.05
+        if http_risk > 0:
+            base += min(http_risk, 0.15)
+            explanations.append(f"http_context+{min(http_risk, 0.15):.2f}")
+
         # Feature 15: Lightweight anomaly detector (add score to history, check for outlier)
         if self.cfg.enable_anomaly_detector and features.target_id:
             self.anomaly_detector.add(features.target_id, features.response_time)
@@ -691,6 +911,15 @@ class ModAIEngine:
             if is_anom and z_score > 2.5:
                 base += 0.06
                 explanations.append(f"anom_outlier+0.06")
+            
+            # Train isolation forest
+            self.score_history.append(features.response_time)
+            if len(self.score_history) >= 20:
+                try:
+                    self.isolation_forest.train(list(self.score_history))
+                except:
+                    pass
+
 
         # Feature 8: False positive suppression
         if self.cfg.enable_fp_suppression:
@@ -708,7 +937,7 @@ class ModAIEngine:
             pass
 
         # Feature 12: Bayesian fusion of signals (if enabled)
-        if self.cfg.enable_bayesian:
+        if self.cfg.enable_bayesian_fusion:
             signals = {
                 "confidence": features.confidence,
                 "patterns": min(features.matched_patterns / 5.0, 1.0),
@@ -784,14 +1013,121 @@ class ModAIEngine:
         if self.cfg.enable_audit_trail:
             self.audit_trail.record(features.target_id, score, str(label), explanations)
 
-        if score >= 0.85:
-            label = ModAILabel.CRITICAL
-        elif score >= 0.7:
-            label = ModAILabel.HIGH
-        elif score >= 0.52:
-            label = ModAILabel.MEDIUM
+        # ===== PHASE A.4: Chain-of-Evidence Graph Integration =====
+        if self.cfg.enable_evidence_chain and score > 0.5:
+            try:
+                self.evidence_graph.add_signal("confidence", features.confidence)
+                self.evidence_graph.add_signal("patterns", min(features.matched_patterns / 5.0, 1.0))
+                self.evidence_graph.add_signal("errors", float(features.has_error_indicators))
+                self.evidence_graph.add_edge("confidence", "patterns", 0.7)
+                self.evidence_graph.add_edge("errors", "patterns", 0.8)
+                coe_score = self.evidence_graph.compute_propagation("confidence")
+                explanations.append(f"chain_of_evidence={coe_score:.2f}")
+            except:
+                pass
+
+        # ===== PHASE B.1: Lateral Movement Detection =====
+        if self.cfg.enable_lateral_movement and len(features.notes) >= 2:
+            try:
+                attack_types = [n.split(':')[0] for n in features.notes if ':' in n]
+                if len(attack_types) >= 2:
+                    correlation = self.lateral_movement.detect_multi_target_correlation([
+                        (features.target_id, detection.get("url", ""), attack_types[i % len(attack_types)])
+                        for i in range(min(len(features.notes), 3))
+                    ])
+                    if correlation > 0.5:
+                        base += correlation * 0.08
+                        explanations.append(f"lateral_movement={correlation:.2f}")
+            except:
+                pass
+
+        # ===== PHASE B.2: Time-Series Anomaly Detection =====
+        if self.cfg.enable_time_series:
+            try:
+                self.time_series.add_point(score, features.hour_of_day)
+                is_anomaly, anomaly_score = self.time_series.detect_change_point()
+                if is_anomaly and anomaly_score > 0.5:
+                    base = max(base + anomaly_score * 0.1, base)
+                    trend = self.time_series.get_trend()
+                    explanations.append(f"time_series_anomaly={anomaly_score:.2f}:{trend}")
+            except:
+                pass
+
+        # ===== PHASE B.3: Request Correlation Analysis =====
+        if self.cfg.enable_request_correlation:
+            try:
+                headers = detection.get("headers", {})
+                geo_anomaly = self.request_correlation.detect_geographic_anomaly(
+                    [detection.get("source_ip", "127.0.0.1")],
+                    [detection.get("url", "")]
+                )
+                if geo_anomaly > 0.4:
+                    base += geo_anomaly * 0.06
+                    explanations.append(f"geographic_anomaly={geo_anomaly:.2f}")
+            except:
+                pass
+
+        # ===== PHASE B.4: Protocol-Specific Analysis =====
+        if self.cfg.enable_protocol_analysis:
+            try:
+                url = detection.get("url", "")
+                method = detection.get("method", "GET")
+                payload = features.payload_risk > 0.5 and detection.get("url", "") or ""
+                response = detection.get("response", "")
+                
+                graphql_risk = self.protocol_analyzer.detect_graphql_introspection(payload, response)
+                soap_risk = self.protocol_analyzer.detect_soap_xxe(payload)
+                rest_risk = self.protocol_analyzer.detect_rest_token_manipulation(payload, method)
+                ws_risk = self.protocol_analyzer.detect_websocket_evasion(payload, url)
+                grpc_risk = self.protocol_analyzer.detect_grpc_exploitation(payload, detection.get("headers", {}))
+                
+                protocol_risks = [graphql_risk, soap_risk, rest_risk, ws_risk, grpc_risk]
+                max_protocol_risk = max(protocol_risks) if protocol_risks else 0.0
+                
+                if max_protocol_risk > 0.4:
+                    base += max_protocol_risk * 0.07
+                    explanations.append(f"protocol_risk={max_protocol_risk:.2f}")
+            except:
+                pass
+
+        # ===== PHASE B.5: Historical Context & CVE Integration =====
+        if self.cfg.enable_historical_context:
+            try:
+                # Check for novel/unknown indicators
+                unknown_indicators = [k for k in features.keyword_hits if k not in self.historical_context.threat_intelligence]
+                zero_day_score = self.historical_context.detect_zero_day_pattern(unknown_indicators)
+                
+                if zero_day_score > 0.3:
+                    base += zero_day_score * 0.06
+                    explanations.append(f"zero_day_pattern={zero_day_score:.2f}")
+            except:
+                pass
+
+        # ===== PHASE A.5: Confidence Calibration =====
+        if self.cfg.enable_calibration:
+            # Record for calibration
+            self.calibrator.record_detection(score, vuln_type, features.false_positive_risk < 0.3)
+            
+            # Use calibrated thresholds
+            label_str = self.calibrator.get_label(score, vuln_type)
+            if label_str == "CRITICAL":
+                label = ModAILabel.CRITICAL
+            elif label_str == "HIGH":
+                label = ModAILabel.HIGH
+            elif label_str == "MEDIUM":
+                label = ModAILabel.MEDIUM
+            else:
+                label = ModAILabel.LOW
         else:
-            label = ModAILabel.LOW
+            # Default thresholds
+            if score >= 0.85:
+                label = ModAILabel.CRITICAL
+            elif score >= 0.7:
+                label = ModAILabel.HIGH
+            elif score >= 0.52:
+                label = ModAILabel.MEDIUM
+            else:
+                label = ModAILabel.LOW
 
         return score, label, explanations
 
@@ -901,6 +1237,488 @@ class VendorRuleEngine:
                         break
         
         return list(set(matches))
+
+
+class IsolationForestAnomalyDetector:
+    """Lightweight Isolation Forest implementation for anomaly detection."""
+
+    def __init__(self, n_trees: int = 10, sample_size: int = 256, contamination: float = 0.1) -> None:
+        self.n_trees = n_trees
+        self.sample_size = sample_size
+        self.contamination = contamination
+        self.trees: List[Dict] = []
+        self.threshold = 0.0
+        self.trained = False
+
+    def train(self, X: List[float]) -> None:
+        """Train isolation forest on 1D scores."""
+        if len(X) < 2:
+            return
+        
+        # Simple threshold-based anomaly detection (approximation)
+        mean = statistics.mean(X)
+        stdev = statistics.stdev(X) if len(X) > 1 else 0.1
+        self.threshold = mean + (3.0 * stdev)  # 3-sigma rule
+        self.trained = True
+
+    def predict(self, x: float) -> int:
+        """Predict: 1 for anomaly, -1 for normal."""
+        if not self.trained:
+            return -1
+        return 1 if x > self.threshold else -1
+
+
+class ChainOfEvidenceGraph:
+    """Build and traverse DAG of vulnerability signals."""
+
+    def __init__(self) -> None:
+        self.edges: Dict[str, List[Tuple[str, float]]] = defaultdict(list)
+        self.signal_values: Dict[str, float] = {}
+        self.evidence_chain: List[str] = []
+
+    def add_signal(self, signal_id: str, value: float) -> None:
+        """Add a signal node."""
+        self.signal_values[signal_id] = value
+
+    def add_edge(self, from_signal: str, to_signal: str, weight: float) -> None:
+        """Add directed edge (from → to with weight)."""
+        self.edges[from_signal].append((to_signal, weight))
+
+    def compute_propagation(self, root_signal: str) -> float:
+        """Compute final score via signal propagation."""
+        visited = set()
+        stack = [(root_signal, 1.0)]
+        total_score = 0.0
+        
+        while stack:
+            signal, path_weight = stack.pop()
+            if signal in visited:
+                continue
+            visited.add(signal)
+            
+            signal_value = self.signal_values.get(signal, 0.0)
+            contribution = signal_value * path_weight
+            total_score += contribution
+            self.evidence_chain.append(f"{signal}({contribution:.2f})")
+            
+            # Propagate to dependent signals
+            for next_signal, edge_weight in self.edges.get(signal, []):
+                if next_signal not in visited:
+                    stack.append((next_signal, path_weight * edge_weight))
+        
+        return min(total_score, 1.0)
+
+    def get_explanation(self) -> str:
+        """Get human-readable explanation."""
+        return " -> ".join(self.evidence_chain)
+
+
+class ConfidenceCalibrator:
+    """Self-tuning confidence threshold calibrator."""
+
+    def __init__(self, window: int = 100, learning_rate: float = 0.01) -> None:
+        self.window = window
+        self.learning_rate = learning_rate
+        self.history: deque = deque(maxlen=window)
+        self.thresholds = {
+            "CRITICAL": 0.85,
+            "HIGH": 0.70,
+            "MEDIUM": 0.52,
+            "LOW": 0.30,
+        }
+        self.per_vuln_thresholds: Dict[str, Dict[str, float]] = defaultdict(lambda: dict(self.thresholds))
+
+    def record_detection(self, score: float, vuln_type: str, is_confirmed: bool) -> None:
+        """Record a detection for calibration."""
+        self.history.append({"score": score, "vuln_type": vuln_type, "confirmed": is_confirmed})
+
+    def calibrate(self, vuln_type: str = "global") -> Dict[str, float]:
+        """Recalibrate thresholds based on history."""
+        if len(self.history) < 10:
+            return self.thresholds if vuln_type == "global" else self.per_vuln_thresholds[vuln_type]
+        
+        # Filter by vuln_type
+        relevant = [h for h in self.history if h["vuln_type"] == vuln_type or vuln_type == "global"]
+        if not relevant:
+            return self.thresholds
+        
+        confirmed_scores = sorted([h["score"] for h in relevant if h["confirmed"]])
+        unconfirmed_scores = sorted([h["score"] for h in relevant if not h["confirmed"]])
+        
+        # Estimate optimal thresholds
+        if confirmed_scores and unconfirmed_scores:
+            # Find gap between confirmed and unconfirmed
+            new_critical = statistics.median(confirmed_scores[-len(confirmed_scores)//3:]) if confirmed_scores else 0.85
+            new_critical = min(max(new_critical, 0.7), 0.98)
+            
+            threshold_dict = self.thresholds if vuln_type == "global" else self.per_vuln_thresholds[vuln_type]
+            threshold_dict["CRITICAL"] = new_critical
+            threshold_dict["HIGH"] = new_critical - 0.15
+            threshold_dict["MEDIUM"] = new_critical - 0.33
+            threshold_dict["LOW"] = new_critical - 0.55
+            
+            return threshold_dict
+        
+        return self.thresholds if vuln_type == "global" else self.per_vuln_thresholds[vuln_type]
+
+    def get_label(self, score: float, vuln_type: str = "global") -> str:
+        """Get label based on calibrated thresholds."""
+        thresholds = self.per_vuln_thresholds.get(vuln_type, self.thresholds)
+        
+        if score >= thresholds.get("CRITICAL", 0.85):
+            return "CRITICAL"
+        elif score >= thresholds.get("HIGH", 0.70):
+            return "HIGH"
+        elif score >= thresholds.get("MEDIUM", 0.52):
+            return "MEDIUM"
+        else:
+            return "LOW"
+
+
+class FuzzyMatcher:
+    """Fuzzy matching for payload signatures."""
+
+    @staticmethod
+    def levenshtein_distance(s1: str, s2: str) -> int:
+        """Calculate Levenshtein distance."""
+        if len(s1) < len(s2):
+            return FuzzyMatcher.levenshtein_distance(s2, s1)
+        if len(s2) == 0:
+            return len(s1)
+        
+        previous_row = range(len(s2) + 1)
+        for i, c1 in enumerate(s1):
+            current_row = [i + 1]
+            for j, c2 in enumerate(s2):
+                insertions = previous_row[j + 1] + 1
+                deletions = current_row[j] + 1
+                substitutions = previous_row[j] + (c1 != c2)
+                current_row.append(min(insertions, deletions, substitutions))
+            previous_row = current_row
+        
+        return previous_row[-1]
+
+    @staticmethod
+    def similarity_ratio(s1: str, s2: str, threshold: float = 0.85) -> Tuple[bool, float]:
+        """Calculate string similarity ratio."""
+        max_len = max(len(s1), len(s2))
+        if max_len == 0:
+            return True, 1.0
+        
+        distance = FuzzyMatcher.levenshtein_distance(s1, s2)
+        ratio = 1.0 - (distance / max_len)
+        
+        return ratio >= threshold, ratio
+
+    @staticmethod
+    def find_similar(payload: str, signatures: List[str], threshold: float = 0.85) -> List[Tuple[str, float]]:
+        """Find similar signatures."""
+        matches = []
+        for sig in signatures:
+            is_match, ratio = FuzzyMatcher.similarity_ratio(payload, sig, threshold)
+            if is_match:
+                matches.append((sig, ratio))
+        return sorted(matches, key=lambda x: x[1], reverse=True)
+
+
+# ================================================================================
+# PHASE B: Advanced Detection Enhancements (Lateral Movement, Time-Series, etc.)
+# ================================================================================
+
+class LateralMovementDetector:
+    """Detect multi-target attacks and lateral movement patterns."""
+    
+    def __init__(self):
+        self.target_history = defaultdict(list)  # target -> list of (timestamp, url, type)
+        self.attack_chains = []  # chains of related attacks
+    
+    def record_attack(self, target_id: str, url: str, attack_type: str, timestamp: float = None):
+        """Record an attack against a target."""
+        if timestamp is None:
+            timestamp = time.time()
+        self.target_history[target_id].append((timestamp, url, attack_type))
+    
+    def detect_multi_target_correlation(self, attack_list: List[Tuple[str, str, str]]) -> float:
+        """
+        Detect if multiple attacks are correlated (same pattern, similar timeframe).
+        attack_list: [(target_id, url, attack_type), ...]
+        Returns: correlation score 0-1
+        """
+        if len(attack_list) < 2:
+            return 0.0
+        
+        # Check if targets are similar (same subnet/domain)
+        targets = [a[0] for a in attack_list]
+        types = [a[2] for a in attack_list]
+        
+        # Check type consistency
+        type_consistency = len(set(types)) / max(len(types), 1)
+        
+        # Check temporal proximity (all within 5 minutes?)
+        urls = [a[1] for a in attack_list]
+        url_variance = len(set(urls)) / max(len(urls), 1)
+        
+        # Multi-target attack score: higher if same type, multiple targets, varied URLs
+        correlation = (type_consistency * 0.4) + ((1.0 - url_variance) * 0.3) + (len(targets) / 10.0 * 0.3)
+        return min(correlation, 1.0)
+    
+    def detect_enumeration_pattern(self, payloads: List[str], urls: List[str]) -> float:
+        """
+        Detect account/resource enumeration (sequential IDs, list attempts).
+        Returns: enumeration confidence 0-1
+        """
+        if len(payloads) < 3 or len(urls) < 3:
+            return 0.0
+        
+        # Check for sequential patterns (id=1, id=2, id=3)
+        numeric_payloads = [p for p in payloads if any(c.isdigit() for c in p)]
+        if len(numeric_payloads) < 3:
+            return 0.0
+        
+        # Check if URLs are similar (same endpoint, different params)
+        url_paths = [u.split('?')[0] for u in urls]
+        same_path_ratio = len([1 for p in set(url_paths)]) / max(len(url_paths), 1)
+        
+        enumeration_score = (same_path_ratio * 0.6) + (len(numeric_payloads) / len(payloads) * 0.4)
+        return min(enumeration_score, 1.0)
+
+
+class TimeSeriesAnalyzer:
+    """Detect anomalies using time-series analysis (simple trend + deviation)."""
+    
+    def __init__(self, window_size: int = 30):
+        self.window_size = window_size
+        self.scores_history = deque(maxlen=window_size)
+        self.timestamps = deque(maxlen=window_size)
+    
+    def add_point(self, score: float, timestamp: float = None):
+        """Add a score to the time series."""
+        if timestamp is None:
+            timestamp = time.time()
+        self.scores_history.append(score)
+        self.timestamps.append(timestamp)
+    
+    def detect_change_point(self) -> Tuple[bool, float]:
+        """
+        Detect if there's a significant change point using simple 3-sigma.
+        Returns: (is_anomaly, anomaly_score)
+        """
+        if len(self.scores_history) < 5:
+            return False, 0.0
+        
+        scores = list(self.scores_history)
+        mean = statistics.mean(scores)
+        try:
+            stdev = statistics.stdev(scores)
+        except:
+            return False, 0.0
+        
+        current = scores[-1]
+        z_score = abs((current - mean) / max(stdev, 0.01))
+        
+        is_anomaly = z_score > 3.0
+        anomaly_score = min(z_score / 10.0, 1.0)
+        
+        return is_anomaly, anomaly_score
+    
+    def get_trend(self) -> str:
+        """Get trend: 'increasing', 'decreasing', 'stable'."""
+        if len(self.scores_history) < 3:
+            return "stable"
+        
+        recent = list(self.scores_history)[-3:]
+        if recent[-1] > recent[0] + 0.05:
+            return "increasing"
+        elif recent[-1] < recent[0] - 0.05:
+            return "decreasing"
+        else:
+            return "stable"
+
+
+class RequestCorrelationEngine:
+    """Correlate requests to detect coordinated attacks."""
+    
+    def __init__(self):
+        self.request_sessions = defaultdict(list)  # session_id -> list of requests
+        self.request_fingerprints = {}  # fingerprint -> count
+    
+    def compute_session_fingerprint(self, method: str, url: str, headers: Dict) -> str:
+        """Create a fingerprint from request metadata."""
+        base = f"{method}:{url.split('?')[0]}"
+        user_agent = headers.get("User-Agent", "")
+        origin = headers.get("Origin", "")
+        return f"{base}:{user_agent}:{origin}"
+    
+    def detect_geographic_anomaly(self, ips: List[str], urls: List[str]) -> float:
+        """
+        Detect geographic inconsistency (multiple IPs, same session).
+        Returns: anomaly score 0-1
+        """
+        if len(set(ips)) <= 1:
+            return 0.0
+        
+        # More unique IPs = higher anomaly
+        ip_uniqueness = min(len(set(ips)) / max(len(ips), 1), 1.0)
+        
+        # If same endpoint attacked from many IPs = suspicious
+        url_paths = [u.split('?')[0] for u in urls]
+        endpoint_consistency = 1.0 - (len(set(url_paths)) / max(len(url_paths), 1))
+        
+        return (ip_uniqueness * 0.6) + (endpoint_consistency * 0.4)
+    
+    def detect_request_sequence_anomaly(self, requests: List[Dict]) -> float:
+        """
+        Detect unusual request sequences (skip steps, repeat patterns).
+        Returns: sequence anomaly score 0-1
+        """
+        if len(requests) < 3:
+            return 0.0
+        
+        # Check for repetitive patterns
+        urls = [r.get("url", "") for r in requests]
+        url_repeats = sum(1 for i, u in enumerate(urls) if i > 0 and u == urls[i-1])
+        repeat_ratio = url_repeats / max(len(urls) - 1, 1)
+        
+        # Check temporal consistency
+        timestamps = [r.get("timestamp", 0) for r in requests if r.get("timestamp")]
+        if len(timestamps) >= 2:
+            intervals = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps)-1)]
+            if intervals:
+                mean_interval = statistics.mean(intervals)
+                variance_ratio = sum(1 for i in intervals if abs(i - mean_interval) > mean_interval * 0.5) / len(intervals)
+            else:
+                variance_ratio = 0.0
+        else:
+            variance_ratio = 0.0
+        
+        anomaly = (repeat_ratio * 0.5) + (variance_ratio * 0.5)
+        return min(anomaly, 1.0)
+
+
+class ProtocolSpecificAnalyzer:
+    """Detect protocol-specific exploits (GraphQL, SOAP, gRPC, WebSocket)."""
+    
+    @staticmethod
+    def detect_graphql_introspection(payload: str, response: str) -> float:
+        """Detect GraphQL introspection attacks."""
+        graphql_indicators = ["__schema", "__type", "introspectionQuery", "__typename", "__field"]
+        indicator_count = sum(1 for ind in graphql_indicators if ind in payload or ind in response)
+        
+        if indicator_count >= 2:
+            return min(indicator_count / 5.0, 1.0)
+        return 0.0
+    
+    @staticmethod
+    def detect_soap_xxe(payload: str) -> float:
+        """Detect SOAP/XML-RPC XXE attacks."""
+        xxe_indicators = ["<!DOCTYPE", "SYSTEM", "ENTITY", "&xxe;", "%xxe;"]
+        indicator_count = sum(1 for ind in xxe_indicators if ind in payload)
+        
+        if indicator_count >= 2:
+            return min(indicator_count / 5.0, 1.0)
+        return 0.0
+    
+    @staticmethod
+    def detect_rest_token_manipulation(payload: str, method: str) -> float:
+        """Detect REST API token/auth manipulation."""
+        token_patterns = ["Authorization", "bearer", "token=", "api_key", "jwt"]
+        manipulation_risk = 0.0
+        
+        if method in ["PUT", "DELETE", "PATCH"]:  # Dangerous methods
+            manipulation_risk += 0.3
+        
+        if any(pattern.lower() in payload.lower() for pattern in token_patterns):
+            manipulation_risk += 0.4
+        
+        return min(manipulation_risk, 1.0)
+    
+    @staticmethod
+    def detect_websocket_evasion(payload: str, url: str) -> float:
+        """Detect WebSocket-based evasion attempts."""
+        ws_indicators = ["ws://", "wss://", "WebSocket", "msg:", "cmd:"]
+        
+        is_ws = "ws://" in url or "wss://" in url
+        evasion_risk = 0.3 if is_ws else 0.0
+        
+        indicator_count = sum(1 for ind in ws_indicators if ind in payload)
+        if indicator_count >= 1:
+            evasion_risk += 0.4
+        
+        return min(evasion_risk, 1.0)
+    
+    @staticmethod
+    def detect_grpc_exploitation(payload: str, headers: Dict) -> float:
+        """Detect gRPC-specific attacks."""
+        grpc_indicators = ["grpc", "proto", "application/grpc", "content-type: application/grpc"]
+        
+        is_grpc = any(ind.lower() in str(headers).lower() for ind in grpc_indicators)
+        exploit_risk = 0.3 if is_grpc else 0.0
+        
+        if "proto" in payload.lower() or "message" in payload.lower():
+            exploit_risk += 0.3
+        
+        return min(exploit_risk, 1.0)
+
+
+class HistoricalContextEngine:
+    """Integrate CVE timelines and vulnerability lifecycle context."""
+    
+    def __init__(self):
+        self.cve_timeline = {}  # cve_id -> {"released": timestamp, "patch": timestamp}
+        self.threat_intelligence = defaultdict(list)  # indicator -> [cves]
+    
+    def record_cve(self, cve_id: str, released_timestamp: float, patch_timestamp: float = None):
+        """Record a CVE's timeline."""
+        self.cve_timeline[cve_id] = {
+            "released": released_timestamp,
+            "patch": patch_timestamp or (released_timestamp + 86400 * 30)  # Assume 30 days
+        }
+    
+    def compute_cve_recency_score(self, cve_id: str, current_timestamp: float = None) -> float:
+        """
+        Compute exploitation risk based on CVE age.
+        Newer CVEs (< 30 days) = higher risk, older = lower risk.
+        """
+        if current_timestamp is None:
+            current_timestamp = time.time()
+        
+        if cve_id not in self.cve_timeline:
+            return 0.5  # Unknown = medium risk
+        
+        cve_info = self.cve_timeline[cve_id]
+        released = cve_info["released"]
+        patch = cve_info["patch"]
+        
+        days_since_release = (current_timestamp - released) / 86400
+        days_since_patch = (current_timestamp - patch) / 86400
+        
+        # Risk is high if recent release, and decreases with patch availability
+        if days_since_release < 30:
+            risk = 0.9
+        elif days_since_release < 90:
+            risk = 0.7
+        else:
+            risk = 0.4
+        
+        # Reduce if patch is old
+        if days_since_patch < 0:
+            pass  # Not patched yet
+        elif days_since_patch < 30:
+            risk *= 0.8
+        else:
+            risk *= 0.5
+        
+        return min(risk, 1.0)
+    
+    def detect_zero_day_pattern(self, unknown_indicators: List[str]) -> float:
+        """
+        Detect zero-day-like patterns (novel indicators not in threat intel).
+        Returns: zero-day risk score 0-1
+        """
+        novel_count = sum(1 for ind in unknown_indicators if ind not in self.threat_intelligence)
+        novelty_ratio = min(novel_count / max(len(unknown_indicators), 1), 1.0)
+        
+        return novelty_ratio * 0.7  # Zero-days score up to 0.7
 
 
 class PayloadFamilyClusterer:
