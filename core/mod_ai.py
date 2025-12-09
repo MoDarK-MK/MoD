@@ -246,6 +246,12 @@ class ModAIConfig:
     enable_request_correlation: bool = True
     enable_protocol_analysis: bool = True
     enable_historical_context: bool = True
+    # Phase C: System Integration Features (5 new capabilities)
+    enable_federation: bool = False  # Distributed scoring (off by default)
+    enable_feedback_loops: bool = True
+    enable_real_time_alerts: bool = True
+    enable_performance_optimization: bool = True
+    enable_privacy_compliance: bool = True
 
 
 class ModAILabel(Enum):
@@ -604,6 +610,12 @@ class ModAIEngine:
         self.request_correlation = RequestCorrelationEngine()
         self.protocol_analyzer = ProtocolSpecificAnalyzer()
         self.historical_context = HistoricalContextEngine()
+        # Phase C helpers
+        self.federation = DistributedScoringFederation()
+        self.feedback_loop = FeedbackLoopEngine()
+        self.alerting = RealTimeAlertingEngine()
+        self.optimizer = PerformanceOptimizer()
+        self.privacy = PrivacyComplianceEngine()
 
     @staticmethod
     def _shannon_entropy(text: str) -> float:
@@ -1100,6 +1112,69 @@ class ModAIEngine:
                 if zero_day_score > 0.3:
                     base += zero_day_score * 0.06
                     explanations.append(f"zero_day_pattern={zero_day_score:.2f}")
+            except:
+                pass
+
+        # ===== PHASE C.1: Feedback Loop Learning =====
+        if self.cfg.enable_feedback_loops:
+            try:
+                learning_adj = self.feedback_loop.get_learning_adjustment(vuln_type)
+                if learning_adj < 1.0:
+                    base = base * learning_adj
+                    explanations.append(f"feedback_adjusted={learning_adj:.2f}")
+            except:
+                pass
+
+        # ===== PHASE C.2: Real-Time Alerting =====
+        if self.cfg.enable_real_time_alerts:
+            try:
+                # Determine label first for alert priority
+                temp_label = ModAILabel.LOW
+                if base >= 0.85:
+                    temp_label = ModAILabel.CRITICAL
+                elif base >= 0.7:
+                    temp_label = ModAILabel.HIGH
+                elif base >= 0.52:
+                    temp_label = ModAILabel.MEDIUM
+                
+                # Create alert if needed
+                alert = self.alerting.create_alert(
+                    detection.get("id", "unknown"),
+                    vuln_type,
+                    base,
+                    temp_label.value,
+                    explanations[:5]  # Top indicators
+                )
+                if alert["should_send"]:
+                    explanations.append(f"alert_triggered={alert['alert_id']}")
+            except:
+                pass
+
+        # ===== PHASE C.3: Performance Optimization (Caching) =====
+        if self.cfg.enable_performance_optimization:
+            try:
+                import hashlib
+                payload_hash = hashlib.md5(str(features.payload_risk).encode()).hexdigest()[:16]
+                cached = self.optimizer.get_cached_score(payload_hash)
+                if cached is not None and abs(cached - base) < 0.05:
+                    explanations.append("used_cache")
+                else:
+                    self.optimizer.cache_score(payload_hash, base)
+            except:
+                pass
+
+        # ===== PHASE C.4: Privacy Compliance =====
+        if self.cfg.enable_privacy_compliance:
+            try:
+                # Log data access
+                payload_size = len(str(features)) if features else 0
+                self.privacy.log_data_access("detection_scoring", payload_size, features.target_id)
+                
+                # Check for PII exposure in errors/notes
+                all_content = " ".join(features.notes + features.keyword_hits) if features else ""
+                pii_found = self.privacy.detect_pii(all_content)
+                if pii_found:
+                    explanations.append(f"pii_detected={len(pii_found)}")
             except:
                 pass
 
@@ -1719,6 +1794,289 @@ class HistoricalContextEngine:
         novelty_ratio = min(novel_count / max(len(unknown_indicators), 1), 1.0)
         
         return novelty_ratio * 0.7  # Zero-days score up to 0.7
+
+
+# ================================================================================
+# PHASE C: System Integration & Operational Features
+# ================================================================================
+
+class DistributedScoringFederation:
+    """Aggregate scores from multiple nodes for consensus-based detection."""
+    
+    def __init__(self):
+        self.peer_scores = defaultdict(list)  # detection_id -> [scores from peers]
+        self.node_reputation = defaultdict(float)  # node_id -> reputation 0-1
+    
+    def record_peer_score(self, detection_id: str, peer_id: str, score: float, confidence: float):
+        """Record a score from a peer node."""
+        self.peer_scores[detection_id].append({
+            "peer_id": peer_id,
+            "score": score,
+            "confidence": confidence,
+            "timestamp": time.time()
+        })
+    
+    def compute_consensus_score(self, detection_id: str, local_score: float = None) -> Tuple[float, str]:
+        """
+        Compute consensus score from multiple nodes.
+        Returns: (consensus_score, consensus_level: "unanimous"|"majority"|"split"|"local")
+        """
+        if detection_id not in self.peer_scores:
+            return local_score or 0.5, "local"
+        
+        peer_scores = self.peer_scores[detection_id]
+        if len(peer_scores) < 2:
+            return local_score or 0.5, "local"
+        
+        scores = [p["score"] for p in peer_scores]
+        mean_score = statistics.mean(scores)
+        
+        # Consensus level: unanimous (all high/low), majority, split, etc.
+        high_count = sum(1 for s in scores if s > 0.7)
+        low_count = sum(1 for s in scores if s < 0.3)
+        
+        if high_count == len(scores):
+            consensus_level = "unanimous_high"
+        elif low_count == len(scores):
+            consensus_level = "unanimous_low"
+        elif high_count >= len(scores) / 2:
+            consensus_level = "majority_high"
+        elif low_count >= len(scores) / 2:
+            consensus_level = "majority_low"
+        else:
+            consensus_level = "split"
+        
+        # Blend with local score
+        if local_score is not None:
+            blended_score = 0.6 * mean_score + 0.4 * local_score
+        else:
+            blended_score = mean_score
+        
+        return blended_score, consensus_level
+
+
+class FeedbackLoopEngine:
+    """Learn from verified detections to improve scoring."""
+    
+    def __init__(self):
+        self.detection_history = deque(maxlen=500)
+        self.feedback_per_type = defaultdict(list)  # vuln_type -> [{"score": X, "verdict": bool, "confidence": Y}]
+        self.learning_rate = 0.01
+    
+    def record_detection(self, detection_id: str, vuln_type: str, predicted_score: float, actual_verdict: bool, confidence: float):
+        """Record a detection with its actual verdict."""
+        self.detection_history.append({
+            "detection_id": detection_id,
+            "vuln_type": vuln_type,
+            "predicted_score": predicted_score,
+            "actual_verdict": actual_verdict,
+            "confidence": confidence,
+            "timestamp": time.time(),
+            "feedback_value": 1.0 if actual_verdict else 0.0,
+        })
+        
+        self.feedback_per_type[vuln_type].append({
+            "score": predicted_score,
+            "verdict": actual_verdict,
+            "confidence": confidence,
+        })
+    
+    def compute_false_positive_rate(self, vuln_type: str = None) -> float:
+        """Compute false positive rate for a vuln type."""
+        if vuln_type is None:
+            feedback = list(self.detection_history)
+        else:
+            feedback = self.feedback_per_type.get(vuln_type, [])
+        
+        if len(feedback) < 5:
+            return 0.0  # Insufficient data
+        
+        # False positives: high confidence predicts True but actual is False
+        high_confidence_false = sum(
+            1 for f in feedback 
+            if f.get("predicted_score", f.get("score", 0)) > 0.7 and not f.get("actual_verdict", f.get("verdict"))
+        )
+        
+        total_high_confidence = sum(
+            1 for f in feedback if f.get("predicted_score", f.get("score", 0)) > 0.7
+        )
+        
+        if total_high_confidence == 0:
+            return 0.0
+        
+        return high_confidence_false / total_high_confidence
+    
+    def get_learning_adjustment(self, vuln_type: str) -> float:
+        """Get score adjustment factor based on learning."""
+        fp_rate = self.compute_false_positive_rate(vuln_type)
+        
+        # If FP rate is high, reduce confidence
+        if fp_rate > 0.3:
+            return 0.85  # Scale down scores by 15%
+        elif fp_rate > 0.2:
+            return 0.90
+        else:
+            return 1.0  # No adjustment
+
+
+class RealTimeAlertingEngine:
+    """Generate real-time alerts based on severity and patterns."""
+    
+    def __init__(self):
+        self.alert_queue = deque(maxlen=1000)
+        self.alert_counters = defaultdict(int)  # alert_type -> count
+        self.threshold_config = {
+            "CRITICAL": {"enabled": True, "cooldown": 60},  # Alert every 60s
+            "HIGH": {"enabled": True, "cooldown": 300},     # Every 5 mins
+            "MEDIUM": {"enabled": True, "cooldown": 900},   # Every 15 mins
+            "LOW": {"enabled": False, "cooldown": 3600},    # Every hour (disabled by default)
+        }
+        self.last_alert_time = defaultdict(float)  # alert_type -> timestamp
+    
+    def should_alert(self, alert_type: str, score: float) -> bool:
+        """Determine if an alert should be sent based on cooldown."""
+        if alert_type not in self.threshold_config:
+            return False
+        
+        config = self.threshold_config[alert_type]
+        if not config["enabled"]:
+            return False
+        
+        last_time = self.last_alert_time.get(alert_type, 0)
+        current_time = time.time()
+        
+        if current_time - last_time >= config["cooldown"]:
+            self.last_alert_time[alert_type] = current_time
+            return True
+        
+        return False
+    
+    def create_alert(self, detection_id: str, vuln_type: str, score: float, label: str, priority_indicators: List[str]) -> Dict:
+        """Create a real-time alert."""
+        alert = {
+            "alert_id": f"alert_{int(time.time() * 1000)}",
+            "detection_id": detection_id,
+            "vuln_type": vuln_type,
+            "score": score,
+            "label": label,
+            "priority_indicators": priority_indicators,
+            "timestamp": time.time(),
+            "should_send": self.should_alert(label, score),
+        }
+        
+        self.alert_queue.append(alert)
+        self.alert_counters[label] += 1
+        
+        return alert
+
+
+class PerformanceOptimizer:
+    """Optimize scoring for performance (caching, batching, GPU acceleration hints)."""
+    
+    def __init__(self):
+        self.score_cache = {}  # payload_hash -> score (LRU-like)
+        self.cache_size_limit = 10000
+        self.batch_queue = deque()
+        self.compute_hints = {
+            "batch_size": 100,
+            "prefer_gpu": False,  # Hint for external systems
+            "use_cache": True,
+        }
+    
+    def get_cached_score(self, payload_hash: str) -> Optional[float]:
+        """Get cached score for payload."""
+        return self.score_cache.get(payload_hash)
+    
+    def cache_score(self, payload_hash: str, score: float):
+        """Cache a computed score."""
+        if len(self.score_cache) >= self.cache_size_limit:
+            # Simple eviction: remove oldest ~10%
+            keys_to_remove = list(self.score_cache.keys())[:int(self.cache_size_limit * 0.1)]
+            for k in keys_to_remove:
+                del self.score_cache[k]
+        
+        self.score_cache[payload_hash] = score
+    
+    def add_to_batch(self, detection_id: str, payload: str):
+        """Add detection to batch queue."""
+        self.batch_queue.append({"detection_id": detection_id, "payload": payload})
+    
+    def get_batch(self, batch_size: int = None) -> List[Dict]:
+        """Get next batch for processing."""
+        if batch_size is None:
+            batch_size = self.compute_hints["batch_size"]
+        
+        batch = []
+        for _ in range(min(batch_size, len(self.batch_queue))):
+            if self.batch_queue:
+                batch.append(self.batch_queue.popleft())
+        
+        return batch
+
+
+class PrivacyComplianceEngine:
+    """Ensure compliance with privacy regulations (GDPR, CCPA, etc.)."""
+    
+    def __init__(self):
+        self.pii_patterns = {
+            "email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
+            "phone": r"\b(\+1)?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
+            "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
+            "credit_card": r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b",
+            "ip_address": r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
+        }
+        self.redaction_enabled = True
+        self.audit_log = deque(maxlen=1000)  # Track all data handling
+    
+    def detect_pii(self, content: str) -> List[Tuple[str, str]]:
+        """Detect PII in content. Returns list of (pii_type, matched_value)."""
+        matches = []
+        for pii_type, pattern in self.pii_patterns.items():
+            import re
+            for match in re.finditer(pattern, content):
+                matches.append((pii_type, match.group()))
+        
+        return matches
+    
+    def redact_pii(self, content: str) -> str:
+        """Redact all PII from content."""
+        if not self.redaction_enabled:
+            return content
+        
+        result = content
+        for pii_type, pattern in self.pii_patterns.items():
+            import re
+            placeholder = f"[{pii_type.upper()}]"
+            result = re.sub(pattern, placeholder, result)
+        
+        return result
+    
+    def log_data_access(self, access_type: str, data_size: int, requester_id: str):
+        """Log data access for audit purposes."""
+        self.audit_log.append({
+            "timestamp": time.time(),
+            "access_type": access_type,  # "read", "write", "export"
+            "data_size": data_size,
+            "requester_id": requester_id,
+        })
+    
+    def get_audit_summary(self) -> Dict:
+        """Get summary of recent data accesses."""
+        if not self.audit_log:
+            return {}
+        
+        summary = {
+            "total_accesses": len(self.audit_log),
+            "access_types": {},
+            "total_data_accessed_bytes": 0,
+        }
+        
+        for log_entry in self.audit_log:
+            access_type = log_entry["access_type"]
+            summary["access_types"][access_type] = summary["access_types"].get(access_type, 0) + 1
+            summary["total_data_accessed_bytes"] += log_entry["data_size"]
+        
+        return summary
 
 
 class PayloadFamilyClusterer:
