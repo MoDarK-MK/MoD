@@ -472,7 +472,7 @@ class ScanTab(DesignMainWidget):
         
         scanner_section.layout().addLayout(scanner_grid)
         
-        select_all_btn = DesignButton("Select All / Deselect All", "toggle")
+        select_all_btn = DesignButton("Select All / Deselect All", "secondary")
         select_all_btn.clicked.connect(self.select_all_scanners)
         scanner_section.layout().addWidget(select_all_btn)
         
