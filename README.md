@@ -98,6 +98,7 @@ _An advanced, enterprise-grade vulnerability assessment platform built with cutt
 - ✅ CVE Scanner Integration
 - ✅ GraphQL Testing
 - ✅ WebSocket Analysis
+- ✅ Local AI Engine (**mod**) for on-device security scoring (no external APIs)
 - ✅ API Security Testing
 - ✅ CORS Misconfiguration
 

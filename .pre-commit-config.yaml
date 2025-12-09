@@ -30,4 +30,3 @@ repos:
         exclude: "tests/"
       - id: check-merge-conflict
       - id: debug-statements
-
