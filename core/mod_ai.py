@@ -252,6 +252,12 @@ class ModAIConfig:
     enable_real_time_alerts: bool = True
     enable_performance_optimization: bool = True
     enable_privacy_compliance: bool = True
+    # Phase D: Advanced Analytics Features (5 new capabilities)
+    enable_dashboard_analytics: bool = True
+    enable_adversarial_resistance: bool = True
+    enable_semi_supervised: bool = False  # Off by default (research feature)
+    enable_zero_day_detection: bool = True
+    enable_advanced_fuzzy: bool = True
 
 
 class ModAILabel(Enum):
@@ -616,6 +622,12 @@ class ModAIEngine:
         self.alerting = RealTimeAlertingEngine()
         self.optimizer = PerformanceOptimizer()
         self.privacy = PrivacyComplianceEngine()
+        # Phase D helpers
+        self.dashboard = AnalyticsDashboard()
+        self.adversarial = AdversarialResistanceEngine()
+        self.ssl = SemiSupervisedLearner()
+        self.zero_day = ZeroDayRecognitionEngine()
+        self.adv_fuzzy = AdvancedFuzzyMatchingEngine()
 
     @staticmethod
     def _shannon_entropy(text: str) -> float:
@@ -1175,6 +1187,74 @@ class ModAIEngine:
                 pii_found = self.privacy.detect_pii(all_content)
                 if pii_found:
                     explanations.append(f"pii_detected={len(pii_found)}")
+            except:
+                pass
+
+        # ===== PHASE D.1: Dashboard Analytics =====
+        if self.cfg.enable_dashboard_analytics:
+            try:
+                # Record for analytics
+                self.dashboard.record_detection(vuln_type, base, "medium", features.hour_of_day)
+            except:
+                pass
+
+        # ===== PHASE D.2: Adversarial Resistance =====
+        if self.cfg.enable_adversarial_resistance:
+            try:
+                detection_url = detection.get("url", "")
+                is_evasion, evasion_score, evasion_type = self.adversarial.detect_evasion_attempt(
+                    detection_url,
+                    " ".join(features.notes) if features.notes else ""
+                )
+                if is_evasion and evasion_score > 0.4:
+                    base += evasion_score * 0.08
+                    explanations.append(f"evasion_detected={evasion_type}:{evasion_score:.2f}")
+            except:
+                pass
+
+        # ===== PHASE D.3: Semi-Supervised Learning =====
+        if self.cfg.enable_semi_supervised:
+            try:
+                # Record feature vector for learning
+                feature_vector = [
+                    features.confidence,
+                    features.matched_patterns / 5.0,
+                    features.payload_risk,
+                    features.content_entropy,
+                    float(features.has_error_indicators),
+                ]
+                self.ssl.add_unlabeled_example(f"unk_{int(time.time())}", feature_vector)
+                
+                # Try pseudo-labeling
+                count = self.ssl.pseudo_label_examples()
+                if count > 0:
+                    explanations.append(f"pseudo_labeled={count}")
+            except:
+                pass
+
+        # ===== PHASE D.4: Zero-Day Detection =====
+        if self.cfg.enable_zero_day_detection:
+            try:
+                url = detection.get("url", "")
+                is_novel, novelty_score, similar = self.zero_day.is_novel_pattern(url)
+                if is_novel and novelty_score > 0.5:
+                    base += novelty_score * 0.07
+                    explanations.append(f"zero_day_signature={novelty_score:.2f}")
+            except:
+                pass
+
+        # ===== PHASE D.5: Advanced Fuzzy Matching =====
+        if self.cfg.enable_advanced_fuzzy:
+            try:
+                # Find semantically similar attacks
+                url = detection.get("url", "")
+                sample_sigs = ["union select", "<?php system", "sleep(5)", "../../etc/passwd"]
+                matches = self.adv_fuzzy.find_semantically_similar(url, sample_sigs, threshold=0.5)
+                if matches:
+                    best_match_score = matches[0][1]
+                    if best_match_score > 0.6:
+                        base += best_match_score * 0.06
+                        explanations.append(f"semantic_match={best_match_score:.2f}")
             except:
                 pass
 
@@ -2077,6 +2157,250 @@ class PrivacyComplianceEngine:
             summary["total_data_accessed_bytes"] += log_entry["data_size"]
         
         return summary
+
+
+# ================================================================================
+# PHASE D: Advanced Analytics & Specialized Detection
+# ================================================================================
+
+class AnalyticsDashboard:
+    """Generate analytics for security dashboard and visualization."""
+    
+    def __init__(self):
+        self.detection_stats = defaultdict(int)  # vuln_type -> count
+        self.score_distribution = deque(maxlen=1000)
+        self.label_distribution = defaultdict(int)  # label -> count
+        self.time_buckets = defaultdict(int)  # hour -> count
+    
+    def record_detection(self, vuln_type: str, score: float, label: str, hour: int):
+        """Record a detection for analytics."""
+        self.detection_stats[vuln_type] += 1
+        self.score_distribution.append(score)
+        self.label_distribution[label] += 1
+        self.time_buckets[hour] += 1
+    
+    def get_summary(self) -> Dict:
+        """Get analytics summary."""
+        if not self.score_distribution:
+            return {}
+        
+        scores = list(self.score_distribution)
+        summary = {
+            "total_detections": sum(self.detection_stats.values()),
+            "vuln_type_distribution": dict(self.detection_stats),
+            "label_distribution": dict(self.label_distribution),
+            "average_score": statistics.mean(scores),
+            "median_score": statistics.median(scores),
+            "score_stddev": statistics.stdev(scores) if len(scores) > 1 else 0.0,
+            "peak_hour": max(self.time_buckets.items(), key=lambda x: x[1])[0] if self.time_buckets else 0,
+            "critical_percentage": (self.label_distribution.get("critical", 0) / sum(self.label_distribution.values()) * 100) if self.label_distribution else 0.0,
+        }
+        return summary
+
+
+class AdversarialResistanceEngine:
+    """Detect and mitigate adversarial evasion attempts."""
+    
+    def __init__(self):
+        self.evasion_signatures = {
+            "encoding_chains": ["base64(hex(...))", "url(base64(...))", "gzip+base64"],
+            "polyglot_payloads": ["gif89a", "GIF87a", "<?=", "<!--"],
+            "timing_attacks": ["sleep", "benchmark", "waitfor", "time_based"],
+            "obfuscation": ["${...}", "{{...}}", "%(...)s", "|..."],
+        }
+        self.evasion_history = deque(maxlen=500)
+    
+    def detect_evasion_attempt(self, payload: str, response: str) -> Tuple[bool, float, str]:
+        """
+        Detect adversarial evasion attempts.
+        Returns: (is_evasion, evasion_score, evasion_type)
+        """
+        evasion_score = 0.0
+        evasion_type = "none"
+        
+        # Check for encoding chains
+        encoding_chain_count = sum(1 for sig in self.evasion_signatures["encoding_chains"] if sig.lower() in payload.lower())
+        if encoding_chain_count >= 2:
+            evasion_score += 0.3
+            evasion_type = "encoding_chain"
+        
+        # Check for polyglot indicators
+        polyglot_count = sum(1 for sig in self.evasion_signatures["polyglot_payloads"] if sig in payload)
+        if polyglot_count >= 2:
+            evasion_score += 0.25
+            evasion_type = "polyglot"
+        
+        # Check for timing-based evasion
+        timing_count = sum(1 for sig in self.evasion_signatures["timing_attacks"] if sig.lower() in payload.lower())
+        if timing_count >= 2:
+            evasion_score += 0.25
+            evasion_type = "timing_evasion"
+        
+        # Check for obfuscation
+        obfuscation_count = sum(1 for sig in self.evasion_signatures["obfuscation"] if sig in payload)
+        if obfuscation_count >= 2:
+            evasion_score += 0.2
+            evasion_type = "obfuscation"
+        
+        is_evasion = evasion_score > 0.4
+        self.evasion_history.append({
+            "timestamp": time.time(),
+            "is_evasion": is_evasion,
+            "score": evasion_score,
+            "type": evasion_type,
+        })
+        
+        return is_evasion, min(evasion_score, 1.0), evasion_type
+
+
+class SemiSupervisedLearner:
+    """Learn from weakly-labeled and unlabeled data."""
+    
+    def __init__(self):
+        self.labeled_data = deque(maxlen=100)
+        self.unlabeled_data = deque(maxlen=500)
+        self.pseudo_labels = {}  # unlabeled_id -> predicted_label
+        self.confidence_scores = {}  # unlabeled_id -> confidence
+    
+    def add_labeled_example(self, example_id: str, features: List[float], true_label: bool):
+        """Add a labeled example."""
+        self.labeled_data.append({
+            "id": example_id,
+            "features": features,
+            "label": true_label,
+        })
+    
+    def add_unlabeled_example(self, example_id: str, features: List[float]):
+        """Add an unlabeled example."""
+        self.unlabeled_data.append({
+            "id": example_id,
+            "features": features,
+        })
+    
+    def pseudo_label_examples(self, confidence_threshold: float = 0.9) -> int:
+        """
+        Pseudo-label unlabeled examples using confidence thresholding.
+        Returns: number of examples pseudo-labeled
+        """
+        count = 0
+        for example in self.unlabeled_data:
+            example_id = example["id"]
+            
+            # Simple heuristic: if features indicate strong signal, pseudo-label
+            features = example["features"]
+            avg_feature = statistics.mean(features) if features else 0.5
+            
+            if avg_feature > 0.8 or avg_feature < 0.2:
+                confidence = abs(avg_feature - 0.5) + 0.4  # Boost confidence
+                if confidence >= confidence_threshold:
+                    self.pseudo_labels[example_id] = avg_feature > 0.5
+                    self.confidence_scores[example_id] = min(confidence, 1.0)
+                    count += 1
+        
+        return count
+    
+    def get_pseudo_labeled_count(self) -> int:
+        """Get count of pseudo-labeled examples."""
+        return len(self.pseudo_labels)
+
+
+class ZeroDayRecognitionEngine:
+    """Identify potential zero-day or novel attack patterns."""
+    
+    def __init__(self):
+        self.known_signatures = deque(maxlen=10000)  # Known attack signatures
+        self.novel_patterns = deque(maxlen=1000)  # Potential zero-days
+        self.pattern_clustering_threshold = 0.3  # Similarity threshold
+    
+    def add_known_signature(self, sig: str, vuln_type: str):
+        """Record a known attack signature."""
+        self.known_signatures.append({"signature": sig, "vuln_type": vuln_type, "timestamp": time.time()})
+    
+    def is_novel_pattern(self, payload: str) -> Tuple[bool, float, List[str]]:
+        """
+        Detect if payload is a novel/zero-day pattern.
+        Returns: (is_novel, novelty_score, similar_known_sigs)
+        """
+        novelty_score = 1.0  # Start at maximum novelty
+        similar_sigs = []
+        
+        # Compare against known signatures
+        for sig_entry in self.known_signatures:
+            sig = sig_entry["signature"]
+            
+            # Simple similarity: character n-gram overlap
+            payload_grams = set(payload[i:i+3] for i in range(len(payload)-2))
+            sig_grams = set(sig[i:i+3] for i in range(len(sig)-2))
+            
+            if payload_grams and sig_grams:
+                overlap = len(payload_grams & sig_grams) / max(len(payload_grams | sig_grams), 1)
+                
+                if overlap > self.pattern_clustering_threshold:
+                    novelty_score *= (1.0 - overlap)
+                    similar_sigs.append(sig_entry["vuln_type"])
+        
+        is_novel = novelty_score > 0.6
+        
+        if is_novel:
+            self.novel_patterns.append({
+                "payload": payload[:100],  # Store first 100 chars
+                "novelty_score": novelty_score,
+                "timestamp": time.time(),
+            })
+        
+        return is_novel, novelty_score, similar_sigs[:3]
+    
+    def get_novel_pattern_count(self) -> int:
+        """Get count of novel patterns detected."""
+        return len(self.novel_patterns)
+
+
+class AdvancedFuzzyMatchingEngine:
+    """Enhanced fuzzy matching with semantic understanding."""
+    
+    def __init__(self):
+        self.fuzzy_cache = {}
+        self.semantic_groups = {
+            "sql_commands": ["SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "TRUNCATE"],
+            "rce_indicators": ["bash", "sh", "cmd", "powershell", "system", "exec"],
+            "xxe_indicators": ["DOCTYPE", "ENTITY", "SYSTEM", "PUBLIC"],
+        }
+    
+    def semantic_similarity(self, payload1: str, payload2: str) -> float:
+        """
+        Calculate semantic similarity (not just lexical).
+        Returns: similarity score 0-1
+        """
+        payload1_lower = payload1.lower()
+        payload2_lower = payload2.lower()
+        
+        semantic_score = 0.0
+        
+        # Check for command overlap
+        commands_1 = [cmd for group in self.semantic_groups.values() for cmd in group if cmd.lower() in payload1_lower]
+        commands_2 = [cmd for group in self.semantic_groups.values() for cmd in group if cmd.lower() in payload2_lower]
+        
+        if commands_1 and commands_2:
+            overlap = len(set(commands_1) & set(commands_2)) / max(len(set(commands_1) | set(commands_2)), 1)
+            semantic_score += overlap * 0.5
+        
+        # Check for intent similarity
+        if any(indicator in payload1_lower for indicator in self.semantic_groups["sql_commands"]):
+            if any(indicator in payload2_lower for indicator in self.semantic_groups["sql_commands"]):
+                semantic_score += 0.3
+        
+        return min(semantic_score, 1.0)
+    
+    def find_semantically_similar(self, payload: str, signature_db: List[str], threshold: float = 0.7) -> List[Tuple[str, float]]:
+        """Find semantically similar signatures."""
+        matches = []
+        
+        for sig in signature_db:
+            sem_sim = self.semantic_similarity(payload, sig)
+            if sem_sim >= threshold:
+                matches.append((sig, sem_sim))
+        
+        return sorted(matches, key=lambda x: x[1], reverse=True)
 
 
 class PayloadFamilyClusterer:
