@@ -9,6 +9,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from gui.main_window import MainWindow
 from utils.config import Config
+from utils.update_checker import run_update_checker_sync
 
 
 def main():
@@ -32,6 +33,9 @@ def main():
     try:
         # Initialize configuration
         config = Config()
+        
+        # Check for updates
+        run_update_checker_sync()
         
         # Create and show main window
         window = MainWindow()
