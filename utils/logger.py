@@ -1,5 +1,5 @@
 """
-Logging system for MoD Security Scanner v4.0.0.2
+Logging system for MoD Security Scanner v4.0.0.3
 Provides file, console, and Discord webhook logging with formatting.
 """
 

@@ -1,5 +1,5 @@
 """
-Configuration management for MoD Security Scanner v4.0.0.2
+Configuration management for MoD Security Scanner v4.0.0.3
 Handles application settings with validation and defaults.
 """
 
@@ -14,7 +14,7 @@ logger = logging.getLogger('MoD.config')
 class Config:
     """Application configuration with validation and defaults."""
     
-    VERSION = "4.0.0.2"
+    VERSION = "4.0.0.3"
     
     def __init__(self, config_path: Optional[Path] = None):
         """Initialize configuration with defaults.

@@ -45,7 +45,7 @@ class AIProvider:
         return {
             'Authorization': f'Bearer {self.api_key}' if self.api_key else '',
             'Content-Type': 'application/json',
-            'User-Agent': 'MoD-SecurityScanner/4.0.0.2'
+            'User-Agent': 'MoD-SecurityScanner/4.0.0.3'
         }
 
 

@@ -722,7 +722,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ by the MoD Team**
 
-_Version 4.0.0.2 | Last Updated: December 9, 2025_
+_Version 4.0.0.3 | Last Updated: December 10, 2025_
 
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-success?style=for-the-badge)
 
