@@ -1,5 +1,5 @@
 """
-MoD - Master of Defense v4.0.0.4
+MoD - Master of Defense v4.0.0.5
 Professional Web Application Security Scanner
 """
 
