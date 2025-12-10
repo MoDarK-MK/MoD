@@ -320,7 +320,7 @@ class ZeroDayTab(QWidget):
         url = self.url_input.text().strip()
         
         if not url:
-            self.status_label.setText("❌ Please enter a valid URL")
+            self.status_label.setText("[FAIL] Please enter a valid URL")
             return
         
         self.is_scanning = True
@@ -361,7 +361,7 @@ class ZeroDayTab(QWidget):
         
         # Update UI with results
         self.display_results(report)
-        self.status_label.setText("✅ Scan completed successfully!")
+        self.status_label.setText("[OK] Scan completed successfully!")
     
     def on_scan_error(self, error: str):
         """Handle scan error."""
@@ -369,15 +369,15 @@ class ZeroDayTab(QWidget):
         self.progress_bar.setValue(0)
         self.is_scanning = False
         self.scan_button.setEnabled(True)
-        self.status_label.setText(f"❌ Scan failed: {error}")
+        self.status_label.setText(f"[FAIL] Scan failed: {error}")
     
     def display_results(self, report: dict):
         """Display scan results in UI."""
         # Summary
         summary = f"""
-╔════════════════════════════════════════════════════════════╗
-║                     SCAN SUMMARY                           ║
-╚════════════════════════════════════════════════════════════╝
+[============================================================]
+|                     SCAN SUMMARY                           |
+[============================================================]
 
 🎯 Target: {report.get('url', 'Unknown')}
 
@@ -387,7 +387,7 @@ class ZeroDayTab(QWidget):
    • Payloads Tested: {report.get('payloads_tested', 0)}
 
 🚨 FINDINGS:
-   • Critical: {report.get('critical_count', 0)} ⚠️
+   • Critical: {report.get('critical_count', 0)} [WARN]
    • High: {report.get('high_count', 0)}
    • Medium: {report.get('medium_count', 0)}
    • Low: {report.get('low_count', 0)}
@@ -400,9 +400,9 @@ class ZeroDayTab(QWidget):
         
         # Detailed findings
         if report.get('findings'):
-            details = "╔════════════════════════════════════════════════════════════╗\n"
-            details += "║                  DETAILED FINDINGS                          ║\n"
-            details += "╚════════════════════════════════════════════════════════════╝\n\n"
+            details = "[============================================================]\n"
+            details += "|                  DETAILED FINDINGS                          |\n"
+            details += "[============================================================]\n\n"
             
             for i, finding in enumerate(report['findings'], 1):
                 details += f"[{i}] {finding['type']}\n"
@@ -414,7 +414,7 @@ class ZeroDayTab(QWidget):
                     details += f"    Recommendation: {finding['recommendation']}\n"
                 details += "\n"
         else:
-            details = "✅ No vulnerabilities detected!\n\nThe target appears to be secure based on the scan parameters."
+            details = "[OK] No vulnerabilities detected!\n\nThe target appears to be secure based on the scan parameters."
         
         self.details_text.setText(details)
         
@@ -424,7 +424,7 @@ class ZeroDayTab(QWidget):
     def export_report(self):
         """Export report to file."""
         if not hasattr(self, 'last_report'):
-            self.status_label.setText("❌ No report to export")
+            self.status_label.setText("[FAIL] No report to export")
             return
         
         from PyQt6.QtWidgets import QFileDialog
@@ -437,9 +437,9 @@ class ZeroDayTab(QWidget):
             try:
                 with open(file_path, 'w', encoding='utf-8') as f:
                     json.dump(self.last_report, f, indent=2, ensure_ascii=False)
-                self.status_label.setText(f"✅ Report exported to {file_path}")
+                self.status_label.setText(f"[OK] Report exported to {file_path}")
             except Exception as e:
-                self.status_label.setText(f"❌ Export failed: {str(e)}")
+                self.status_label.setText(f"[FAIL] Export failed: {str(e)}")
     
     def clear_results(self):
         """Clear all results."""

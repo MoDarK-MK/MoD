@@ -19,12 +19,12 @@ def print_header(title):
 
 def print_section(name):
     """Print section header."""
-    print(f"\n[►] {name}")
+    print(f"\n[>] {name}")
     print("-" * 60)
 
 def test_result(test_name, passed, details=""):
     """Print test result."""
-    status = "✅ PASS" if passed else "❌ FAIL"
+    status = "[OK] PASS" if passed else "[FAIL] FAIL"
     print(f"  {status:10} | {test_name:40} {details}")
 
 # ============================================================================
@@ -150,7 +150,7 @@ def test_modai_engine():
         return all(r[1] for r in results)
         
     except Exception as e:
-        print(f"  ❌ Fatal error: {e}")
+        print(f"  [FAIL] Fatal error: {e}")
         return False
 
 # ============================================================================
@@ -228,7 +228,7 @@ def test_zero_day_engine():
         return all(r[1] for r in results)
         
     except Exception as e:
-        print(f"  ❌ Fatal error: {e}")
+        print(f"  [FAIL] Fatal error: {e}")
         return False
 
 # ============================================================================
@@ -283,7 +283,7 @@ def test_zero_day_scanner():
         return all(r[1] for r in results)
         
     except Exception as e:
-        print(f"  ❌ Fatal error: {e}")
+        print(f"  [FAIL] Fatal error: {e}")
         return False
 
 # ============================================================================
@@ -341,7 +341,7 @@ def test_performance():
         return all(r[1] for r in results)
         
     except Exception as e:
-        print(f"  ❌ Fatal error: {e}")
+        print(f"  [FAIL] Fatal error: {e}")
         return False
 
 # ============================================================================
@@ -444,7 +444,7 @@ def test_memory_and_structures():
         return all(r[1] for r in results)
         
     except Exception as e:
-        print(f"  ❌ Fatal error: {e}")
+        print(f"  [FAIL] Fatal error: {e}")
         return False
 
 # ============================================================================
@@ -507,7 +507,7 @@ def test_error_handling():
         return all(r[1] for r in results)
         
     except Exception as e:
-        print(f"  ❌ Fatal error: {e}")
+        print(f"  [FAIL] Fatal error: {e}")
         return False
 
 # ============================================================================
@@ -518,11 +518,11 @@ def main():
     """Run comprehensive test suite."""
     
     print("\n")
-    print("╔" + "="*78 + "╗")
-    print("║" + " "*78 + "║")
-    print("║" + "  MoD SECURITY SCANNER - COMPREHENSIVE TEST SUITE".center(78) + "║")
-    print("║" + " "*78 + "║")
-    print("╚" + "="*78 + "╝")
+    print("[" + "="*78 + "]")
+    print("|" + " "*78 + "|")
+    print("|" + "  MoD SECURITY SCANNER - COMPREHENSIVE TEST SUITE".center(78) + "|")
+    print("|" + " "*78 + "|")
+    print("[" + "="*78 + "]")
     
     tests = [
         ("Core Imports", test_core_imports),
@@ -542,7 +542,7 @@ def main():
             result = test_func()
             results.append((test_name, result))
         except Exception as e:
-            print(f"\n  ❌ FATAL ERROR in {test_name}: {e}")
+            print(f"\n  [FAIL] FATAL ERROR in {test_name}: {e}")
             results.append((test_name, False))
     
     # Final summary
@@ -552,16 +552,16 @@ def main():
     total = len(results)
     
     for test_name, result in results:
-        status = "✅ PASS" if result else "❌ FAIL"
+        status = "[OK] PASS" if result else "[FAIL] FAIL"
         print(f"  {status:10} | {test_name}")
     
     print(f"\n  {passed}/{total} tests passed")
     
     if passed == total:
-        print("\n  ✅ ALL TESTS PASSED! System is ready for production.\n")
+        print("\n  [OK] ALL TESTS PASSED! System is ready for production.\n")
         return 0
     else:
-        print(f"\n  ⚠️  {total - passed} test(s) failed. Review output above.\n")
+        print(f"\n  [WARN]  {total - passed} test(s) failed. Review output above.\n")
         return 1
 
 if __name__ == '__main__':

@@ -1178,15 +1178,15 @@ With a valid API key, advanced POC generation and analysis will be available.
         model = self.model_combo.currentText()
         
         if provider == 'None':
-            QMessageBox.warning(self, '⚠️ No Provider', 'Please select an AI provider first.')
+            QMessageBox.warning(self, '[WARN] No Provider', 'Please select an AI provider first.')
             return
         
         if not api_key:
-            QMessageBox.warning(self, '⚠️ Missing API Key', 'Please enter your API key.')
+            QMessageBox.warning(self, '[WARN] Missing API Key', 'Please enter your API key.')
             return
         
         if not model and self.model_combo.isEnabled():
-            QMessageBox.warning(self, '⚠️ No Model Selected', 'Please select a model.')
+            QMessageBox.warning(self, '[WARN] No Model Selected', 'Please select a model.')
             return
         
         QMessageBox.information(
@@ -1223,14 +1223,14 @@ With a valid API key, advanced POC generation and analysis will be available.
         }
         
         self.settings_changed.emit(settings)
-        QMessageBox.information(self, '✅ Success', 'Settings saved successfully!')
+        QMessageBox.information(self, '[OK] Success', 'Settings saved successfully!')
     
     def test_discord_webhook(self):
         """Test Discord webhook connection"""
         webhook_url = self.discord_webhook_input.text().strip()
         
         if not webhook_url:
-            QMessageBox.warning(self, '⚠️ Warning', 'Please enter a Discord webhook URL first')
+            QMessageBox.warning(self, '[WARN] Warning', 'Please enter a Discord webhook URL first')
             return
         
         try:
@@ -1239,7 +1239,7 @@ With a valid API key, advanced POC generation and analysis will be available.
             # Send test message to Discord
             payload = {
                 'embeds': [{
-                    'title': '✅ MoD Connection Test',
+                    'title': '[OK] MoD Connection Test',
                     'description': 'Successfully connected to Discord webhook!',
                     'color': 65280,  # Green
                     'fields': [
@@ -1260,11 +1260,11 @@ With a valid API key, advanced POC generation and analysis will be available.
             response = requests.post(webhook_url, json=payload, timeout=5)
             
             if response.status_code in [200, 204]:
-                QMessageBox.information(self, '✅ Success', 'Discord webhook is working correctly!')
+                QMessageBox.information(self, '[OK] Success', 'Discord webhook is working correctly!')
             else:
-                QMessageBox.warning(self, '❌ Error', f'Discord returned error code: {response.status_code}')
+                QMessageBox.warning(self, '[FAIL] Error', f'Discord returned error code: {response.status_code}')
         except Exception as e:
-            QMessageBox.critical(self, '❌ Error', f'Failed to connect to Discord:\n{str(e)}')
+            QMessageBox.critical(self, '[FAIL] Error', f'Failed to connect to Discord:\n{str(e)}')
     
     def create_js_finder_settings_tab(self):
         """Create JavaScript Finder settings tab"""
@@ -1422,7 +1422,7 @@ With a valid API key, advanced POC generation and analysis will be available.
         webhook_url = self.js_finder_webhook_input.text().strip()
         
         if not webhook_url:
-            QMessageBox.warning(self, '⚠️ Warning', 'Please enter a webhook URL first')
+            QMessageBox.warning(self, '[WARN] Warning', 'Please enter a webhook URL first')
             return
         
         try:
@@ -1460,17 +1460,17 @@ With a valid API key, advanced POC generation and analysis will be available.
             
             if response.status_code in [200, 201, 204]:
                 QMessageBox.information(
-                    self, '✅ Success',
+                    self, '[OK] Success',
                     f'Webhook test successful!\nStatus Code: {response.status_code}'
                 )
             else:
                 QMessageBox.warning(
-                    self, '⚠️ Warning',
+                    self, '[WARN] Warning',
                     f'Webhook returned status code: {response.status_code}\n'
                     f'Response: {response.text[:200]}'
                 )
         except Exception as e:
-            QMessageBox.critical(self, '❌ Error', f'Failed to test webhook:\n{str(e)}')
+            QMessageBox.critical(self, '[FAIL] Error', f'Failed to test webhook:\n{str(e)}')
     
     def _get_frequency_days(self, frequency_text: str) -> int:
         """Convert frequency text to days"""

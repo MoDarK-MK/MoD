@@ -116,11 +116,11 @@ class ScanWorker(QThread):
         
         base_response = self.fetch_url(self.target_url)
         if base_response['status_code'] == 0:
-            self.status_updated.emit('❌ Failed to connect to target')
+            self.status_updated.emit('[FAIL] Failed to connect to target')
             self.scan_completed.emit([])
             return
         
-        self.status_updated.emit(f'✅ Connected (Status: {base_response["status_code"]})')
+        self.status_updated.emit(f'[OK] Connected (Status: {base_response["status_code"]})')
         
         intelligent_scan_types = {'XSS', 'SQL', 'SSTI'}
         use_intelligent = any(st in intelligent_scan_types for st in self.scan_types)
@@ -143,11 +143,11 @@ class ScanWorker(QThread):
                         'evidence': vuln.get('evidence')
                     })
                 
-                self.status_updated.emit(f'✅ Intelligent Scanner: {len(intel_vulns)} vulnerabilities')
+                self.status_updated.emit(f'[OK] Intelligent Scanner: {len(intel_vulns)} vulnerabilities')
                 self.progress_updated.emit(25)
                 
             except Exception as e:
-                self.status_updated.emit(f'⚠️ Intelligent Scanner: {str(e)[:50]}')
+                self.status_updated.emit(f'[WARN] Intelligent Scanner: {str(e)[:50]}')
         
         self.status_updated.emit('🔍 Stage 2: Running Traditional Scanners...')
         
@@ -198,13 +198,13 @@ class ScanWorker(QThread):
                         'evidence': getattr(vuln, 'evidence', 'No evidence')
                     })
                 
-                self.status_updated.emit(f'✅ {scan_type}: {len(vulns)} vulnerabilities')
+                self.status_updated.emit(f'[OK] {scan_type}: {len(vulns)} vulnerabilities')
                 
                 progress = 25 + int((idx + 1) / total_scans * 75)
                 self.progress_updated.emit(progress)
                 
             except Exception as e:
-                self.status_updated.emit(f'❌ Error in {scan_type}: {str(e)[:50]}')
+                self.status_updated.emit(f'[FAIL] Error in {scan_type}: {str(e)[:50]}')
         
         formatted_results = []
         for vuln in vulnerabilities:

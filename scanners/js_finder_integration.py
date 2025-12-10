@@ -173,7 +173,7 @@ if __name__ == '__main__':
     webhook_url = config_data.get('integration', {}).get('js_finder_webhook', '')
     
     if not webhook_url:
-        print("⚠️ Warning: No webhook URL configured")
+        print("[WARN] Warning: No webhook URL configured")
         print("Set 'js_finder_webhook' in settings first")
         webhook_url = input("Enter webhook URL (or press Enter to skip): ").strip()
     
@@ -205,7 +205,7 @@ if __name__ == '__main__':
     if test_target_url:
         result = crawler.crawl_url(test_target_url)
         
-        print("\n✅ Test Results:")
+        print("\n[OK] Test Results:")
         print(f"Status: {result['status']}")
         if result['status'] == 'success':
             js_findings = result.get('js_findings', {})

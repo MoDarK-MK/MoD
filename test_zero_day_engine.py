@@ -56,7 +56,7 @@ def test_anomaly_detector():
         anomaly = detector.detect_timing_anomalies(timings)
         print(f"  • {desc}: {anomaly:.3f}")
     
-    print("\n✅ Anomaly Detector Tests Passed!")
+    print("\n[OK] Anomaly Detector Tests Passed!")
 
 
 def test_behavior_analyzer():
@@ -101,7 +101,7 @@ def test_behavior_analyzer():
     for payload, score, technique in bypasses[:3]:
         print(f"    - [{score:.2f}] {technique}: {payload[:40]}...")
     
-    print("\n✅ Behavior Analyzer Tests Passed!")
+    print("\n[OK] Behavior Analyzer Tests Passed!")
 
 
 def test_zero_day_engine():
@@ -173,7 +173,7 @@ def test_zero_day_engine():
     print(f"    - Medium: {report['medium_count']}")
     print(f"    - Low: {report['low_count']}")
     
-    print("\n✅ Zero-Day Engine Tests Passed!")
+    print("\n[OK] Zero-Day Engine Tests Passed!")
 
 
 def test_performance():
@@ -203,19 +203,19 @@ def test_performance():
     print(f"  • Findings detected: {len(findings)}")
     
     if elapsed < 5.0:
-        print(f"\n  ✅ Performance is excellent!")
+        print(f"\n  [OK] Performance is excellent!")
     elif elapsed < 10.0:
-        print(f"\n  ⚠️ Performance is acceptable")
+        print(f"\n  [WARN] Performance is acceptable")
     else:
-        print(f"\n  ❌ Performance needs optimization")
+        print(f"\n  [FAIL] Performance needs optimization")
 
 
 def main():
     """Run all tests."""
     print("\n")
-    print("╔════════════════════════════════════════════════════════════╗")
-    print("║   ZERO-DAY DETECTION ENGINE - VALIDATION TEST SUITE        ║")
-    print("╚════════════════════════════════════════════════════════════╝")
+    print("[============================================================]")
+    print("|   ZERO-DAY DETECTION ENGINE - VALIDATION TEST SUITE        |")
+    print("[============================================================]")
     
     try:
         test_anomaly_detector()
@@ -224,7 +224,7 @@ def main():
         test_performance()
         
         print("\n" + "="*70)
-        print("✅ ALL TESTS PASSED SUCCESSFULLY!")
+        print("[OK] ALL TESTS PASSED SUCCESSFULLY!")
         print("="*70)
         print("\nZero-Day Detection Engine is ready for production use.")
         print("Key Features Validated:")
@@ -237,7 +237,7 @@ def main():
         print("\n")
         
     except Exception as e:
-        print(f"\n❌ TEST FAILED: {str(e)}")
+        print(f"\n[FAIL] TEST FAILED: {str(e)}")
         import traceback
         traceback.print_exc()
         return 1

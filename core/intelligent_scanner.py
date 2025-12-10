@@ -533,8 +533,8 @@ class IntelligentScanner:
             mapper = SiteMapper(base_url, self.session, self.timeout)
             self.site_map = mapper.crawl_site(max_depth=max_depth, max_pages=max_pages)
             
-            print(f"✅ Found {len(self.site_map.urls)} URLs")
-            print(f"✅ Found {len(self.site_map.parameters)} unique parameters")
+            print(f"[OK] Found {len(self.site_map.urls)} URLs")
+            print(f"[OK] Found {len(self.site_map.parameters)} unique parameters")
             logger.info(f"Site mapping complete: {len(self.site_map.urls)} URLs, {len(self.site_map.parameters)} parameters")
             
             print("\n🔍 Stage 2: Intelligent Payload Testing...")

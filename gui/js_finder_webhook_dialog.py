@@ -97,7 +97,7 @@ class JSFinderWebhookDialog(QDialog):
         skip_btn.clicked.connect(self.reject)
         button_layout.addWidget(skip_btn)
         
-        self.save_btn = QPushButton("✅ Save Configuration")
+        self.save_btn = QPushButton("[OK] Save Configuration")
         self.save_btn.setMinimumHeight(40)
         self.save_btn.setMinimumWidth(150)
         self.save_btn.setStyleSheet("""
@@ -175,7 +175,7 @@ class JSFinderWebhookDialog(QDialog):
         if not webhook_url:
             QMessageBox.warning(
                 self, 
-                "⚠️ Warning",
+                "[WARN] Warning",
                 "Please enter a webhook URL or uncheck 'Enable JS Finder Webhook'"
             )
             return
@@ -187,7 +187,7 @@ class JSFinderWebhookDialog(QDialog):
         if not self._validate_url(webhook_url):
             QMessageBox.warning(
                 self,
-                "❌ Invalid URL",
+                "[FAIL] Invalid URL",
                 "Please enter a valid webhook URL (e.g., https://example.com/webhook)"
             )
             return
@@ -204,7 +204,7 @@ class JSFinderWebhookDialog(QDialog):
             self.webhook_url = webhook_url
             QMessageBox.information(
                 self,
-                "✅ Success",
+                "[OK] Success",
                 f"Webhook URL saved successfully!\n\n{webhook_url}"
             )
             self.accept()
@@ -212,7 +212,7 @@ class JSFinderWebhookDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(
                 self,
-                "❌ Error",
+                "[FAIL] Error",
                 f"Failed to save configuration:\n{str(e)}"
             )
     

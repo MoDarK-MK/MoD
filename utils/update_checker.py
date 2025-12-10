@@ -212,7 +212,7 @@ class UpdateCheckerWindow:
         
         if status['error']:
             info_html = f"""
-            <h3 style="color: #ff9800;">⚠️ Update Check Failed</h3>
+            <h3 style="color: #ff9800;">[WARN] Update Check Failed</h3>
             <p><b>Reason:</b> {status['error']}</p>
             <p>You can continue using the application.</p>
             """
@@ -220,7 +220,7 @@ class UpdateCheckerWindow:
             self.check_button.setText('✓ Continue')
         elif update_available:
             info_html = f"""
-            <h3 style="color: #4caf50;">✅ Update Available!</h3>
+            <h3 style="color: #4caf50;">[OK] Update Available!</h3>
             <p><b>Current Version:</b> {status['current_version']}</p>
             <p><b>Latest Version:</b> {status['latest_version']}</p>
             <p><b>Release Name:</b> {status['info'].get('name', 'N/A')}</p>
