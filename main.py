@@ -1,5 +1,5 @@
 """
-MoD - Master of Defense v4.0.0.2
+MoD - Master of Defense v4.0.0.3
 Professional Web Application Security Scanner
 """
 
@@ -22,8 +22,8 @@ def main():
     app = QApplication(sys.argv)
     
     # Set application metadata
-    app.setApplicationName("MoD - Master of Defense v4.0.0.2")
-    app.setApplicationVersion("4.0.0.2")
+    app.setApplicationName("MoD - Master of Defense v4.0.0.3")
+    app.setApplicationVersion("4.0.0.3")
     app.setOrganizationName("MoD Security")
     
     # Set default font
