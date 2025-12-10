@@ -45,6 +45,16 @@ _An advanced, enterprise-grade vulnerability assessment platform built with cutt
 
 ### ✨ What's New in v4.0.0.4
 
+#### 🔎 JavaScript Finder Scanner with Webhook Integration (NEW!)
+
+- **Real-Time JavaScript Detection** - Identifies external scripts, inline code, and event handlers during crawling
+- **Webhook Integration** - Send results directly to your endpoint as pages are scanned
+- **Sensitive Data Detection** - Finds API keys, tokens, credentials in JavaScript
+- **Framework Detection** - Identifies React, Vue, Angular, jQuery, and other frameworks
+- **Framework Analysis** - Detects minified code, suspicious patterns, and libraries
+- **Configuration UI** - Setup webhook URL on app startup and manage in Settings
+- **Comprehensive Reporting** - Includes CVSS scores, risk levels, and evidence
+
 #### 🧠 Phase A: Advanced Response Diffing & ML Helpers (5 Features)
 
 - **Advanced Response Diffing** - JSON/XML/HTML structure comparison with recursive key extraction
@@ -121,6 +131,7 @@ _An advanced, enterprise-grade vulnerability assessment platform built with cutt
 - ✅ WAF Detection & Bypass
 - ✅ Subdomain Enumeration
 - ✅ CVE Scanner Integration
+- ✅ JavaScript Finder Scanner (NEW!)
 - ✅ GraphQL Testing
 - ✅ WebSocket Analysis
 - ✅ Local AI Engine (**mod**) for on-device security scoring (no external APIs)
@@ -134,6 +145,7 @@ _An advanced, enterprise-grade vulnerability assessment platform built with cutt
 
 - ✅ Multiple Export Formats
 - ✅ Discord Webhooks
+- ✅ JS Finder Webhooks (NEW!)
 - ✅ Custom Templates
 - ✅ Compliance Reports
 - ✅ Historical Analysis
@@ -250,7 +262,9 @@ MoD/
 │   ├── cors_scanner.py           # CORS misconfigurations
 │   ├── subdomain_scanner.py      # Subdomain discovery
 │   ├── wayback_scanner.py        # Historical endpoints
-│   ├── cve_scanner.py            # Known CVE detection
+│   ├── js_finder.py              # JavaScript detection (NEW!)
+│   ├── js_finder_integration.py  # JS Finder integration helpers
+│   ├── cve_scanner.py            # Known CVE detection (159 CVEs)
 │   ├── waf_bypass_engine.py      # WAF evasion v1
 │   ├── waf_bypass_engine_v2.py   # WAF evasion v2
 │   └── vulnerability_verifier.py # PoC verification
