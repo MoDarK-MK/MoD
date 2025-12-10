@@ -46,6 +46,7 @@ _An advanced, enterprise-grade vulnerability assessment platform built with cutt
 ### ✨ What's New in v4.0.0.3
 
 #### 🧠 Phase A: Advanced Response Diffing & ML Helpers (5 Features)
+
 - **Advanced Response Diffing** - JSON/XML/HTML structure comparison with recursive key extraction
 - **Payload Complexity Analysis** - Encoding detection (Base64, Hex, URL), nesting depth analysis
 - **HTTP Context Scoring** - HTTP method/header/content-type risk assessment
@@ -54,6 +55,7 @@ _An advanced, enterprise-grade vulnerability assessment platform built with cutt
 - **Fuzzy Matching** - Levenshtein-based evasion-resistant attack signature matching
 
 #### 🚨 Phase B: Advanced Detection Features (5 Features)
+
 - **Lateral Movement Detection** - Multi-target correlation, account enumeration patterns
 - **Time-Series Analysis** - Change point detection, anomaly scoring, trend analysis
 - **Request Correlation Engine** - Geographic anomaly detection, device fingerprinting
@@ -61,6 +63,7 @@ _An advanced, enterprise-grade vulnerability assessment platform built with cutt
 - **Historical Context Engine** - CVE timeline correlation, zero-day pattern detection
 
 #### 🏗️ Phase C: System Integration (5 Features)
+
 - **Distributed Scoring Federation** - Multi-node consensus scoring for federated deployments
 - **Feedback Loop Engine** - Learning from false positives/true positives with FP rate tracking
 - **Real-Time Alerting** - Automated alert generation with configurable cooldown periods
@@ -68,6 +71,7 @@ _An advanced, enterprise-grade vulnerability assessment platform built with cutt
 - **Privacy Compliance** - PII detection and redaction, audit logging, GDPR compliance
 
 #### 📊 Phase D: Advanced Analytics (5 Features)
+
 - **Analytics Dashboard** - Detection statistics, score distribution, peak hour analysis
 - **Adversarial Resistance** - Evasion detection (encoding chains, polyglots, obfuscation)
 - **Semi-Supervised Learning** - Pseudo-labeling for unlabeled data with confidence thresholding
@@ -149,6 +153,7 @@ _An advanced, enterprise-grade vulnerability assessment platform built with cutt
 MoD v4.0+ includes a powerful **ModAI** local scoring engine that uses advanced heuristics and statistical analysis to intelligently prioritize vulnerability findings. All computation is on-device with zero external API calls.
 
 #### Phase A: Advanced Response Diffing & ML Helpers
+
 - JSON/XML/HTML structure analysis with recursive key extraction
 - Payload complexity scoring with multi-encoding detection
 - HTTP context risk analysis (method, headers, content-type)
@@ -157,6 +162,7 @@ MoD v4.0+ includes a powerful **ModAI** local scoring engine that uses advanced 
 - Levenshtein-based fuzzy matching for evasion resistance
 
 #### Phase B: Advanced Detection
+
 - Lateral movement pattern recognition across multiple targets
 - Time-series anomaly detection with trend analysis
 - Request correlation with geographic anomaly scoring
@@ -164,6 +170,7 @@ MoD v4.0+ includes a powerful **ModAI** local scoring engine that uses advanced 
 - Historical CVE context with zero-day pattern recognition
 
 #### Phase C: Integration & System Features
+
 - Distributed multi-node consensus scoring
 - Feedback loop learning from false positives/true positives
 - Real-time alerting with intelligent cooldown
@@ -171,6 +178,7 @@ MoD v4.0+ includes a powerful **ModAI** local scoring engine that uses advanced 
 - PII detection and privacy-preserving audit logging
 
 #### Phase D: Advanced Analytics
+
 - Analytics dashboard with detection statistics
 - Adversarial evasion resistance (polyglots, encoding chains)
 - Semi-supervised learning with pseudo-labeling
@@ -178,6 +186,7 @@ MoD v4.0+ includes a powerful **ModAI** local scoring engine that uses advanced 
 - Semantic similarity matching for attack signatures
 
 **Features:**
+
 - ✅ 20+ Advanced Detection Capabilities
 - ✅ 0% False Negatives (Bayesian fusion)
 - ✅ 80%+ Reduction in False Positives
