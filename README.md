@@ -2,7 +2,7 @@
 
 # 🛡️ MoD - Master of Defense
 
-[![Version](https://img.shields.io/badge/version-4.0.0.4-blue.svg)](https://github.com/MoDarK-MK/MoD)
+[![Version](https://img.shields.io/badge/version-4.0.0.5-blue.svg)](https://github.com/MoDarK-MK/MoD)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/MoDarK-MK/MoD)
@@ -43,7 +43,7 @@ _An advanced, enterprise-grade vulnerability assessment platform built with cutt
 
 **MoD (Master of Defense)** is a state-of-the-art web application security scanner designed for penetration testers, security researchers, and bug bounty hunters. Built with Python and PyQt6, it combines powerful scanning capabilities with an intuitive, professional interface.
 
-### ✨ What's New in v4.0.0.4
+### ✨ What's New in v4.0.0.5
 
 #### 🔎 JavaScript Finder Scanner with Webhook Integration (NEW!)
 
@@ -736,7 +736,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ by the MoD Team**
 
-_Version 4.0.0.4 | Last Updated: December 10, 2025_
+_Version 4.0.0.5 | Last Updated: December 10, 2025_
 
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-success?style=for-the-badge)
 

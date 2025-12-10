@@ -102,7 +102,7 @@ class MainWindow(QMainWindow):
         """Initialize UI"""
         
         # Set window properties
-        self.setWindowTitle('MoD - Master of Defense v4.0.0.4 | Professional Edition')
+        self.setWindowTitle('MoD - Master of Defense v4.0.0.5 | Professional Edition')
         self.showMaximized()  # Fullscreen
         
         # Create central widget

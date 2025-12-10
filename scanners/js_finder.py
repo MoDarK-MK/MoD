@@ -1,5 +1,5 @@
 """
-JavaScript Finder Scanner for MoD v4.0.0.4
+JavaScript Finder Scanner for MoD v4.0.0.5
 Detects and extracts JavaScript files during crawling and sends results to webhook
 """
 
@@ -409,7 +409,7 @@ class JSFinder:
         try:
             payload = {
                 'scanner': 'js_finder',
-                'version': '4.0.0.4',
+                'version': '4.0.0.5',
                 'timestamp': datetime.now().isoformat(),
                 'result': result.to_dict()
             }

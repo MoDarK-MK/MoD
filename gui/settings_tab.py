@@ -1433,7 +1433,7 @@ With a valid API key, advanced POC generation and analysis will be available.
             # Send test payload
             test_payload = {
                 'scanner': 'js_finder',
-                'version': '4.0.0.4',
+                'version': '4.0.0.5',
                 'timestamp': datetime.now().isoformat(),
                 'result': {
                     'url': 'https://example.com/test',

@@ -1,5 +1,5 @@
 """
-JS Finder Webhook Dialog for MoD v4.0.0.4
+JS Finder Webhook Dialog for MoD v4.0.0.5
 Prompts user for webhook URL on first run
 """
 

@@ -1,5 +1,5 @@
 """
-JS Finder Integration Example for MoD v4.0.0.4
+JS Finder Integration Example for MoD v4.0.0.5
 Shows how to integrate JavaScript Finder with any crawler or scanner
 """
 
