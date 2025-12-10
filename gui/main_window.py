@@ -93,6 +93,8 @@ class MainWindow(QMainWindow):
             'bypassed_wafs': 0
         }
         
+        self.webhook_shown = False
+        
         self.init_ui()
         self.setup_timer()
     
@@ -212,3 +214,19 @@ class MainWindow(QMainWindow):
         """Handle close event"""
         self.timer.stop()
         event.accept()
+    
+    def showEvent(self, event):
+        """Handle show event - show webhook dialog on first load"""
+        super().showEvent(event)
+        
+        if not self.webhook_shown:
+            self.webhook_shown = True
+            # Show webhook configuration dialog
+            try:
+                from gui.js_finder_webhook_dialog import JSFinderWebhookDialog
+                dialog = JSFinderWebhookDialog(self)
+                dialog.exec()
+            except Exception as e:
+                # Silently fail if dialog can't be shown
+                pass
+

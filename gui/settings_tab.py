@@ -58,6 +58,7 @@ class SettingsTab(DesignMainWidget):
         tabs.addTab(self.create_general_settings_tab(), '🎨 GENERAL')
         tabs.addTab(self.create_ai_settings_tab(), '🤖 AI INTEGRATION')
         tabs.addTab(self.create_scanner_settings_tab(), '🔍 SCANNER CONFIG')
+        tabs.addTab(self.create_js_finder_settings_tab(), '🔎 JS FINDER')
         
         self.scroll_content.layout().addWidget(tabs)
         self.scroll_content.layout().addStretch()
@@ -1213,6 +1214,12 @@ With a valid API key, advanced POC generation and analysis will be available.
             'update_frequency': self._get_frequency_days(self.update_freq_combo.currentText()),
             'discord_webhook': self.discord_webhook_input.text(),
             'discord_log_level': self.discord_loglevel_combo.currentText(),
+            'js_finder_webhook': self.js_finder_webhook_input.text(),
+            'js_finder_enabled': self.js_finder_enabled_check.isChecked(),
+            'js_finder_inline': self.js_finder_inline_check.isChecked(),
+            'js_finder_handlers': self.js_finder_handlers_check.isChecked(),
+            'js_finder_sensitive': self.js_finder_sensitive_check.isChecked(),
+            'js_finder_frameworks': self.js_finder_frameworks_check.isChecked(),
         }
         
         self.settings_changed.emit(settings)
@@ -1258,6 +1265,212 @@ With a valid API key, advanced POC generation and analysis will be available.
                 QMessageBox.warning(self, '❌ Error', f'Discord returned error code: {response.status_code}')
         except Exception as e:
             QMessageBox.critical(self, '❌ Error', f'Failed to connect to Discord:\n{str(e)}')
+    
+    def create_js_finder_settings_tab(self):
+        """Create JavaScript Finder settings tab"""
+        widget = QWidget()
+        
+        styles = self.get_stylesheet_for_theme()
+        widget.setStyleSheet(f"background: {styles['background']};")
+        
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
+        
+        # JS Finder Webhook Configuration
+        js_finder_group = QGroupBox('🔎 JAVASCRIPT FINDER CONFIGURATION')
+        js_finder_group.setStyleSheet(f"""
+            QGroupBox {{
+                color: {styles['text']};
+                font-weight: bold;
+                border: 2px solid {styles['border']};
+                border-radius: 8px;
+                padding-top: 12px;
+                background: {styles['surface']};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 8px;
+                color: {styles['primary']};
+            }}
+        """)
+        
+        js_layout = QVBoxLayout()
+        js_layout.setSpacing(12)
+        
+        # Webhook URL input
+        webhook_layout = QHBoxLayout()
+        webhook_label = QLabel('Webhook URL:')
+        webhook_label.setStyleSheet(f'color: {styles["text"]}; font-weight: bold; min-width: 120px;')
+        webhook_label.setMinimumHeight(40)
+        
+        self.js_finder_webhook_input = QLineEdit()
+        self.js_finder_webhook_input.setPlaceholderText('https://your-webhook-endpoint.com/...')
+        self.js_finder_webhook_input.setMinimumHeight(40)
+        self.js_finder_webhook_input.setStyleSheet(f"""
+            QLineEdit {{
+                background: {styles['background']};
+                color: {styles['text']};
+                border: 2px solid {styles['border']};
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 10pt;
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {styles['primary']};
+                background: {styles['surface']};
+            }}
+        """)
+        
+        webhook_layout.addWidget(webhook_label)
+        webhook_layout.addWidget(self.js_finder_webhook_input, 1)
+        js_layout.addLayout(webhook_layout)
+        
+        # Enable/Disable checkbox
+        enable_layout = QHBoxLayout()
+        self.js_finder_enabled_check = QCheckBox('Enable JS Finder Webhook')
+        self.js_finder_enabled_check.setStyleSheet(f"""
+            QCheckBox {{
+                color: {styles['text']};
+                font-weight: bold;
+            }}
+            QCheckBox::indicator {{
+                width: 20px;
+                height: 20px;
+                border-radius: 3px;
+            }}
+            QCheckBox::indicator:checked {{
+                background: {styles['primary']};
+            }}
+        """)
+        enable_layout.addWidget(self.js_finder_enabled_check)
+        enable_layout.addStretch()
+        js_layout.addLayout(enable_layout)
+        
+        # Options
+        options_layout = QVBoxLayout()
+        
+        self.js_finder_inline_check = QCheckBox('✓ Include Inline JavaScript')
+        self.js_finder_inline_check.setChecked(True)
+        self.js_finder_inline_check.setStyleSheet(f"color: {styles['text']};")
+        options_layout.addWidget(self.js_finder_inline_check)
+        
+        self.js_finder_handlers_check = QCheckBox('✓ Include Event Handlers')
+        self.js_finder_handlers_check.setChecked(True)
+        self.js_finder_handlers_check.setStyleSheet(f"color: {styles['text']};")
+        options_layout.addWidget(self.js_finder_handlers_check)
+        
+        self.js_finder_sensitive_check = QCheckBox('✓ Detect Sensitive Data')
+        self.js_finder_sensitive_check.setChecked(True)
+        self.js_finder_sensitive_check.setStyleSheet(f"color: {styles['text']};")
+        options_layout.addWidget(self.js_finder_sensitive_check)
+        
+        self.js_finder_frameworks_check = QCheckBox('✓ Detect Frameworks')
+        self.js_finder_frameworks_check.setChecked(True)
+        self.js_finder_frameworks_check.setStyleSheet(f"color: {styles['text']};")
+        options_layout.addWidget(self.js_finder_frameworks_check)
+        
+        js_layout.addLayout(options_layout)
+        
+        # Test and Save buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        test_btn = QPushButton('🧪 TEST WEBHOOK')
+        test_btn.setMinimumHeight(40)
+        test_btn.setMinimumWidth(140)
+        test_btn.clicked.connect(self.test_js_finder_webhook)
+        test_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {styles['primary']};
+                color: white;
+                border: 2px solid {styles['primary']};
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 10pt;
+            }}
+            QPushButton:hover {{
+                background: rgba(0, 0, 0, 0.2);
+            }}
+        """)
+        button_layout.addWidget(test_btn)
+        
+        js_layout.addLayout(button_layout)
+        
+        # Info text
+        info_text = QLabel(
+            "💡 JavaScript Finder will send detected JS files to your webhook during crawling.\n"
+            "• Includes external scripts, inline code, and event handlers\n"
+            "• Detects frameworks, sensitive data, and suspicious patterns\n"
+            "• Works in real-time as crawling progresses"
+        )
+        info_text.setStyleSheet(f"color: {styles['text_secondary']}; font-size: 9pt; line-height: 1.5;")
+        info_text.setWordWrap(True)
+        js_layout.addSpacing(12)
+        js_layout.addWidget(info_text)
+        
+        js_finder_group.setLayout(js_layout)
+        layout.addWidget(js_finder_group)
+        
+        layout.addStretch()
+        
+        return widget
+    
+    def test_js_finder_webhook(self):
+        """Test JS Finder webhook connection"""
+        webhook_url = self.js_finder_webhook_input.text().strip()
+        
+        if not webhook_url:
+            QMessageBox.warning(self, '⚠️ Warning', 'Please enter a webhook URL first')
+            return
+        
+        try:
+            import requests
+            import json
+            from datetime import datetime
+            
+            # Send test payload
+            test_payload = {
+                'scanner': 'js_finder',
+                'version': '4.0.0.4',
+                'timestamp': datetime.now().isoformat(),
+                'result': {
+                    'url': 'https://example.com/test',
+                    'total_js_files': 5,
+                    'external_js_count': 2,
+                    'inline_js_count': 2,
+                    'event_handlers_count': 1,
+                    'frameworks': ['React', 'jQuery'],
+                    'libraries': [],
+                    'critical_patterns': 0,
+                    'sensitive_data_found': 0,
+                    'scan_timestamp': datetime.now().isoformat(),
+                    'scan_duration_ms': 1234,
+                    'test': True
+                }
+            }
+            
+            response = requests.post(
+                webhook_url,
+                json=test_payload,
+                headers={'Content-Type': 'application/json'},
+                timeout=5
+            )
+            
+            if response.status_code in [200, 201, 204]:
+                QMessageBox.information(
+                    self, '✅ Success',
+                    f'Webhook test successful!\nStatus Code: {response.status_code}'
+                )
+            else:
+                QMessageBox.warning(
+                    self, '⚠️ Warning',
+                    f'Webhook returned status code: {response.status_code}\n'
+                    f'Response: {response.text[:200]}'
+                )
+        except Exception as e:
+            QMessageBox.critical(self, '❌ Error', f'Failed to test webhook:\n{str(e)}')
     
     def _get_frequency_days(self, frequency_text: str) -> int:
         """Convert frequency text to days"""

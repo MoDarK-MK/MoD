@@ -1,4 +1,3 @@
-"""
 """Professional Design System for MoD Security Scanner v4.0.0.4
 Organized, clean, and maintainable design patterns with consistent theming.
 """

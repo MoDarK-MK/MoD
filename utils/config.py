@@ -1,4 +1,3 @@
-"""
 """Configuration management for MoD Security Scanner v4.0.0.4
 Handles application settings with validation and defaults.
 """
@@ -61,6 +60,8 @@ class Config:
             'integration': {
                 'slack_webhook': '',
                 'teams_webhook': '',
+                'discord_webhook': '',
+                'js_finder_webhook': '',
                 'github_token': '',
                 'gitlab_token': '',
                 'jira_url': '',
