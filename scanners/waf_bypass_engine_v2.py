@@ -321,28 +321,50 @@ class PacketInspector:
 class ProxyConfig:
     """Proxy configuration and management"""
     
-    def __init__(self, proxy_type: str = 'http', proxy_host: str = 'localhost', 
+    def __init__(self, proxy_type: str = 'http', proxy_host: str = None, 
                  proxy_port: int = 8080, username: str = None, password: str = None):
+        """Initialize proxy configuration.
+        
+        Args:
+            proxy_type: Type of proxy (http, https, socks5).
+            proxy_host: Proxy hostname/IP (must be provided to enable proxy).
+            proxy_port: Proxy port number.
+            username: Optional proxy authentication username.
+            password: Optional proxy authentication password.
+        """
         self.proxy_type = proxy_type.lower()
         self.proxy_host = proxy_host
         self.proxy_port = proxy_port
         self.username = username
         self.password = password
         self.enabled = False
+        
+        # Warn if proxy_host is None but should be configured
+        if proxy_host is None:
+            self.enabled = False
+        else:
+            self.enabled = True
+            
         self.intercept_mode = False  # For packet inspection
         self.request_log = []
         self.response_log = []
         self.intercepted_requests = []
     
-    def get_proxy_url(self) -> str:
-        """Get proxy URL"""
+    def get_proxy_url(self) -> Optional[str]:
+        """Get proxy URL. Returns None if proxy not configured."""
+        if not self.proxy_host:
+            return None
         if self.username and self.password:
             return f"{self.proxy_type}://{self.username}:{self.password}@{self.proxy_host}:{self.proxy_port}"
         return f"{self.proxy_type}://{self.proxy_host}:{self.proxy_port}"
     
-    def get_proxies_dict(self) -> Dict[str, str]:
-        """Get proxies dictionary for requests library"""
+    def get_proxies_dict(self) -> Optional[Dict[str, str]]:
+        """Get proxies dictionary for requests library. Returns None if proxy not configured."""
+        if not self.enabled or not self.proxy_host:
+            return None
         proxy_url = self.get_proxy_url()
+        if not proxy_url:
+            return None
         return {
             'http': proxy_url,
             'https': proxy_url

@@ -147,11 +147,11 @@ for url in urls_to_crawl:
 webhook_url = config_data.get('integration', {}).get('js_finder_webhook', '')
 crawler = ExampleCrawler(webhook_url=webhook_url)
 
-result = crawler.crawl_url('https://example.com')
+result = crawler.crawl_url(target_url)  # Use actual target URL from user input
 print(result)
 
 # Update webhook at runtime
-js_integration.update_webhook('https://new-webhook-url.com/...')
+js_integration.update_webhook('https://your-webhook-url.com/...')
 
 # Get summary of all findings
 summary = js_integration.get_summary()
@@ -182,7 +182,7 @@ if __name__ == '__main__':
     <html>
     <head>
         <script src="/js/jquery.js"></script>
-        <script src="https://cdn.example.com/react.min.js"></script>
+        <script src="https://cdn.example-domain.com/react.min.js"></script>
     </head>
     <body>
         <script>
@@ -200,13 +200,18 @@ if __name__ == '__main__':
     crawler = ExampleCrawler(webhook_url=webhook_url)
     print("Testing JS Finder scanner...")
     
-    result = crawler.crawl_url('https://example.com/test')
-    
-    print("\n✅ Test Results:")
-    print(f"Status: {result['status']}")
-    if result['status'] == 'success':
-        js_findings = result.get('js_findings', {})
-        print(f"Total JS files: {js_findings.get('total_js_files', 0)}")
-        print(f"External JS: {js_findings.get('external_js_count', 0)}")
+    # Use the target URL from user input (example placeholder)
+    test_target_url = input("Enter target URL to scan (or press Enter to skip test): ").strip()
+    if test_target_url:
+        result = crawler.crawl_url(test_target_url)
+        
+        print("\n✅ Test Results:")
+        print(f"Status: {result['status']}")
+        if result['status'] == 'success':
+            js_findings = result.get('js_findings', {})
+            print(f"Total JS files: {js_findings.get('total_js_files', 0)}")
+            print(f"External JS: {js_findings.get('external_js_count', 0)}")
+    else:
+        print("ℹ️  No target URL provided. Skipping test scan.")
         print(f"Inline JS: {js_findings.get('inline_js_count', 0)}")
         print(f"Frameworks detected: {js_findings.get('frameworks', [])}")

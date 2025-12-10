@@ -8,14 +8,10 @@ from urllib.parse import urlparse
 class CORSScanner:
     """Scanner for CORS misconfiguration vulnerabilities."""
     
-    COMMON_ORIGINS = [
-        'http://localhost',
-        'http://localhost:3000',
-        'http://localhost:8000',
-        'http://127.0.0.1',
-        'http://127.0.0.1:3000',
+    # Default origins to test - will be augmented with user-provided target variants
+    DEFAULT_TEST_ORIGINS = [
         'http://attacker.com',
-        'http://localhost.attacker.com',
+        'http://attacker.attacker.com',
         'http://*.attacker.com',
         'null',
     ]
@@ -41,7 +37,13 @@ class CORSScanner:
             List of CORS vulnerabilities found.
         """
         self.results = []
-        origins_to_test = custom_origins or self.COMMON_ORIGINS
+        
+        # Build origins list from target URL plus default test origins
+        origins_to_test = self._build_origins_list(target_url)
+        
+        # Add any custom origins provided
+        if custom_origins:
+            origins_to_test.extend(custom_origins)
         
         for origin in origins_to_test:
             vulnerability = self._test_cors(target_url, origin)
@@ -49,6 +51,49 @@ class CORSScanner:
                 self.results.append(vulnerability)
         
         return self.results
+    
+    def _build_origins_list(self, target_url: str) -> List[str]:
+        """Build origins list from target URL variants and defaults.
+        
+        Args:
+            target_url: Target URL to derive origins from.
+            
+        Returns:
+            List of origins to test.
+        """
+        origins = []
+        
+        try:
+            parsed = urlparse(target_url)
+            base_origin = f"{parsed.scheme}://{parsed.netloc}"
+            
+            # Add target's own origin
+            origins.append(base_origin)
+            
+            # Add common localhost variants that target might accept
+            if parsed.netloc not in ['localhost', '127.0.0.1', '0.0.0.0']:
+                # Only add localhost variants if not already the target
+                origins.extend([
+                    'http://localhost',
+                    'http://localhost:3000',
+                    'http://localhost:8000',
+                    'http://127.0.0.1',
+                ])
+        except Exception:
+            pass
+        
+        # Add attacker-controlled origins
+        origins.extend(self.DEFAULT_TEST_ORIGINS)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_origins = []
+        for origin in origins:
+            if origin not in seen:
+                seen.add(origin)
+                unique_origins.append(origin)
+        
+        return unique_origins
     
     def _test_cors(self, target_url: str, origin: str) -> Optional[Dict[str, Any]]:
         """Test specific origin for CORS misconfiguration.
