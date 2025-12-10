@@ -861,67 +861,6 @@ class SQLScanner:
             'sqlite': DatabaseType.SQLITE,
         }
         return mapping.get(error_name, DatabaseType.MYSQL)
-                    confidence_score=confidence,
-                    extracted_data=str(extracted_data) if extracted_data else None,
-                    database_fingerprint=database_fingerprint,
-                    remediation=self._remediation_cache
-                )
-                
-                if self._is_valid_vulnerability(vuln):
-                    vulnerabilities.append(vuln)
-                    
-                    with self.lock:
-                        self.scan_statistics[injection_type.value] += 1
-            
-            mutations = self.mutation_engine.generate_mutations(payload, injection_type if injection_type else SQLInjectionType.UNION_BASED)
-            
-            for idx, mutation in enumerate(mutations[1:], 1):
-                mutation_hash = hashlib.md5(mutation.encode()).hexdigest()
-                
-                if mutation_hash in self.tested_payloads:
-                    continue
-                
-                with self.lock:
-                    self.tested_payloads.add(mutation_hash)
-                
-                is_vulnerable, injection_type, detected_db, evidence, confidence = self._test_payload(
-                    response_content,
-                    baseline_response,
-                    mutation,
-                    response_time,
-                    baseline_time,
-                    status_code
-                )
-                
-                if is_vulnerable and not any(v.payload == mutation for v in vulnerabilities):
-                    extracted_data = self.data_extractor.extract_sensitive_data(response_content)
-                    extraction_risk = self.data_extractor.calculate_data_extraction_risk(extracted_data)
-                    
-                    vuln = SQLVulnerability(
-                        vulnerability_type='SQL Injection',
-                        injection_type=injection_type,
-                        database_type=detected_db,
-                        url=target_url,
-                        parameter=parameter,
-                        payload=mutation,
-                        severity=self._determine_severity(injection_type, extraction_risk),
-                        evidence=evidence,
-                        response_time=response_time,
-                        response_size_change=len(response_content) - len(baseline_response),
-                        error_message=self._extract_error_message(response_content),
-                        database_fingerprint=self.fingerprinting.fingerprint_database(response_content, detected_db),
-                        confirmed=True,
-                        confidence_score=confidence,
-                        remediation=self._remediation_cache
-                    )
-                    
-                    vulnerabilities.append(vuln)
-        
-        with self.lock:
-            self.vulnerabilities.extend(vulnerabilities)
-            self.scan_statistics['total_scans'] += 1
-        
-        return vulnerabilities
     
     def _test_payload(self, response_content: str, baseline_response: str, payload: str,
                      response_time: float, baseline_time: float, status_code: int) -> Tuple[bool, Optional[SQLInjectionType], Optional[DatabaseType], str, float]:

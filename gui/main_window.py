@@ -23,6 +23,7 @@ from .waf_bypass_tab import WAFBypassTab
 from .cors_tab import CORSTab
 from .discord_tab import DiscordTab
 from .help_tab import HelpTab
+from .zero_day_tab import ZeroDayTab
 from .design_system import (
     DesignColors, DesignSpacing, DesignTypography, DesignHeader,
     DesignMainWidget
@@ -135,6 +136,7 @@ class MainWindow(QMainWindow):
         self.wayback_tab = WaybackTab()
         self.auth_tab = AuthTab()
         self.request_monitor_tab = RequestMonitorTab()
+        self.zero_day_tab = ZeroDayTab()
         self.settings_tab = SettingsTab(self.theme_manager)
         self.advanced_settings_tab = AdvancedSettingsTab()
         self.cors_tab = CORSTab()
@@ -145,6 +147,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.scan_tab, '🎯 Vulnerability Scan')
         self.tab_widget.addTab(self.results_tab, '📊 Scan Results')
         self.tab_widget.addTab(self.cve_scanner_tab, '🔍 CVE Scanner')
+        self.tab_widget.addTab(self.zero_day_tab, '⚡ Zero-Day Scanner')
         self.tab_widget.addTab(self.waf_bypass_tab, '🔥 WAF Bypass')
         self.tab_widget.addTab(self.request_monitor_tab, '📡 Request Monitor')
         self.tab_widget.addTab(self.subdomain_tab, '🌐 Subdomain Scanner')

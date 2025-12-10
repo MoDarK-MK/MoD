@@ -741,7 +741,6 @@ class XSSScanner:
             return XSSType.TAG, 0.90
         else:
             return XSSType.REFLECTED, 0.75
-                pass
         
         evidence_parts = [
             f"Payload reflected at position {position}",
