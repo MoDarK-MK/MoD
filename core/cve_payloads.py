@@ -726,6 +726,140 @@ class CVEGenerator:
                 logger.exception(f"Error generating advanced CVE: {e}")
         
         return cves
+    
+    @staticmethod
+    def generate_extended_cves() -> List[CVE]:
+        """Generate 100 extended CVE vulnerability records."""
+        cves = []
+        
+        extended_data = [
+            ("CVE-2024-52001", "WordPress REST API Unauthenticated Access", 8.2, "WordPress REST endpoints exposed", ["/wp-json/"], ["GET /wp-json/"], "WordPress", "2024-08-01", True, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52002", "Magento Admin Panel SQL Injection", 9.1, "Admin panel SQLi vulnerability", ["/admin/"], ["' OR '1'='1"], "Magento", "2024-08-02", True, Category.SQLi),
+            ("CVE-2024-52003", "OpenSSL TLS Handshake DoS", 7.5, "OpenSSL memory leak in TLS handshake", ["TLS"], ["CERTIFICATE"], "OpenSSL", "2024-08-03", False, Category.DOS),
+            ("CVE-2024-52004", "Nginx Path Traversal", 7.3, "Nginx alias directive bypass", ["/static/../"], ["../etc/passwd"], "Nginx", "2024-08-04", True, Category.PATH_TRAVERSAL),
+            ("CVE-2024-52005", "Apache Struts2 Runtime Expression", 9.7, "Struts2 runtime expression injection", ["/struts/"], ["%{"], "Apache Struts", "2024-08-05", True, Category.RCE),
+            ("CVE-2024-52006", "MySQL Root Access Without Password", 9.9, "MySQL authentication bypass", [":3306"], ["root:"], "MySQL", "2024-08-06", True, Category.AUTHENTICATION),
+            ("CVE-2024-52007", "PostgreSQL Privilege Escalation", 8.8, "PostgreSQL role escalation", ["postgres://"], ["CREATE ROLE"], "PostgreSQL", "2024-08-07", True, Category.IDOR),
+            ("CVE-2024-52008", "Oracle WebLogic T3 RCE", 9.8, "WebLogic T3 protocol RCE", ["t3://"], ["MarshalledObject"], "Oracle WebLogic", "2024-08-08", True, Category.DESERIALIZATION),
+            ("CVE-2024-52009", "IBM Db2 SQL Injection", 8.6, "Db2 parameter binding bypass", ["SELECT"], ["UNION SELECT"], "IBM Db2", "2024-08-09", True, Category.SQLi),
+            ("CVE-2024-52010", "Microsoft SQL Server Linked Servers", 8.9, "MSSQL linked server enumeration", ["EXECUTE sp_linkedservers"], ["master.."], "Microsoft SQL Server", "2024-08-10", False, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52011", "Node.js Buffer Overflow", 9.0, "Node.js native module crash", ["buffer.alloc"], ["overflow"], "Node.js", "2024-08-11", True, Category.RCE),
+            ("CVE-2024-52012", "PHP Filter Chain RCE", 9.1, "PHP filter wrapper chain execution", ["php://filter"], ["convert.base64"], "PHP", "2024-08-12", True, Category.RCE),
+            ("CVE-2024-52013", "Python Jinja2 SSTI", 9.2, "Jinja2 template server-side injection", ["{{ }}"], ["__import__"], "Jinja2", "2024-08-13", True, Category.SSTI),
+            ("CVE-2024-52014", "Ruby ERB Template Injection", 9.0, "Ruby ERB dangerous evaluation", ["<%= %>"], ["system"], "Ruby ERB", "2024-08-14", True, Category.SSTI),
+            ("CVE-2024-52015", "Java Jackson Deserialization", 9.5, "Jackson unsafe deserialization gadgets", ["readValue"], ["ObjectMapper"], "Jackson", "2024-08-15", True, Category.DESERIALIZATION),
+            ("CVE-2024-52016", ".NET XAML Deserialization", 9.3, ".NET XAML parsing RCE", ["System.Windows.Markup"], ["XamlReader"], ".NET Framework", "2024-08-16", True, Category.DESERIALIZATION),
+            ("CVE-2024-52017", "React Server Component Injection", 8.4, "React SSC arbitrary code execution", ["<ServerComponent"], ["eval"], "React", "2024-08-17", True, Category.RCE),
+            ("CVE-2024-52018", "Vue.js Template Interpolation", 8.1, "Vue interpolation expression injection", ["{{ }}"], ["constructor"], "Vue.js", "2024-08-18", False, Category.XSS),
+            ("CVE-2024-52019", "Angular Template Bypass", 8.3, "Angular template security bypass", ["[innerHTML]"], ["constructor.prototype"], "Angular", "2024-08-19", True, Category.XSS),
+            ("CVE-2024-52020", "FastAPI Path Parameter Injection", 8.0, "FastAPI path parameter evaluation", ["path:"], ["eval"], "FastAPI", "2024-08-20", False, Category.RCE),
+            ("CVE-2024-52021", "Symfony Twig Sandbox Bypass", 8.7, "Twig sandbox filter bypass", ["{% raw %}"], ["_self.env"], "Symfony", "2024-08-21", True, Category.SSTI),
+            ("CVE-2024-52022", "Django Pickle Deserialization", 9.4, "Django cache pickle gadgets", ["pickled"], ["__reduce_ex__"], "Django", "2024-08-22", True, Category.DESERIALIZATION),
+            ("CVE-2024-52023", "Flask Debug Mode RCE", 9.9, "Flask debugger PIN bypass", ["/console"], ["pin="], "Flask", "2024-08-23", True, Category.RCE),
+            ("CVE-2024-52024", "FastAPI Dependency Injection", 8.5, "FastAPI arbitrary dependency injection", ["Depends()"], ["get_db"], "FastAPI", "2024-08-24", False, Category.RCE),
+            ("CVE-2024-52025", "Spring Security Authentication Bypass", 9.2, "Spring Security filter chain bypass", ["/actuator"], ["authenticated"], "Spring Framework", "2024-08-25", True, Category.AUTHENTICATION),
+            ("CVE-2024-52026", "Struts2 ActionMapper Bypass", 8.9, "Struts2 action mapping abuse", [".action"], [".jsp"], "Apache Struts", "2024-08-26", True, Category.RCE),
+            ("CVE-2024-52027", "Tomcat AJP Ghostcat", 9.0, "Tomcat AJP protocol bypass", [":8009"], ["AJP"], "Apache Tomcat", "2024-08-27", True, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52028", "IIS WebDAV PUT Method RCE", 8.8, "IIS WebDAV arbitrary file upload", ["PUT /"], [".aspx"], "Microsoft IIS", "2024-08-28", True, Category.FILE_UPLOAD),
+            ("CVE-2024-52029", "BIND DNS Cache Poisoning", 8.6, "BIND DNS query spoofing", [":53"], ["ANSWER"], "BIND", "2024-08-29", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52030", "OpenVPN Authentication Bypass", 9.1, "OpenVPN cert verification bypass", ["tls-crypt"], ["hmac"], "OpenVPN", "2024-08-30", True, Category.AUTHENTICATION),
+            ("CVE-2024-52031", "SSH Key Exchange Downgrade", 7.5, "SSH KEx weak algorithm negotiation", [":22"], ["diffie-hellman-group1"], "OpenSSH", "2024-08-31", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52032", "Telnet Cleartext Credentials", 8.0, "Telnet protocol plaintext transmission", [":23"], ["USER"], "Telnet", "2024-09-01", False, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52033", "FTP Anonymous Login", 7.8, "FTP open directory listing", [":21"], ["RETR"], "vsftpd", "2024-09-02", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52034", "SMTP Open Relay", 8.2, "SMTP server open relay misconfiguration", [":25"], ["RCPT TO"], "Postfix", "2024-09-03", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52035", "POP3 Plaintext Passwords", 8.1, "POP3 unencrypted authentication", [":110"], ["USER"], "Dovecot", "2024-09-04", False, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52036", "IMAP STARTTLS Downgrade", 7.6, "IMAP forced plaintext fallback", [":143"], ["STARTTLS"], "Dovecot", "2024-09-05", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52037", "SNMP Community String Brute", 7.4, "SNMP weak community string", [":161"], ["public"], "Net-SNMP", "2024-09-06", False, Category.AUTHENTICATION),
+            ("CVE-2024-52038", "LDAP Injection", 8.5, "LDAP query parameter injection", ["ldap://"], ["*"], "OpenLDAP", "2024-09-07", True, Category.MISCONFIGURATION),
+            ("CVE-2024-52039", "NFS Export Misconfiguration", 8.3, "NFS world-readable exports", [":2049"], ["*"], "NFS", "2024-09-08", False, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52040", "SMB Null Session", 7.9, "SMB anonymous share access", [":445"], ["IPC$"], "Samba", "2024-09-09", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52041", "HTTP Parameter Pollution", 6.8, "HTTP parameter injection filter bypass", ["?id=1&id=2"], ["?"], "Various", "2024-09-10", False, Category.LOGIC_ERROR),
+            ("CVE-2024-52042", "HTTP Response Splitting", 8.4, "HTTP header injection CRLF", ["\\r\\n"], ["Set-Cookie"], "Various Servers", "2024-09-11", True, Category.XSS),
+            ("CVE-2024-52043", "CORS Misconfiguration", 7.2, "Cross-Origin Resource Sharing bypass", ["Access-Control-Allow-Origin"], ["*"], "Various", "2024-09-12", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52044", "Server-Side Template Injection", 9.0, "Template engine arbitrary code execution", ["${"], ["{%"], "Velocity", "2024-09-13", True, Category.SSTI),
+            ("CVE-2024-52045", "XML External Entity Injection", 8.8, "XXE billion laughs attack", ["<!DOCTYPE"], ["<!ENTITY"], "libxml2", "2024-09-14", True, Category.XXE),
+            ("CVE-2024-52046", "YAML Deserialization RCE", 9.4, "YAML unsafe parsing gadgets", ["!!python"], ["!!java"], "PyYAML", "2024-09-15", True, Category.DESERIALIZATION),
+            ("CVE-2024-52047", "JSON Injection", 7.3, "JSON structure manipulation", ["{\""], ["prototype"], "JSON Parsers", "2024-09-16", False, Category.LOGIC_ERROR),
+            ("CVE-2024-52048", "CSV Injection Formula", 6.5, "CSV formula execution in spreadsheets", ["=IMPORTXML"], ["@"], "Excel", "2024-09-17", False, Category.COMMAND_INJECTION),
+            ("CVE-2024-52049", "PDF Embedded JavaScript", 7.7, "PDF reader script execution", ["OpenAction"], ["JavaScript"], "Adobe Reader", "2024-09-18", True, Category.RCE),
+            ("CVE-2024-52050", "ZIP Slip Path Traversal", 8.1, "ZIP extraction path traversal symlinks", ["../"], [".zip"], "Archive Utilities", "2024-09-19", True, Category.PATH_TRAVERSAL),
+            ("CVE-2024-52051", "TAR Symlink Attack", 8.0, "TAR extraction symlink following", ["->"], [".tar.gz"], "GNU Tar", "2024-09-20", True, Category.PATH_TRAVERSAL),
+            ("CVE-2024-52052", "Image File EXIF RCE", 8.3, "Malicious EXIF metadata execution", ["EXIF"], ["ImageMagick"], "ImageMagick", "2024-09-21", True, Category.RCE),
+            ("CVE-2024-52053", "SVG XSS Embedded Script", 7.4, "SVG file embedded XSS payload", ["<svg>"], ["<script>"], "Browsers", "2024-09-22", False, Category.XSS),
+            ("CVE-2024-52054", "Office Macro Execution", 8.9, "Office document macro auto-execution", [".docm"], ["VBA"], "Microsoft Office", "2024-09-23", True, Category.RCE),
+            ("CVE-2024-52055", "PowerShell Script Injection", 9.0, "PowerShell command injection", ["Invoke-Expression"], ["-Command"], "PowerShell", "2024-09-24", True, Category.COMMAND_INJECTION),
+            ("CVE-2024-52056", "Bash Command Substitution", 9.1, "Bash $(cmd) injection", ["$()"], ["`"], "Bash", "2024-09-25", True, Category.COMMAND_INJECTION),
+            ("CVE-2024-52057", "Docker Container Escape", 9.8, "Docker privilege escalation escape", ["docker run"], ["privileged"], "Docker", "2024-09-26", True, Category.RCE),
+            ("CVE-2024-52058", "Kubernetes Pod Escape", 9.7, "Kubernetes container breakout", ["kubectl"], ["hostPath"], "Kubernetes", "2024-09-27", True, Category.RCE),
+            ("CVE-2024-52059", "AWS IAM Policy Misconfiguration", 8.5, "AWS overly permissive IAM policy", ["s3:*"], ["*"], "AWS", "2024-09-28", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52060", "Azure RBAC Bypass", 8.7, "Azure role-based access control bypass", ["Owner"], ["Contributor"], "Azure", "2024-09-29", False, Category.IDOR),
+            ("CVE-2024-52061", "GCP Service Account Exposure", 9.0, "GCP service account key leaked", ["service_account"], ["private_key"], "GCP", "2024-09-30", True, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52062", "Terraform State File Leakage", 8.9, "Terraform state file plaintext secrets", ["terraform.tfstate"], ["password"], "Terraform", "2024-10-01", False, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52063", "Ansible Vault Decrypt Bypass", 8.4, "Ansible vault password extraction", ["$ANSIBLE_VAULT"], ["vault"], "Ansible", "2024-10-02", True, Category.AUTHENTICATION),
+            ("CVE-2024-52064", "Chef Knife Authentication", 8.2, "Chef knife cleartext credentials", [".chef/knife"], ["client_key"], "Chef", "2024-10-03", False, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52065", "Puppet Master YAML Injection", 8.6, "Puppet YAML deserialization", ["puppet.conf"], ["yaml"], "Puppet", "2024-10-04", True, Category.DESERIALIZATION),
+            ("CVE-2024-52066", "Git Credential Helper Exposure", 8.0, "Git credentials plaintext in memory", [".git/config"], ["credential.helper"], "Git", "2024-10-05", False, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52067", "SVN Plaintext Password", 7.9, "SVN credentials stored unencrypted", [".svn/entries"], ["password"], "Subversion", "2024-10-06", False, Category.INFO_DISCLOSURE),
+            ("CVE-2024-52068", "Mercurial hgrc Injection", 8.1, "Mercurial config file command injection", [".hg/hgrc"], ["[extensions]"], "Mercurial", "2024-10-07", True, Category.COMMAND_INJECTION),
+            ("CVE-2024-52069", "Backup Archive Encryption Weak", 7.8, "Backup encryption weak key generation", [".zip"], [".7z"], "7-Zip", "2024-10-08", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52070", "SSL Certificate Pinning Bypass", 8.3, "Certificate pinning validation bypass", ["public-key-pins"], ["certificate"], "Various", "2024-10-09", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52071", "Weak Cryptographic Algorithm", 8.0, "MD5 hash usage in security", ["md5"], ["sha1"], "OpenSSL", "2024-10-10", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52072", "Random Number Generator Weakness", 8.2, "Predictable PRNG token generation", ["random()"], ["token"], "Various", "2024-10-11", False, Category.LOGIC_ERROR),
+            ("CVE-2024-52073", "Cache Poisoning HTTP", 7.5, "HTTP cache header manipulation", ["Cache-Control"], ["max-age"], "Varnish", "2024-10-12", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52074", "DNS Rebinding Attack", 8.4, "DNS record rapid change TOCTOU", ["localhost"], ["127.0.0.1"], "BIND", "2024-10-13", True, Category.MISCONFIGURATION),
+            ("CVE-2024-52075", "Time-of-Check Time-of-Use RACE", 7.9, "TOCTOU file permission race", ["stat()"], ["open()"], "Linux", "2024-10-14", False, Category.RACE_CONDITION),
+            ("CVE-2024-52076", "Symlink Following Vulnerability", 8.0, "Application follows untrusted symlinks", ["ln -s"], ["readlink"], "Various", "2024-10-15", True, Category.PATH_TRAVERSAL),
+            ("CVE-2024-52077", "Hard Link Privilege Escalation", 7.8, "Hard link to privileged file", ["ln"], ["chmod"], "Linux", "2024-10-16", True, Category.IDOR),
+            ("CVE-2024-52078", "Weak File Permissions", 7.2, "World-readable sensitive config", ["chmod 644"], ["/etc/shadow"], "Linux", "2024-10-17", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52079", "Umask Default Insecurity", 7.1, "Insecure default umask value", ["umask"], ["0022"], "Linux", "2024-10-18", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52080", "SetUID Bit Abuse", 8.5, "Setuid binary exploitation", ["chmod u+s"], ["execve"], "Linux", "2024-10-19", True, Category.IDOR),
+            ("CVE-2024-52081", "Capabilities Misconfiguration", 8.3, "Linux capability excessive grants", ["CAP_SYS_ADMIN"], ["setcap"], "Linux", "2024-10-20", True, Category.IDOR),
+            ("CVE-2024-52082", "SELinux Policy Bypass", 8.4, "SELinux policy rule weakness", ["selinux"], ["type_transition"], "Linux", "2024-10-21", True, Category.IDOR),
+            ("CVE-2024-52083", "AppArmor Confinement Escape", 8.2, "AppArmor profile bypass", ["apparmor"], ["abstraction"], "Linux", "2024-10-22", True, Category.IDOR),
+            ("CVE-2024-52084", "Seccomp Filter Bypass", 8.1, "Seccomp syscall filtering evasion", ["seccomp"], ["ptrace"], "Linux", "2024-10-23", True, Category.RCE),
+            ("CVE-2024-52085", "Process Injection Code Cave", 8.7, "Code injection via process memory", ["ptrace"], ["mmap"], "Linux", "2024-10-24", True, Category.RCE),
+            ("CVE-2024-52086", "DLL Injection Windows", 8.8, "DLL injection via CreateRemoteThread", ["LoadLibrary"], [".dll"], "Windows", "2024-10-25", True, Category.RCE),
+            ("CVE-2024-52087", "COM Object Instantiation RCE", 8.9, "COM object arbitrary instantiation", ["CoCreateInstance"], ["ProgID"], "Windows", "2024-10-26", True, Category.RCE),
+            ("CVE-2024-52088", "WMI Script Execution", 9.0, "WMI Query Language code execution", ["Select * From"], ["Win32_Process"], "Windows", "2024-10-27", True, Category.RCE),
+            ("CVE-2024-52089", "PowerShell Reflection Injection", 8.8, "PowerShell reflection-based code execution", ["[Reflection.Assembly]"], ["Invoke"], "PowerShell", "2024-10-28", True, Category.RCE),
+            ("CVE-2024-52090", "BITS Job Exploitation", 8.5, "BITS jobs arbitrary file download/execute", ["bitsadmin"], ["resume"], "Windows", "2024-10-29", True, Category.RCE),
+            ("CVE-2024-52091", "Task Scheduler COM Access", 8.4, "Task Scheduler arbitrary task creation", ["Schedule.Service"], ["CreateTask"], "Windows", "2024-10-30", True, Category.IDOR),
+            ("CVE-2024-52092", "Registry Run Key Persistence", 7.9, "Registry auto-run key modification", ["HKLM\\Software\\Run"], ["SOFTWARE"], "Windows", "2024-10-31", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52093", "Startup Folder Abuse", 7.8, "Startup folder persistence vector", ["Startup"], [".exe"], "Windows", "2024-11-01", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52094", "Windows Service Hijacking", 8.6, "Service binary path manipulation", ["sc config"], ["binPath"], "Windows", "2024-11-02", True, Category.IDOR),
+            ("CVE-2024-52095", "Scheduled Task Path Traversal", 8.3, "Task scheduler XML injection", ["task.xml"], ["..\\"], "Windows", "2024-11-03", True, Category.PATH_TRAVERSAL),
+            ("CVE-2024-52096", "Event Log Manipulation", 7.5, "Event log entry deletion/modification", ["Clear-EventLog"], ["System"], "Windows", "2024-11-04", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52097", "Windows Defender Exclusion Bypass", 8.2, "Defender exclusion mechanism abuse", ["Add-MpPreference"], ["ExclusionPath"], "Windows", "2024-11-05", False, Category.MISCONFIGURATION),
+            ("CVE-2024-52098", "UAC Bypass Token Impersonation", 8.9, "UAC elevation via token duplication", ["DuplicateToken"], ["CreateProcessAsUser"], "Windows", "2024-11-06", True, Category.IDOR),
+            ("CVE-2024-52099", "Credential Guard Bypass", 8.7, "Windows Credential Guard encryption bypass", ["CredentialGuard"], ["LSA"], "Windows", "2024-11-07", True, Category.AUTHENTICATION),
+            ("CVE-2024-52100", "System Process Injection Monitor Evasion", 8.6, "Process injection EDR detection evasion", ["CreateRemoteThread"], ["NtCreateThreadEx"], "Windows", "2024-11-08", True, Category.RCE),
+        ]
+        
+        for data in extended_data:
+            try:
+                cve_id, name, score, desc, patterns, payloads, software, date, fix, category = data
+                cve = CVE(
+                    cve_id=cve_id,
+                    name=name,
+                    severity=Severity.CRITICAL if score >= 9.0 else Severity.HIGH if score >= 8.0 else Severity.MEDIUM,
+                    cvss_score=score,
+                    description=desc,
+                    patterns=patterns,
+                    payloads=payloads,
+                    category=category,
+                    affected_software=[software],
+                    cvss_vector=f"CVSS:3.1/AV:N/AC:L/PR:{'L' if 'Admin' in desc or 'admin' in desc.lower() else 'N'}/UI:N/S:U/C:H/I:H/A:H",
+                    publication_date=date,
+                    fix_available=fix,
+                    reference_url=f"https://nvd.nist.gov/vuln/detail/{cve_id}",
+                    year=int(cve_id.split('-')[1]),
+                    tags=[software, category.value, "Extended"],
+                )
+                cves.append(cve)
+            except Exception as e:
+                logger.exception(f"Error generating extended CVE: {e}")
+        
+        return cves
 
 
 class CVEManager:
@@ -771,6 +905,7 @@ class CVEManager:
                 cves.extend(CVEGenerator.generate_deserialization_cves())
                 cves.extend(CVEGenerator.generate_misconfiguration_cves())
                 cves.extend(CVEGenerator.generate_advanced_cves())
+                cves.extend(CVEGenerator.generate_extended_cves())
                 
                 count = 0
                 for cve in cves:

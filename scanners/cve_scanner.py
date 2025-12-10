@@ -264,16 +264,18 @@ class CVEScanner:
             return []
         
         vulns = []
+        tested_count = 0
         
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = {
-                executor.submit(self._test_cve, target_url, cve, fingerprint): cve 
+                executor.submit(self._test_cve_comprehensive, target_url, cve, fingerprint): cve 
                 for cve in cve_list
             }
             
             for future in as_completed(futures):
                 try:
                     result = future.result(timeout=self.timeout * 2)
+                    tested_count += 1
                     if result:
                         vulns.append(result)
                 except:
@@ -286,6 +288,195 @@ class CVEScanner:
             self.scan_cache[cache_key] = vulns
         
         return vulns
+    
+    def _test_cve_comprehensive(self, url: str, cve: Dict, fp: Fingerprint) -> Optional[CVEVulnerability]:
+        """Comprehensive CVE testing with pattern matching and payload execution."""
+        try:
+            patterns = cve.get('patterns', [])
+            payloads = cve.get('payloads', [])
+            category = cve.get('category', 'UNKNOWN')
+            
+            pattern_match_score = 0
+            payload_match_score = 0
+            
+            fp_content = fp.content.lower()
+            fp_headers_str = str(fp.headers).lower()
+            fp_server = fp.server.lower()
+            
+            for pattern in patterns[:5]:
+                pattern_lower = pattern.lower()
+                if pattern_lower in fp_content or pattern_lower in fp_headers_str or pattern_lower in fp_server:
+                    pattern_match_score += 0.2
+            
+            if pattern_match_score >= 0.4:
+                for payload in payloads[:3]:
+                    verification_result = self._test_specific_vulnerability(url, cve, fp, payload, category)
+                    if verification_result.get('is_vulnerable'):
+                        payload_match_score = 0.6
+                        confidence = min(0.95, pattern_match_score + payload_match_score)
+                        
+                        return CVEVulnerability(
+                            id=cve['id'],
+                            name=cve['name'],
+                            severity=cve['severity'],
+                            score=cve['score'],
+                            description=cve['description'],
+                            category=category,
+                            reference=cve['reference'],
+                            affected_software=cve.get('affected_software', []),
+                            cvss_vector=cve.get('cvss_vector', ''),
+                            fix_available=cve.get('fix_available', False),
+                            publication_date=cve.get('publication_date', ''),
+                            found_at=url,
+                            target=fp.url,
+                            confidence=confidence,
+                            verification_method=verification_result.get('method', 'PATTERN_MATCH'),
+                            evidence=[
+                                f"Pattern detected: {patterns[0] if patterns else 'N/A'}",
+                                f"Verification: {verification_result.get('method', 'N/A')}"
+                            ],
+                            exploitable=verification_result.get('exploitable', False)
+                        )
+            
+            if pattern_match_score >= 0.2:
+                return CVEVulnerability(
+                    id=cve['id'],
+                    name=cve['name'],
+                    severity=cve['severity'],
+                    score=cve['score'],
+                    description=cve['description'],
+                    category=category,
+                    reference=cve['reference'],
+                    affected_software=cve.get('affected_software', []),
+                    cvss_vector=cve.get('cvss_vector', ''),
+                    fix_available=cve.get('fix_available', False),
+                    publication_date=cve.get('publication_date', ''),
+                    found_at=url,
+                    target=fp.url,
+                    confidence=min(0.6, pattern_match_score),
+                    verification_method='SIGNATURE_MATCH',
+                    evidence=[f"Pattern detected: {patterns[0] if patterns else 'N/A'}"],
+                    exploitable=False
+                )
+        
+        except Exception as e:
+            pass
+        
+        return None
+    
+    def _test_specific_vulnerability(self, url: str, cve: Dict, fp: Fingerprint, payload: str, category: str) -> Dict:
+        """Test specific vulnerability based on category."""
+        result = {'is_vulnerable': False, 'exploitable': False, 'method': 'UNKNOWN'}
+        
+        try:
+            if category in ['RCE', 'COMMAND_INJECTION']:
+                result.update(self._test_rce_payload(url, payload))
+            elif category in ['SQLi', 'NoSQLi']:
+                result.update(self._test_sqli_payload(url, payload))
+            elif category in ['XSS', 'SSTI']:
+                result.update(self._test_injection_payload(url, payload))
+            elif category == 'SSRF':
+                result.update(self._test_ssrf_payload(url, payload))
+            elif category == 'XXE':
+                result.update(self._test_xxe_payload(url, payload))
+            elif category == 'PATH_TRAVERSAL':
+                result.update(self._test_path_traversal_payload(url, payload))
+            elif category == 'INFO_DISCLOSURE':
+                result.update(self._test_info_disclosure_payload(url, payload))
+            else:
+                result.update(self._test_generic_payload(url, payload))
+        except:
+            pass
+        
+        return result
+    
+    def _test_rce_payload(self, url: str, payload: str) -> Dict:
+        """Test RCE payload."""
+        try:
+            test_url = f"{url}?cmd={payload}"
+            resp = self.session.get(test_url, timeout=self.timeout, verify=False)
+            if any(i in resp.text.lower() for i in ['root', 'admin', 'uid=', 'gid=']):
+                return {'is_vulnerable': True, 'exploitable': True, 'method': 'RCE_DETECTION'}
+        except:
+            pass
+        return {'is_vulnerable': False, 'exploitable': False, 'method': 'RCE_DETECTION'}
+    
+    def _test_sqli_payload(self, url: str, payload: str) -> Dict:
+        """Test SQLi payload."""
+        try:
+            test_url = f"{url}?id={payload}"
+            resp = self.session.get(test_url, timeout=self.timeout, verify=False)
+            sql_errors = ['sql', 'mysql', 'postgresql', 'sqlite', 'syntax error', 'near', 'where']
+            if any(e in resp.text.lower() for e in sql_errors):
+                return {'is_vulnerable': True, 'exploitable': True, 'method': 'SQLI_ERROR'}
+        except:
+            pass
+        return {'is_vulnerable': False, 'exploitable': False, 'method': 'SQLI_TEST'}
+    
+    def _test_injection_payload(self, url: str, payload: str) -> Dict:
+        """Test injection payloads."""
+        try:
+            test_url = f"{url}?q={payload}"
+            resp = self.session.get(test_url, timeout=self.timeout, verify=False)
+            if payload in resp.text:
+                return {'is_vulnerable': True, 'exploitable': True, 'method': 'INJECTION_REFLECTED'}
+        except:
+            pass
+        return {'is_vulnerable': False, 'exploitable': False, 'method': 'INJECTION_TEST'}
+    
+    def _test_ssrf_payload(self, url: str, payload: str) -> Dict:
+        """Test SSRF payload."""
+        try:
+            test_url = f"{url}?target={payload}"
+            resp = self.session.get(test_url, timeout=self.timeout * 2, verify=False)
+            if any(i in resp.text for i in ['metadata', 'ami-id', '169.254', 'localhost']):
+                return {'is_vulnerable': True, 'exploitable': True, 'method': 'SSRF_CONFIRMED'}
+        except:
+            pass
+        return {'is_vulnerable': False, 'exploitable': False, 'method': 'SSRF_TEST'}
+    
+    def _test_xxe_payload(self, url: str, payload: str) -> Dict:
+        """Test XXE payload."""
+        try:
+            test_url = f"{url}?xml={payload}"
+            resp = self.session.get(test_url, timeout=self.timeout, verify=False)
+            if '<!DOCTYPE' in resp.text or '<!ENTITY' in resp.text:
+                return {'is_vulnerable': True, 'exploitable': True, 'method': 'XXE_DETECTED'}
+        except:
+            pass
+        return {'is_vulnerable': False, 'exploitable': False, 'method': 'XXE_TEST'}
+    
+    def _test_path_traversal_payload(self, url: str, payload: str) -> Dict:
+        """Test path traversal payload."""
+        try:
+            test_url = f"{url}?file={payload}"
+            resp = self.session.get(test_url, timeout=self.timeout, verify=False)
+            if any(i in resp.text for i in ['root:', 'bin/bash', 'etc/passwd']):
+                return {'is_vulnerable': True, 'exploitable': True, 'method': 'PATH_TRAVERSAL_CONFIRMED'}
+        except:
+            pass
+        return {'is_vulnerable': False, 'exploitable': False, 'method': 'PATH_TRAVERSAL_TEST'}
+    
+    def _test_info_disclosure_payload(self, url: str, payload: str) -> Dict:
+        """Test information disclosure."""
+        try:
+            test_url = f"{url}?info={payload}"
+            resp = self.session.get(test_url, timeout=self.timeout, verify=False)
+            if len(resp.text) > 100 and any(i in resp.text.lower() for i in ['password', 'api', 'secret', 'token']):
+                return {'is_vulnerable': True, 'exploitable': False, 'method': 'INFO_DISCLOSURE_FOUND'}
+        except:
+            pass
+        return {'is_vulnerable': False, 'exploitable': False, 'method': 'INFO_DISCLOSURE_TEST'}
+    
+    def _test_generic_payload(self, url: str, payload: str) -> Dict:
+        """Test generic payload."""
+        try:
+            test_url = f"{url}?test={payload}"
+            resp = self.session.get(test_url, timeout=self.timeout, verify=False)
+            return {'is_vulnerable': payload in resp.text, 'exploitable': False, 'method': 'GENERIC_TEST'}
+        except:
+            pass
+        return {'is_vulnerable': False, 'exploitable': False, 'method': 'GENERIC_TEST'}
     
     def _validate_url(self, url: str) -> bool:
         try:
